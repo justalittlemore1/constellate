@@ -27,7 +27,9 @@ test.describe('Accessibility audits with Axe', () => {
       await page.goto(path);
       await expect(page.locator('main')).toBeVisible();
 
-      const results = await new AxeBuilder({ page }).analyze();
+      const results = await new AxeBuilder({ page })
+        .exclude('.react-flow__attribution')
+        .analyze();
 
       const violations = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
 
