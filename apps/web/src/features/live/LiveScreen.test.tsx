@@ -5,7 +5,16 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { usePrefs } from '../../lib/prefs';
 import { installFlowDomStubs } from '../map/testing';
 import { MapBoundary } from './LiveMap';
-import { WASH } from './styles';
+import { BOTTOM_SHEET_MAX_HEIGHT } from '../../ui';
+import { HOVER_WASH } from './styles';
+
+/** A4's <BottomSheet> (ui, #60): attached to the bottom, height-capped, star-chart frame */
+function expectBottomSheet(dialog: HTMLElement) {
+  expect(dialog).toHaveAttribute('data-side', 'bottom');
+  expect(dialog.className).toContain('star-frame');
+  expect(dialog.className).toContain('bottom-0');
+  expect(dialog.style.maxHeight).toBe(BOTTOM_SHEET_MAX_HEIGHT);
+}
 import type { LiveDeps } from './controller';
 import { FLAG_HOLD_MS, type LiveFeatures } from './flags';
 import { mockDeps } from './deps';
@@ -477,13 +486,12 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     expect(server.state.flags.some((f) => f.source === 'button' && f.note === null)).toBe(true);
   });
 
-  it('hold → labelled note field (≤ 140) in the star-chart frame → saved on the topic node, not as a new node', async () => {
+  it('hold → labelled note field (≤ 140) in a bottom sheet → saved on the topic node, not as a new node', async () => {
     await live();
     const nodesBefore = Object.keys(server.state.nodes).length;
     await hold();
     const dialog = screen.getByRole('dialog', { name: 'Add a note to this flag' });
-    expect(dialog).toHaveAttribute('data-frame', 'star-chart');
-    expect(dialog.className).toContain('rounded-none');
+    expectBottomSheet(dialog);
     const field = within(dialog).getByRole('textbox', { name: 'Note' });
     expect(field).toHaveFocus();
     expect(field).toHaveAttribute('maxLength', '140');
@@ -551,11 +559,12 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     expect(server.state.flags.filter((f) => f.source === 'key')).toHaveLength(1);
   });
 
-  it('consent and Before you go use the square star-chart frame; the recording dot is steady', async () => {
+  it("consent and Before you go are A4's BottomSheet (star-chart frame); the recording dot is steady", async () => {
     renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
     await advance(0);
     const consent = screen.getByRole('dialog', { name: 'Play the demo conversation' });
-    expect(consent).toHaveAttribute('data-frame', 'star-chart');
+    expectBottomSheet(consent);
+    expect(within(consent).getByRole('button', { name: 'Start the demo' }).className).toContain('hover-wash');
     expect(within(consent).getByText(/Press and hold Flag \(or press Shift\+F\) to add a note/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
     await advance(5000);
@@ -564,8 +573,10 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     await advance(0);
     const bye = screen.getByRole('dialog', { name: 'Before you go' });
-    expect(bye).toHaveAttribute('data-frame', 'star-chart');
-    expect(bye.querySelector('[class*="rounded-xl"], [class*="rounded-full"]')).toBeNull();
+    expectBottomSheet(bye);
+    for (const el of bye.querySelectorAll('li, [data-sheet-body] button')) {
+      expect(el.className).not.toMatch(/rounded-(xl|full|2xl)/); // square rows and buttons inside the frame
+    }
   });
 });
 
@@ -631,11 +642,10 @@ describe('bottom bar and pocket mode polish', () => {
     expect(screen.queryByRole('dialog', { name: 'Pocket mode' })).not.toBeInTheDocument();
   });
 
-  it('hover / press use the shared grey wash (~7.5 % white) on enabled controls', async () => {
+  it("hover / press use A4's shared .hover-wash on the bar, pocket and sheet controls", async () => {
     await live();
-    const wash = 'enabled:hover:before:bg-white/[0.075]';
-    expect(WASH).toContain(wash);
-    expect(WASH).toContain('enabled:active:before:bg-white/[0.075]');
+    const wash = 'hover-wash';
+    expect(HOVER_WASH).toBe(wash);
     for (const name of ['Flag', 'Stop', /Pocket mode/]) {
       expect(screen.getByRole('button', { name }).className).toContain(wash);
     }
