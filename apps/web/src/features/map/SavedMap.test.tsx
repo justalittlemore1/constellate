@@ -100,16 +100,16 @@ describe('playback through the shared player', () => {
     await waitFor(() => expect(within(tile(n.id)).getByText('playing')).toBeInTheDocument());
   });
 
-  it('offers no Play at all when there is no recording (mock mode)', async () => {
+  it('always offers Play; with no recording (and no transcript player yet) it says so', async () => {
+    const user = userEvent.setup();
     const api = createMockApi();
-    const audioUrl = vi.fn(async () => null);
-    api.audioUrl = audioUrl;
+    api.audioUrl = vi.fn(async () => null);
     renderSaved(`/c/${id}`, api);
     const n = byLabel('Gospel Sources');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    await waitFor(() => expect(audioUrl).toHaveBeenCalled());
     const sheet = screen.getByRole('dialog', { name: n.label });
-    expect(within(sheet).queryByRole('button', { name: /play/i })).toBeNull();
+    await user.click(within(sheet).getByRole('button', { name: 'Play this moment' }));
+    expect(await screen.findByText('No recording is available for this conversation.')).toBeInTheDocument();
   });
 });
 

@@ -2,7 +2,9 @@
  * Test helpers for the map (test-only). React Flow needs ResizeObserver, DOMMatrixReadOnly and
  * element sizes, none of which jsdom provides; these stubs let the canvas render its nodes.
  */
+import { act, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
+import { HOVER_DWELL_MS } from './ConversationMap';
 
 class ResizeObserverStub {
   private cb: ResizeObserverCallback;
@@ -56,5 +58,18 @@ export function installFlowDomStubs(): void {
   }
   if (typeof CSS === 'undefined' || typeof CSS.escape !== 'function') {
     vi.stubGlobal('CSS', { escape: (s: string) => s.replace(/["\\]/g, '\\$&') });
+  }
+}
+
+/** Mouse-over a star and rest on it long enough for the preview strip (the 700 ms dwell). */
+export function hoverStar(el: Element): void {
+  vi.useFakeTimers();
+  try {
+    fireEvent.mouseEnter(el);
+    act(() => {
+      vi.advanceTimersByTime(HOVER_DWELL_MS + 10);
+    });
+  } finally {
+    vi.useRealTimers();
   }
 }

@@ -106,10 +106,14 @@ test.describe('Keyboard-only operation', () => {
       await page.keyboard.press('Enter');
     }
 
-    // 4. In detail sheet, verify dialog opens; mock mode has no recording, so no Play
+    // 4. In detail sheet, verify dialog opens; Play is always offered (transcript playback when no audio)
     const detailSheet = page.getByRole('dialog');
     await expect(detailSheet).toBeVisible();
-    await expect(detailSheet.getByRole('button', { name: /^play/i })).toHaveCount(0);
+    const playBtn = detailSheet.getByRole('button', { name: /^play/i });
+    await expect(playBtn).toHaveCount(1);
+    await expect(playBtn).toBeVisible();
+    await playBtn.focus();
+    await expect(playBtn).toBeFocused();
   });
 
   test('Outline is reachable via keyboard focus or outline toggle', async ({ page }) => {

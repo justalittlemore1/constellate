@@ -83,16 +83,35 @@
   animation: cmap-shift-fill 10s ease-in-out infinite alternate;
 }
 
-/* new stars fade and grow in gently; instant under reduced motion (global rule in index.css) */
+/* new stars grow in gently and the star art fades in; instant under reduced motion (global rule in
+   index.css). The LABEL never fades: it stays hidden until its star's turn, then shows at full
+   contrast (a half-transparent label fails colour contrast, e.g. in an axe run mid-reveal). */
 @keyframes cmap-appear {
   from {
     transform: scale(0.55);
-    opacity: 0;
   }
 }
 .cmap-appear {
   transform-origin: center;
   animation: cmap-appear 750ms cubic-bezier(0.22, 0.7, 0.2, 1);
+}
+.cmap-appear > svg,
+.cmap-appear > .cmap-badge,
+.cmap-appear > span[aria-hidden] {
+  animation: cmap-fade-in 750ms cubic-bezier(0.22, 0.7, 0.2, 1) backwards;
+  animation-delay: inherit;
+}
+@keyframes cmap-label-show {
+  from {
+    visibility: hidden;
+  }
+  to {
+    visibility: visible;
+  }
+}
+.cmap-appear > [data-testid='node-label'] {
+  animation: cmap-label-show 1ms steps(1, start) backwards;
+  animation-delay: inherit;
 }
 
 @keyframes cmap-preview-in {
@@ -169,4 +188,13 @@
   stroke-dashoffset: 0;
   animation: cmap-draw 700ms ease-out backwards;
   animation-delay: inherit;
+}
+
+/* ── weave layout (round 5): smaller labels (≈ 13.5 px on screen), wherever the layout found room */
+.cmap-label-weave .cmap-label {
+  font-size: calc(13.5px * var(--text-size) * var(--cmap-label-scale, 1));
+  line-height: 1.2;
+}
+.cmap-label-weave .cmap-sub {
+  font-size: calc(11.5px * var(--text-size) * var(--cmap-label-scale, 1));
 }
