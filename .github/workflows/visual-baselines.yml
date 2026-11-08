@@ -1,0 +1,69 @@
+name: Visual baselines
+
+# Manually triggered (Actions → "Visual baselines" → Run workflow). Renders the fixture-map
+# snapshots on Linux, where CI compares them, and uploads them as an artifact for a human to
+# review and commit. Nothing is pushed: until the -linux PNGs are committed under
+# e2e/map-visual.spec.ts-snapshots/, e2e/map-visual.spec.ts skips with a stated reason.
+#
+# No secrets and no real APIs: the web app runs in mock mode (VITE_USE_MOCKS=1) on fixtures.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  baselines:
+    name: map snapshot baselines (Linux, Pixel 7 + iPhone 14)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Render baselines
+        env:
+          UPDATE_VISUALS: '1'
+        run: pnpm exec playwright test e2e/map-visual.spec.ts --update-snapshots=all --retries=0
+
+      - name: Check and list what was rendered
+        run: |
+          dir=e2e/map-visual.spec.ts-snapshots
+          count=$(ls "$dir"/*-linux.png 2>/dev/null | wc -l)
+          {
+            echo "## Map snapshot baselines"
+            echo
+            if [ "$count" -eq 0 ]; then
+              echo "No baselines were rendered: check the 'Render baselines' step (the spec may have skipped or been marked fixme)."
+            else
+              echo "Rendered $count Linux baselines. Download the **map-snapshot-baselines** artifact, look at every image, then:"
+              echo
+              echo '```bash'
+              echo "unzip map-snapshot-baselines.zip -d $dir"
+              echo "git add $dir/*-linux.png && git commit -m \"e2e: map snapshot baselines (Linux)\""
+              echo '```'
+              echo
+              ls -1 "$dir"/*-linux.png | sed 's/^/- /'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          test "$count" -gt 0
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: map-snapshot-baselines
+          path: e2e/map-visual.spec.ts-snapshots/*-linux.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-baselines
+          path: playwright-report/
+          retention-days: 7
