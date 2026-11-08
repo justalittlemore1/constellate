@@ -24,7 +24,9 @@ describe('favourites', () => {
     const first = highlighted.sort((a, b) => a.seq - b.seq)[0]!;
     expect(within(highlights).getAllByRole('button', { name: /^Play Resurrection Accounts at/ })).toHaveLength(2);
     expect(
-      within(highlights).getAllByRole('link', { name: 'Open Resurrection Accounts in the map' })[0],
+      within(highlights).getAllByRole('link', {
+        name: /^Resurrection Accounts.*highlighted topic.*open in the map$/,
+      })[0],
     ).toHaveAttribute('href', `/c/${demo.conversation.id}?node=${first.id}&t=${first.startMs}`);
   });
 

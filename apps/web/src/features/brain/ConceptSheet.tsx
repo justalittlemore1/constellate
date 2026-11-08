@@ -4,7 +4,7 @@ import { Link } from 'react-router';
 import type { BrainPayload, Concept } from '../../lib/api';
 import { formatClock, formatDate } from '../../lib/format';
 import { routes } from '../../lib/routes';
-import { Sheet } from '../../ui';
+import { BottomSheet } from '../../ui';
 import { PlayMomentButton } from '../library/PlayMomentButton';
 import { useParticipants } from '../library/queries';
 import { neighbours, RELATION_WORDS } from './brainLayout';
@@ -25,9 +25,9 @@ export function ConceptSheet({
   onSelect: (id: string) => void;
 }) {
   return (
-    <Sheet open={concept !== null} onClose={onClose} title={concept?.name ?? ''} testId="concept-sheet">
+    <BottomSheet open={concept !== null} onClose={onClose} title={concept?.name ?? ''} testId="concept-sheet">
       {concept && <ConceptBody payload={payload} concept={concept} onSelect={onSelect} />}
-    </Sheet>
+    </BottomSheet>
   );
 }
 

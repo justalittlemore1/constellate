@@ -15,13 +15,18 @@ const VARIANTS: Record<ButtonVariant, string> = {
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
+  /**
+   * Hover / press feedback: the app-wide grey `wash` (default), or a yellow `border` — used only by
+   * "Try a demo conversation", the one deliberate exception.
+   */
+  feedback?: 'wash' | 'border';
   icon?: ReactNode;
   block?: boolean;
 }
 
 /** Text button. Always at least 44 px tall; `type="button"` unless set. */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'secondary', icon, block, className, children, type = 'button', ...rest },
+  { variant = 'secondary', feedback = 'wash', icon, block, className, children, type = 'button', ...rest },
   ref,
 ) {
   return (
@@ -29,7 +34,8 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cx(
-        'hover-wash inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-5 text-[0.9375rem] transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+        feedback === 'wash' ? 'hover-wash' : 'hover:border-thread active:border-thread',
+        'inline-flex min-h-11 min-w-11 items-center justify-center gap-2 px-5 text-[1.0625rem] transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         VARIANTS[variant],
         block && 'w-full',
         className,

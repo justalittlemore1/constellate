@@ -40,6 +40,9 @@ export const UI_FLAG_DEFAULTS = {
   /** Brain: wave 2's comet trail / line / stardust links (replaced by classic constellation lines) */
   brainCometLinks: false,
 
+  /** Highlights: the separate map icon on each item (the item's text is now the map link) */
+  highlightsMapIcon: false,
+
   /** Diary: recall cards */
   diaryRecallCards: false,
 } as const;

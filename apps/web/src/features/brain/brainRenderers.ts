@@ -17,8 +17,8 @@ export const BRAIN_COLOURS = {
   linkLit: 'rgba(111,227,255,0.85)',
 };
 
-/** canvas labels at 14 px on screen (nothing below 14 px) */
-export const LABEL_PX = 14;
+/** canvas labels at 15 px on screen (the smallest text size) */
+export const LABEL_PX = 15;
 /** canvas can't read CSS variables cheaply; same face as --font-display */
 export const LABEL_FONT = (px: number) => `600 ${px}px 'Fraunces Variable', Georgia, serif`;
 
@@ -138,8 +138,12 @@ export const STAR_ART = {
   centre: '#fff',
   /** one full colour-shift loop between coreA and coreB */
   shiftMs: 10_000,
-  /** spike half-length relative to the core radius */
-  spikeRatio: 2.0,
+  /** spike half-length relative to the node radius (6 + 3·√mentions); was 2.0 (×1.65 in round 4) */
+  spikeRatio: 3.3,
+  /** core radius relative to the node radius; was 1.0 (60 % in round 4) */
+  coreRatio: 0.6,
+  /** white centre dot relative to the core */
+  centreRatio: 0.4,
 } as const;
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -172,8 +176,9 @@ export const starRenderers: BrainRenderers = {
   drawNode({ ctx, x, y, radius, name, scale, opacity, dimmed, selected, showLabel, textSize, now, reduced }) {
     ctx.save();
     ctx.globalAlpha = Math.max(0, Math.min(1, opacity)) * (dimmed ? 0.15 : 1);
-    const r = radius * appearScale(opacity);
-    const spike = r * STAR_ART.spikeRatio;
+    const s = radius * appearScale(opacity); // scales in while appearing
+    const r = s * STAR_ART.coreRatio; // core
+    const spike = s * STAR_ART.spikeRatio;
     const fullSpike = radius * STAR_ART.spikeRatio; // labels stay put while the star scales in
 
     // diffraction spikes: one vertical (1 px), two diagonals (0.7 px), round caps
@@ -200,7 +205,7 @@ export const starRenderers: BrainRenderers = {
     ctx.fill();
     ctx.fillStyle = STAR_ART.centre;
     ctx.beginPath();
-    ctx.arc(x, y, r * 0.4, 0, Math.PI * 2);
+    ctx.arc(x, y, r * STAR_ART.centreRatio, 0, Math.PI * 2);
     ctx.fill();
 
     if (selected) {
