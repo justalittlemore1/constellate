@@ -1,0 +1,2 @@
+# rendered by scripts/render-tts.ts (sidecars depend on the TTS output)
+*.json
