@@ -1,4 +1,6 @@
-# Constellate <img src="icon-squircle-1024.png" width="30">
+<img src="icon-squircle-1024.png" width="75">
+
+# Constellate
 
 Constellate is living map of your conversation that lets you remember how it was and help people like me remember what I was going to say in real-time.
 
