@@ -1,0 +1,39 @@
+{
+  "id": "08-java",
+  "title": "Ambiguity: Java the language and Java the island",
+  "description": "Mei complains about learning the Java programming language for a course, then Arjun says \"speaking of Java\" and talks about his cousin's trip to the island of Java in Indonesia. Expect two different threads and no revisit edge between them.",
+  "speakers": ["Mei", "Arjun"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 5600, "text": "I have to learn Java for my data structures course and I hate it so much." },
+    { "speaker": 1, "startMs": 6300, "endMs": 9900, "text": "Oh no. Why Java? I thought everyone teaches Python now." },
+    { "speaker": 0, "startMs": 10600, "endMs": 17500, "text": "The prof says Java makes you think about types. Which, sure, but I spend half my time writing boilerplate." },
+    { "speaker": 1, "startMs": 18200, "endMs": 23100, "text": "Public static void main string args. I still have it memorised from high school." },
+    { "speaker": 0, "startMs": 23600, "endMs": 31300, "text": "Exactly! And the error messages are like a novel. A null pointer exception and forty lines of stack trace." },
+    { "speaker": 1, "startMs": 32100, "endMs": 37600, "text": "Do you have IntelliJ at least? It writes half the boilerplate for you." },
+    { "speaker": 0, "startMs": 38000, "endMs": 43100, "text": "Yeah, the student licence is free. It helps. I just miss how short Python is." },
+    { "speaker": 1, "startMs": 43500, "endMs": 50500, "text": "Ha, speaking of Java, my cousin just got back from Java, the island. She was in Indonesia for three weeks." },
+    { "speaker": 0, "startMs": 51100, "endMs": 53400, "text": "Oh nice! Where did she go?" },
+    { "speaker": 1, "startMs": 53800, "endMs": 58000, "text": "Yogyakarta mostly. She did the sunrise at Borobudur, the huge Buddhist temple." },
+    { "speaker": 0, "startMs": 58600, "endMs": 63500, "text": "I've seen photos of that! With the mist and the volcano behind it?" },
+    { "speaker": 1, "startMs": 64200, "endMs": 70700, "text": "Yes, that's Merapi. And then she hiked Mount Bromo at like three in the morning to see the crater." },
+    { "speaker": 0, "startMs": 71100, "endMs": 73800, "text": "That sounds incredible. Was it expensive?" },
+    { "speaker": 1, "startMs": 74300, "endMs": 80900, "text": "Super cheap apparently, except the flights. She said the street food was the best part, the gudeg especially." },
+    { "speaker": 0, "startMs": 81200, "endMs": 85500, "text": "Okay, I'm adding Indonesia to my list. After I survive this course." }
+  ],
+  "expect": {
+    "topicCount": 2,
+    "boundaries": [
+      "u8"
+    ],
+    "tolerance": 1,
+    "revisits": [],
+    "differentThreads": [
+      [
+        "u1",
+        "u8"
+      ]
+    ],
+    "pending": [],
+    "commitments": []
+  }
+}

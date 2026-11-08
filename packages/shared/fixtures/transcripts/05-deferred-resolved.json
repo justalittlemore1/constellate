@@ -1,0 +1,54 @@
+{
+  "id": "05-deferred-resolved",
+  "title": "Deferred then discussed: the apartment",
+  "description": "Roommates talk about a work presentation; Kwame says they should talk about the apartment later, then they discuss a TV show, and finally come back to the lease. Expect a pending node about the apartment raised early that ends resolved and links to the later lease discussion.",
+  "speakers": ["Rosa", "Kwame"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 4500, "text": "How did your presentation go? You were so nervous this morning." },
+    { "speaker": 1, "startMs": 5300, "endMs": 12100, "text": "It went fine, actually. The demo crashed once but I just made a joke and restarted it." },
+    { "speaker": 0, "startMs": 12600, "endMs": 17000, "text": "That's the best way to handle it. Did your boss say anything?" },
+    { "speaker": 1, "startMs": 17500, "endMs": 23000, "text": "She said the slides were too dense. Which, fair, I had like forty bullet points." },
+    { "speaker": 0, "startMs": 23600, "endMs": 27400, "text": "Classic you. Next time do three slides and just talk." },
+    { "speaker": 1, "startMs": 28200, "endMs": 33400, "text": "Yeah. Oh, we should talk about the apartment later, the landlord emailed about renewing." },
+    { "speaker": 0, "startMs": 34100, "endMs": 36400, "text": "Oh no, okay. Is it bad?" },
+    { "speaker": 1, "startMs": 36700, "endMs": 41900, "text": "Kind of, but let's do it properly after dinner. Did you finish the season finale?" },
+    { "speaker": 0, "startMs": 42600, "endMs": 48300, "text": "Yes! I can't believe they killed off the sister. I actually yelled at the TV." },
+    { "speaker": 1, "startMs": 48800, "endMs": 53300, "text": "Right? I thought she was the main character for next season." },
+    { "speaker": 0, "startMs": 53900, "endMs": 59400, "text": "Apparently the actress wanted to leave to do movies. So they just wrote her out." },
+    { "speaker": 1, "startMs": 59900, "endMs": 63400, "text": "That explains why the last three episodes felt rushed." },
+    { "speaker": 0, "startMs": 63700, "endMs": 67400, "text": "Totally. The flashback episode was the best one though." },
+    { "speaker": 1, "startMs": 68300, "endMs": 76300, "text": "Agreed. Okay, so, the apartment. The landlord wants to raise the rent by eight percent if we sign another year." },
+    { "speaker": 0, "startMs": 76900, "endMs": 81400, "text": "Eight percent? That's like a hundred and sixty dollars more each month." },
+    { "speaker": 1, "startMs": 81900, "endMs": 87400, "text": "Yeah. Or we can go month to month, but then it's twelve percent." },
+    { "speaker": 0, "startMs": 87900, "endMs": 92700, "text": "That's ridiculous. Isn't there a legal cap on increases in BC?" },
+    { "speaker": 1, "startMs": 93600, "endMs": 100200, "text": "There is, I think it's three point five this year. So eight is probably not even allowed." },
+    { "speaker": 0, "startMs": 100900, "endMs": 107100, "text": "Then we push back. Can you forward me the email? I want to check the exact numbers." },
+    { "speaker": 1, "startMs": 108000, "endMs": 111400, "text": "Already forwarded, it should be in your inbox." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      3,
+      4
+    ],
+    "boundaries": [
+      "u9",
+      "u14"
+    ],
+    "tolerance": 1,
+    "revisits": [],
+    "pending": [
+      {
+        "keywords": [
+          "apartment",
+          "lease",
+          "rent",
+          "landlord"
+        ],
+        "raisedAt": "u6",
+        "final": "resolved",
+        "resolvedAt": "u14"
+      }
+    ],
+    "commitments": []
+  }
+}

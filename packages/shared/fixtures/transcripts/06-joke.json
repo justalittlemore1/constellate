@@ -1,0 +1,40 @@
+{
+  "id": "06-joke",
+  "title": "Ten-second joke mid-topic",
+  "description": "Two classmates plan how to study for an organic chemistry final. Halfway through, a pigeon lands on the window and they joke about it for about ten seconds before carrying on with the same study plan. Expect no committed node for the joke and no revisit created by returning from it.",
+  "speakers": ["Dev", "Hana"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 6700, "text": "Okay, the orgo final is in nine days and I have not started. How are you studying?" },
+    { "speaker": 1, "startMs": 7600, "endMs": 16600, "text": "I'm doing the practice exams first, then going back to whatever I get wrong. Reading the textbook is useless for me." },
+    { "speaker": 0, "startMs": 17100, "endMs": 23200, "text": "Same. The reaction mechanisms are killing me though. I can memorise them but I can't predict new ones." },
+    { "speaker": 1, "startMs": 24100, "endMs": 29600, "text": "That's because you're memorising products. You have to follow the electrons, like literally draw every arrow." },
+    { "speaker": 0, "startMs": 30100, "endMs": 32200, "text": "Every arrow? That takes forever." },
+    { "speaker": 1, "startMs": 32600, "endMs": 39800, "text": "It does at first. But after like twenty problems you start seeing the same three moves over and over." },
+    { "speaker": 0, "startMs": 40600, "endMs": 45100, "text": "Okay, that actually makes sense. Nucleophile attacks, leaving group leaves, proton shuffles." },
+    { "speaker": 1, "startMs": 45500, "endMs": 49400, "text": "Exactly. And the exam is mostly those plus the stereochemistry questions." },
+    { "speaker": 0, "startMs": 49900, "endMs": 55400, "text": "Oh my god, there's a pigeon on the window. It's just staring at us." },
+    { "speaker": 1, "startMs": 56100, "endMs": 61400, "text": "He's here to study too. He heard the curve is generous this year." },
+    { "speaker": 0, "startMs": 61800, "endMs": 64800, "text": "Honestly he probably understands stereochemistry better than me." },
+    { "speaker": 1, "startMs": 65300, "endMs": 72200, "text": "Ha. Okay, so for stereo, I'd do the chair flip problems every day, like ten minutes." },
+    { "speaker": 0, "startMs": 73000, "endMs": 78400, "text": "The chair flips are the worst. I always mix up axial and equatorial." },
+    { "speaker": 1, "startMs": 79000, "endMs": 84700, "text": "Build the model kit. Seriously, holding it in your hands makes the flip obvious." },
+    { "speaker": 0, "startMs": 85200, "endMs": 91000, "text": "I think I lent mine to my brother. I'll check if the library has one." },
+    { "speaker": 1, "startMs": 91400, "endMs": 99100, "text": "They do, at the front desk. Also, want to do a study session Sunday with the practice exam from last year?" },
+    { "speaker": 0, "startMs": 99900, "endMs": 102200, "text": "Yes. Library, second floor, noon?" },
+    { "speaker": 1, "startMs": 103000, "endMs": 106900, "text": "Perfect. Bring snacks, it'll be three hours at least." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      1,
+      2
+    ],
+    "noBoundaryWithin": [
+      [
+        "u9",
+        "u12"
+      ]
+    ],
+    "revisits": [],
+    "pending": []
+  }
+}

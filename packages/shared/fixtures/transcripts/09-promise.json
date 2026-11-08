@@ -1,0 +1,38 @@
+{
+  "id": "09-promise",
+  "title": "Promise: I'll send you the paper tonight",
+  "description": "Two friends talk about sleep and memory. Grace mentions a study about sleep and learning and promises to send Omar the paper tonight. Expect exactly one commitment whose text mentions sending the paper, and no pending thread.",
+  "speakers": ["Grace", "Omar"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 5600, "text": "I've been sleeping like five hours a night during exams and honestly my memory is garbage." },
+    { "speaker": 1, "startMs": 6000, "endMs": 10800, "text": "That tracks. I read somewhere that sleep is when your brain actually saves stuff." },
+    { "speaker": 0, "startMs": 11700, "endMs": 20600, "text": "Yeah, there's this study I read for my psych class. People learned a list of words, and the ones who slept after remembered way more." },
+    { "speaker": 1, "startMs": 21400, "endMs": 25400, "text": "Even if they slept the same total amount overall?" },
+    { "speaker": 0, "startMs": 26300, "endMs": 34200, "text": "That's the interesting part. It was the sleep right after learning that mattered most. Something about replaying the memories in deep sleep." },
+    { "speaker": 1, "startMs": 34700, "endMs": 38200, "text": "So all-nighters before an exam are basically pointless." },
+    { "speaker": 0, "startMs": 38900, "endMs": 43700, "text": "Worse than pointless. You learn it and then never consolidate it." },
+    { "speaker": 1, "startMs": 44000, "endMs": 48300, "text": "I really should read more of this stuff instead of just doom-scrolling." },
+    { "speaker": 0, "startMs": 48600, "endMs": 52700, "text": "I'll send you the paper tonight, it's actually pretty readable." },
+    { "speaker": 1, "startMs": 53100, "endMs": 56700, "text": "Thanks, that'd be great. Does it say anything about naps?" },
+    { "speaker": 0, "startMs": 57400, "endMs": 64600, "text": "A little. A twenty-minute nap helped a bit, but a ninety-minute one with deep sleep helped a lot more." },
+    { "speaker": 1, "startMs": 65500, "endMs": 68700, "text": "Ninety minutes is not a nap, that's a lifestyle." },
+    { "speaker": 0, "startMs": 69300, "endMs": 74700, "text": "Ha, right. I'm trying to just get seven hours this week and see if it helps." },
+    { "speaker": 1, "startMs": 75300, "endMs": 81000, "text": "Let me know if it does. I could use an excuse to go to bed earlier." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      1,
+      2
+    ],
+    "revisits": [],
+    "pending": [],
+    "commitments": [
+      {
+        "keywords": [
+          "paper"
+        ],
+        "at": "u9"
+      }
+    ]
+  }
+}
