@@ -10,10 +10,10 @@ const demo = loadDemoGraph();
 describe('favourites', () => {
   it('lists favourite conversations, highlighted nodes and flagged moments', async () => {
     renderApp({ route: '/favorites' });
-    const convs = await screen.findByRole('region', { name: 'Favourite conversations' });
+    const convs = await screen.findByRole('region', { name: 'Starred conversations' });
     expect(await within(convs).findByRole('link', { name: new RegExp(demo.conversation.title) })).toBeInTheDocument();
 
-    const highlights = screen.getByRole('region', { name: 'Highlights' });
+    const highlights = screen.getByRole('region', { name: 'Highlighted topics' });
     const highlighted = Object.values(demo.nodes).filter((n) => n.highlighted);
     expect(await within(highlights).findAllByText('Resurrection Accounts')).toHaveLength(highlighted.length);
 
@@ -30,7 +30,7 @@ describe('favourites', () => {
 
   it('says so when there is no recording to play (mock mode)', async () => {
     renderApp({ route: '/favorites' });
-    const highlights = await screen.findByRole('region', { name: 'Highlights' });
+    const highlights = await screen.findByRole('region', { name: 'Highlighted topics' });
     const [play] = await within(highlights).findAllByRole('button', { name: /^Play / });
     await userEvent.click(play!);
     expect(await screen.findByText('No recording is available for this conversation.')).toBeInTheDocument();

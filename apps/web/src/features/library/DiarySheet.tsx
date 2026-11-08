@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { isOpenThread, useApi, type RecallCard } from '../../lib/api';
 import { formatClock, formatDateTime, formatDuration } from '../../lib/format';
 import { routes } from '../../lib/routes';
+import { uiFlag } from '../../lib/uiFlags';
 import { Button, Chip, IconButton, Sheet, TextArea, TextField } from '../../ui';
 import { PlayMomentButton } from './PlayMomentButton';
 import { composePromise, parsePromise } from './promises';
@@ -78,7 +79,7 @@ function DiaryContent({ graph }: { graph: GraphState }) {
         {threads.length === 0 ? (
           <p className="text-sm text-ink-2">No loose ends — every deferred topic was picked up.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="hairline-list flex flex-col border-y border-line">
             {threads.map((n) => (
               <ThreadRow key={n.id} node={n} conversationId={c.id} />
             ))}
@@ -94,7 +95,7 @@ function DiaryContent({ graph }: { graph: GraphState }) {
         {graph.commitments.length === 0 ? (
           <p className="text-sm text-ink-2">No promises were made.</p>
         ) : (
-          <ul className="flex flex-col gap-3">
+          <ul className="hairline-list flex flex-col border-y border-line">
             {graph.commitments.map((p) => (
               <PromiseRow key={p.id} promise={p} />
             ))}
@@ -102,7 +103,7 @@ function DiaryContent({ graph }: { graph: GraphState }) {
         )}
       </section>
 
-      <RecallSection graph={graph} />
+      {uiFlag('diaryRecallCards') && <RecallSection graph={graph} />}
     </div>
   );
 }
@@ -187,7 +188,7 @@ function Participants({ conversationId }: { conversationId: string }) {
       {(list.data ?? []).length > 0 && (
         <ul className="mb-2 flex flex-wrap gap-2">
           {list.data!.map((p) => (
-            <li key={p.id} className="flex items-center rounded-full border border-line pl-3">
+            <li key={p.id} className="flex items-center border border-line pl-3">
               <span className="text-sm">{p.displayName}</span>
               <IconButton label={`Remove ${p.displayName}`} onClick={() => remove.mutate(p.id)}>
                 <X aria-hidden size={16} />
@@ -218,7 +219,7 @@ function ThreadRow({ node, conversationId }: { node: TopicNode; conversationId: 
   const parked = node.kind === 'parked';
   const at = node.mentionedAtMs ?? node.startMs;
   return (
-    <li className="flex items-center gap-2 rounded-xl border border-dashed border-thread/50 py-1 pl-3">
+    <li className="flex items-center gap-2 border-l border-dashed border-thread/70 py-1 pl-3">
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1 font-semibold">
           {parked && <Pencil aria-hidden size={14} className="text-thread" />}
@@ -252,7 +253,7 @@ function PromiseRow({ promise }: { promise: Commitment }) {
 function ReadOnlyPromise({ promise }: { promise: Commitment }) {
   const parsed = parsePromise(promise.text);
   return (
-    <li className="rounded-xl border border-line p-3">
+    <li className="py-3">
       <p className={promise.done ? 'text-ink-2 line-through' : ''}>
         <span className="text-ink-2">When </span>
         <span className="text-thread">{parsed.cue ?? '___'}</span>
@@ -279,13 +280,13 @@ function EditablePromise({ promise }: { promise: Commitment }) {
   };
 
   return (
-    <li className="rounded-xl border border-line p-3">
+    <li className="py-3">
       <div className="flex items-start gap-1">
         {/* the whole 44 × 44 px label is the tap target; the box itself stays 24 px */}
         <label
           htmlFor={doneId}
           data-testid="promise-done-target"
-          className="-my-2 -ml-2.5 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-white/5"
+          className="-my-2 -ml-2.5 flex size-11 shrink-0 cursor-pointer items-center justify-center hover:bg-white/5"
         >
           <input
             id={doneId}
@@ -352,7 +353,7 @@ function RecallCardItem({ card, graph }: { card: RecallCard; graph: GraphState }
   const node = card.nodeId ? graph.nodes[card.nodeId] : undefined;
 
   return (
-    <li className="rounded-xl border border-revisit/40 p-3">
+    <li className=" border border-revisit/40 p-3">
       <p className="mb-2 font-semibold">{card.prompt}</p>
       {!revealed ? (
         <>
@@ -375,7 +376,7 @@ function RecallCardItem({ card, graph }: { card: RecallCard; graph: GraphState }
             </p>
           )}
           {node ? (
-            <div className="flex items-center gap-2 rounded-lg bg-white/5 p-2">
+            <div className="flex items-center gap-2 bg-white/5 p-2">
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{node.label}</p>
                 <p className="text-sm text-ink-2">{node.summary}</p>

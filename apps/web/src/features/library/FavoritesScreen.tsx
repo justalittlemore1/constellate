@@ -8,6 +8,9 @@ import { ScreenHeader } from '../../ui';
 import { PlayMomentButton } from './PlayMomentButton';
 import { useConversations, useFavoriteMoments } from './queries';
 
+/** Page title (route stays `/favorites`; the redesign renamed Favourites → Highlights). */
+export const HIGHLIGHTS_TITLE = 'Highlights';
+
 /** `/favorites` — favourite conversations, highlighted nodes and flagged moments, each playable. */
 export function FavoritesScreen() {
   const conversations = useConversations();
@@ -18,7 +21,7 @@ export function FavoritesScreen() {
 
   return (
     <main className="flex h-full flex-col">
-      <ScreenHeader title="Favourites" />
+      <ScreenHeader title={HIGHLIGHTS_TITLE} />
       <div className="flex-1 overflow-y-auto px-4 pb-10">
         {moments.isError && (
           <p role="alert" className="mb-4 text-sm text-flag">
@@ -28,7 +31,7 @@ export function FavoritesScreen() {
 
         <Section
           id="fav-convs"
-          title="Favourite conversations"
+          title="Starred conversations"
           icon={<Star aria-hidden size={16} className="text-highlight" />}
           empty="Star a conversation in the library to keep it here."
           loading={conversations.isPending}
@@ -38,7 +41,7 @@ export function FavoritesScreen() {
             <li key={c.id}>
               <Link
                 to={routes.conversation(c.id)}
-                className="flex min-h-11 flex-col justify-center rounded-xl border border-line px-3 py-2 hover:border-topic/60"
+                className="flex min-h-11 flex-col justify-center py-2 hover:text-thread"
               >
                 <span className="font-semibold">{c.title}</span>
                 <span className="text-xs text-ink-2">{formatDate(c.startedAt)}</span>
@@ -49,7 +52,7 @@ export function FavoritesScreen() {
 
         <Section
           id="fav-highlights"
-          title="Highlights"
+          title="Highlighted topics"
           icon={<Highlighter aria-hidden size={16} className="text-highlight" />}
           empty="Use the highlighter on a map to save topics and branches here."
           loading={moments.isPending}
@@ -105,7 +108,7 @@ function Section({
       ) : count === 0 ? (
         <p className="text-sm text-ink-2">{empty}</p>
       ) : (
-        <ul className="flex flex-col gap-2">{children}</ul>
+        <ul className="hairline-list flex flex-col border-y border-line">{children}</ul>
       )}
     </section>
   );
@@ -114,9 +117,7 @@ function Section({
 function MomentRow({ moment: m }: { moment: FavoriteMoment }) {
   const isFlag = m.kind === 'flag';
   return (
-    <li
-      className={`flex items-center gap-2 rounded-xl border py-1 pl-3 ${isFlag ? 'border-flag/40' : 'border-highlight/40'}`}
-    >
+    <li className="flex items-center gap-2 py-1">
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">
           <span className="sr-only">{isFlag ? 'Flagged: ' : 'Highlighted: '}</span>

@@ -31,7 +31,8 @@ export function makeStars(count: number, seed = 7): Star[] {
 function draw(ctx: CanvasRenderingContext2D, stars: Star[], w: number, h: number, t: number) {
   ctx.clearRect(0, 0, w, h);
   for (const s of stars) {
-    const twinkle = t === 0 ? 0.75 : 0.55 + 0.45 * Math.sin(s.phase + t * s.speed);
+    // very subtle, slow shimmer (no pulsing): ±12 % brightness over ~10–30 s
+    const twinkle = t === 0 ? 0.75 : 0.75 + 0.12 * Math.sin(s.phase + t * s.speed * 0.25);
     ctx.globalAlpha = twinkle;
     ctx.fillStyle = s.r > 1.3 ? '#cdf6ff' : '#e8ecf8';
     ctx.beginPath();

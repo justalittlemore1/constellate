@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { loadDemoGraph, loadDemoOps } from '../lib/fixtures';
@@ -30,11 +30,11 @@ describe('app shell', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/live/demo?fixture=demo-religion');
   });
 
-  it('hamburger opens the library drawer as a dialog', async () => {
+  it('hamburger opens the sidebar ("Constellate") as a dialog', async () => {
     renderApp();
-    await userEvent.click(screen.getByRole('button', { name: 'Open library' }));
-    expect(screen.getByRole('dialog', { name: 'Library' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Generate Brain' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Open menu' }));
+    const sidebar = screen.getByRole('dialog', { name: 'Constellate' });
+    expect(within(sidebar).getByRole('link', { name: 'Brain' })).toHaveAttribute('href', '/brain');
   });
 
   it('/live/:id is the live screen (A6), which asks for consent before anything starts', async () => {

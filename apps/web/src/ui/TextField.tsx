@@ -1,8 +1,7 @@
 import { forwardRef, useId, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 import { cx } from './cx';
 
-const FIELD =
-  'w-full rounded-xl border border-line bg-white/5 px-3 text-ink placeholder:text-ink-2/70 focus:border-topic';
+const FIELD = 'w-full border border-line bg-white/5 px-3 text-ink placeholder:text-ink-2/70 focus:border-topic';
 
 export interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;

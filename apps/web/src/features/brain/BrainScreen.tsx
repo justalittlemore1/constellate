@@ -8,13 +8,18 @@ import { Button, cx, IconButton, ScreenHeader, TextField, useToast } from '../..
 import { BrainCanvas } from './BrainCanvas';
 import { ConceptSheet } from './ConceptSheet';
 import { useBrain, useConceptSearch, useRebuildBrain } from './queries';
+import { revealOrder, useStarReveal } from './starReveal';
+import { uiFlag } from '../../lib/uiFlags';
 
 type View = 'galaxy' | 'list';
 
 /**
  * `/brain` — every finished conversation folded into one concept graph. The galaxy is the visual
- * view; the list view is the keyboard / screen-reader path (and the default in low-stimulation).
- * Arriving with `state.rebuild` (the library's Generate Brain button) starts a rebuild.
+ * view; the Text view is the keyboard / screen-reader path (and the default in low-stimulation).
+ * "Generate" calls `POST /brain/rebuild`; when the new Brain arrives its stars appear a few at a
+ * time (all at once under reduced motion). Behind `uiFlags`: concept search, the Galaxy / List
+ * toggle and the header regenerate icon. Arriving with `state.rebuild` (the flagged-off sidebar
+ * Generate Brain button) starts a rebuild.
  */
 export function BrainScreen() {
   const brain = useBrain();
@@ -26,17 +31,29 @@ export function BrainScreen() {
   const lowStim = usePrefs((s) => s.lowStimulation);
   const [view, setView] = useState<View>(lowStim ? 'list' : 'galaxy');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const reveal = useStarReveal(reduced);
+  const revealNext = useRef(false);
 
   const generate = () =>
     rebuild.mutate(undefined, {
-      onSuccess: (r) =>
+      onSuccess: (r) => {
+        revealNext.current = true; // the refetched Brain fades in, star by star
         toast(
           r.conversations === 0
             ? 'Your Brain is up to date.'
             : `Added ${r.conversations} ${r.conversations === 1 ? 'conversation' : 'conversations'} · ${r.newConcepts} new ${r.newConcepts === 1 ? 'concept' : 'concepts'}.`,
           'success',
-        ),
+        );
+      },
     });
+
+  // when the rebuilt Brain arrives (each refetch bumps dataUpdatedAt), start the reveal
+  useEffect(() => {
+    if (!revealNext.current || !brain.data) return;
+    revealNext.current = false;
+    reveal.start(revealOrder(brain.data.concepts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brain.dataUpdatedAt]);
 
   const autoStarted = useRef(false);
   useEffect(() => {
@@ -59,17 +76,31 @@ export function BrainScreen() {
         <ScreenHeader
           title="Brain"
           actions={
-            <IconButton label="Generate Brain" onClick={generate} disabled={rebuild.isPending}>
-              <Sparkles aria-hidden size={20} />
-            </IconButton>
+            <>
+              {payload && payload.concepts.length > 0 && !uiFlag('brainViewToggle') && (
+                <IconButton
+                  label="Text view"
+                  aria-pressed={view === 'list'}
+                  onClick={() => setView(view === 'list' ? 'galaxy' : 'list')}
+                  className={view === 'list' ? 'text-thread' : 'text-ink-2'}
+                >
+                  <List aria-hidden size={20} />
+                </IconButton>
+              )}
+              {uiFlag('brainHeaderRegenerate') && (
+                <IconButton label="Generate Brain" onClick={generate} disabled={rebuild.isPending}>
+                  <Sparkles aria-hidden size={20} />
+                </IconButton>
+              )}
+            </>
           }
         />
 
         {rebuild.isPending && (
-          <div role="status" className="mx-4 mb-2 rounded-xl border border-revisit/40 p-3 text-sm">
-            <p className="mb-2 font-semibold">Generating your Brain…</p>
+          <div role="status" className="mx-5 mb-2 border-y border-line py-3 text-sm">
+            <p className="mb-1 font-semibold">Generating your Brain…</p>
             <p className="mb-2 text-ink-2">Folding each finished conversation’s topics into shared concepts.</p>
-            <progress aria-label="Generating your Brain" className="h-2 w-full accent-[var(--revisit)]" />
+            <progress aria-label="Generating your Brain" className="h-1 w-full accent-[var(--thread)]" />
           </div>
         )}
         {rebuild.isError && (
@@ -90,36 +121,51 @@ export function BrainScreen() {
           <EmptyBrain onGenerate={generate} busy={rebuild.isPending} />
         ) : (
           <>
-            <div className="flex flex-col gap-2 px-4 pb-2">
-              <ConceptSearch onSelect={setSelectedId} />
-              <div role="group" aria-label="View" className="flex gap-1 self-start rounded-full border border-line p-1">
-                <ViewButton
-                  pressed={view === 'galaxy'}
-                  onClick={() => setView('galaxy')}
-                  icon={<Orbit aria-hidden size={16} />}
-                >
-                  Galaxy
-                </ViewButton>
-                <ViewButton
-                  pressed={view === 'list'}
-                  onClick={() => setView('list')}
-                  icon={<List aria-hidden size={16} />}
-                >
-                  List
-                </ViewButton>
+            {(uiFlag('brainSearch') || uiFlag('brainViewToggle')) && (
+              <div className="flex flex-col gap-2 px-4 pb-2">
+                {uiFlag('brainSearch') && <ConceptSearch onSelect={setSelectedId} />}
+                {uiFlag('brainViewToggle') && (
+                  <div role="group" aria-label="View" className="flex gap-1 self-start border border-line p-1">
+                    <ViewButton
+                      pressed={view === 'galaxy'}
+                      onClick={() => setView('galaxy')}
+                      icon={<Orbit aria-hidden size={16} />}
+                    >
+                      Galaxy
+                    </ViewButton>
+                    <ViewButton
+                      pressed={view === 'list'}
+                      onClick={() => setView('list')}
+                      icon={<List aria-hidden size={16} />}
+                    >
+                      List
+                    </ViewButton>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
             <div className="relative min-h-0 flex-1">
               {view === 'galaxy' ? (
                 <>
-                  <BrainCanvas payload={payload!} selectedId={selectedId} onSelect={setSelectedId} reduced={reduced} />
+                  <BrainCanvas
+                    payload={payload!}
+                    selectedId={selectedId}
+                    onSelect={setSelectedId}
+                    reduced={reduced}
+                    revealedAt={reveal.revealedAt}
+                  />
                   <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs text-ink-2">
-                    {payload!.concepts.length} concepts · tap one to explore · List view for keyboard
+                    {payload!.concepts.length} concepts · tap one to explore · Text view for keyboard
                   </p>
                 </>
               ) : (
                 <ConceptList payload={payload!} onSelect={setSelectedId} />
               )}
+            </div>
+            <div className="flex justify-center px-5 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)]">
+              <Button variant="editorial" onClick={generate} disabled={rebuild.isPending}>
+                {rebuild.isPending ? 'Generating…' : 'Generate'}
+              </Button>
             </div>
           </>
         )}
@@ -154,7 +200,7 @@ function ViewButton({
       aria-pressed={pressed}
       onClick={onClick}
       className={cx(
-        'inline-flex min-h-11 items-center gap-1.5 rounded-full px-4 text-sm font-semibold',
+        'inline-flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold',
         pressed ? 'bg-topic/20 text-topic' : 'text-ink-2 hover:text-ink',
       )}
     >
@@ -171,8 +217,8 @@ function EmptyBrain({ onGenerate, busy }: { onGenerate: () => void; busy: boolea
       <p className="text-ink-2">
         Generate it to fold your finished conversations into one map of the ideas you keep coming back to.
       </p>
-      <Button variant="brain" icon={<Sparkles aria-hidden size={18} />} onClick={onGenerate} disabled={busy}>
-        Generate Brain
+      <Button variant="editorial" onClick={onGenerate} disabled={busy}>
+        {busy ? 'Generating…' : 'Generate'}
       </Button>
     </div>
   );
@@ -185,8 +231,8 @@ function ConceptList({ payload, onSelect }: { payload: BrainPayload; onSelect: (
     [payload.concepts],
   );
   return (
-    <section aria-label="All concepts" className="h-full overflow-y-auto px-4 pb-8">
-      <ul className="flex flex-col gap-2">
+    <section aria-label="All concepts" className="h-full overflow-y-auto px-5 pb-8">
+      <ul className="hairline-list flex flex-col border-y border-line">
         {sorted.map((c) => (
           <li key={c.id}>
             <ConceptButton concept={c} onSelect={onSelect} links={countLinks(payload, c.id)} />
@@ -219,7 +265,7 @@ function ConceptButton({
     <button
       type="button"
       onClick={() => onSelect(c.id)}
-      className="surface flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-line px-3 py-2 text-left hover:border-topic/60"
+      className="flex min-h-11 w-full items-center justify-between gap-3 py-3 text-left hover:text-thread"
     >
       <span className="min-w-0">
         <span className="block truncate font-semibold">{c.name}</span>
@@ -278,7 +324,7 @@ function ConceptSearch({ onSelect }: { onSelect: (id: string) => void }) {
                   <button
                     type="button"
                     onClick={() => onSelect(r.id)}
-                    className="min-h-11 rounded-full border border-topic/50 px-3 text-sm font-semibold text-topic"
+                    className="min-h-11 border border-topic/50 px-3 text-sm font-semibold text-topic"
                   >
                     {r.name}
                   </button>

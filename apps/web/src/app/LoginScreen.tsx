@@ -58,12 +58,12 @@ export function LoginScreen() {
       </div>
 
       {auth.mock && (
-        <p className="mb-4 rounded-xl border border-topic/40 bg-topic/10 p-3 text-sm">
+        <p className="mb-4 border border-topic/40 bg-topic/10 p-3 text-sm">
           Demo mode: no account needed — any email and password signs you in as the demo user.
         </p>
       )}
       {!auth.configured && (
-        <p role="alert" className="mb-4 rounded-xl border border-flag/50 p-3 text-sm text-flag">
+        <p role="alert" className="mb-4 border border-flag/50 p-3 text-sm text-flag">
           Sign-in isn’t configured on this build (missing Supabase settings).
         </p>
       )}
@@ -124,7 +124,7 @@ export function LoginScreen() {
         {signingUp ? 'Have an account? Sign in' : 'New here? Create an account'}
       </Button>
 
-      <section aria-labelledby="privacy" className="mt-8 rounded-xl border border-line p-4 text-sm text-ink-2">
+      <section aria-labelledby="privacy" className="mt-8 border border-line p-4 text-sm text-ink-2">
         <h2 id="privacy" className="mb-1 flex items-center gap-2 font-semibold text-ink">
           <Lock aria-hidden size={16} /> Your privacy
         </h2>

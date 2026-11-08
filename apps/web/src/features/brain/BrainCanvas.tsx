@@ -5,10 +5,8 @@ import { usePrefs } from '../../lib/prefs';
 import {
   aspectPull,
   footprint,
-  LABEL_GAP,
   pullToCentreLine,
   linkDistance,
-  RELATION_DASH,
   separateFootprints,
   toGalaxy,
   topConceptIds,
@@ -17,17 +15,11 @@ import {
   type GalaxyNode,
 } from './brainLayout';
 
+import { defaultRenderers, LABEL_FONT, LABEL_PX, type BrainRenderers } from './brainRenderers';
+import { starOpacity } from './starReveal';
+
 type N = NodeObject<GalaxyNode>;
 type L = LinkObject<GalaxyNode, GalaxyLink>;
-
-/** Colours from the design tokens (canvas can't read Tailwind classes). */
-const C = {
-  node: '#6FE3FF',
-  selected: '#FFD84D',
-  label: '#E8ECF8',
-  link: 'rgba(163,172,200,0.45)',
-  linkLit: 'rgba(111,227,255,0.85)',
-};
 
 export interface BrainCanvasProps {
   payload: BrainPayload;
@@ -35,26 +27,28 @@ export interface BrainCanvasProps {
   onSelect: (id: string | null) => void;
   /** still the layout instantly (reduced motion / low stimulation) */
   reduced: boolean;
+  /** while stars are appearing: when each revealed concept appeared; null = all visible */
+  revealedAt?: Map<string, number> | null;
+  /** how nodes and links are drawn (wave 2 swaps in star art and comet trails) */
+  renderers?: BrainRenderers;
 }
 
-/** force-graph replaces link ends with node objects once the simulation starts */
 /** Label width at `px` font size, measured when a canvas is available (estimated otherwise). */
 function labelWidth(name: string, px: number): number {
   const ctx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
-  if (!ctx) return name.length * px * 0.58;
-  ctx.font = `600 ${px}px Inter, system-ui, sans-serif`;
+  if (!ctx) return name.length * px * 0.5;
+  ctx.font = LABEL_FONT(px);
   return ctx.measureText(name).width;
 }
 
-const LABEL_PX = 12;
-
+/** force-graph replaces link ends with node objects once the simulation starts */
 function endId(end: unknown): string {
   return typeof end === 'object' && end !== null ? String((end as { id: unknown }).id) : String(end);
 }
 
 /** The canvas is one picture to assistive tech; the List view carries the content. */
 export function galaxyLabel(concepts: number): string {
-  return `Brain galaxy of ${concepts} ${concepts === 1 ? 'concept' : 'concepts'}. Switch to the List view to explore them with a keyboard or screen reader.`;
+  return `Brain galaxy of ${concepts} ${concepts === 1 ? 'concept' : 'concepts'}. Use the Text view to explore them with a keyboard or screen reader.`;
 }
 
 /**
@@ -62,7 +56,14 @@ export function galaxyLabel(concepts: number): string {
  * Labels for the 15 largest concepts, the hovered one and the selected one with its neighbours;
  * selecting dims everything else. Mouse/touch only — the list view is the keyboard path.
  */
-export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCanvasProps) {
+export function BrainCanvas({
+  payload,
+  selectedId,
+  onSelect,
+  reduced,
+  revealedAt = null,
+  renderers = defaultRenderers,
+}: BrainCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const fg = useRef<ForceGraphMethods<N, L> | undefined>(undefined);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -157,9 +158,32 @@ export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCan
           onNodeClick={(n) => onSelect(String(n.id))}
           onNodeHover={(n) => setHoverId(n ? String(n.id) : null)}
           onBackgroundClick={() => onSelect(null)}
-          linkColor={(l) => (lit && lit.has(endId(l.source)) && lit.has(endId(l.target)) ? C.linkLit : C.link)}
-          linkWidth={(l) => 0.6 + 1.6 * (l.weight ?? 0)}
-          linkLineDash={(l) => RELATION_DASH[l.relation]}
+          // stars still to appear are hidden; the canvas keeps redrawing while they fade in
+          nodeVisibility={(n) => !revealedAt || revealedAt.has(String(n.id))}
+          linkVisibility={(l) => !revealedAt || (revealedAt.has(endId(l.source)) && revealedAt.has(endId(l.target)))}
+          autoPauseRedraw={!revealedAt}
+          linkCanvasObjectMode={() => 'replace'}
+          linkCanvasObject={(l, ctx, scale) => {
+            const a = l.source as N;
+            const b = l.target as N;
+            if (typeof a !== 'object' || typeof b !== 'object') return;
+            const now = performance.now();
+            renderers.drawLink({
+              ctx,
+              from: { x: a.x ?? 0, y: a.y ?? 0 },
+              to: { x: b.x ?? 0, y: b.y ?? 0 },
+              relation: l.relation,
+              weight: l.weight ?? 0,
+              lit: Boolean(lit && lit.has(String(a.id)) && lit.has(String(b.id))),
+              opacity: revealedAt
+                ? Math.min(
+                    starOpacity(revealedAt.get(String(a.id)), now),
+                    starOpacity(revealedAt.get(String(b.id)), now),
+                  )
+                : 1,
+              scale,
+            });
+          }}
           nodePointerAreaPaint={(n, color, ctx) => {
             ctx.fillStyle = color;
             ctx.beginPath();
@@ -168,50 +192,20 @@ export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCan
           }}
           nodeCanvasObject={(n, ctx, scale) => {
             const id = String(n.id);
-            const x = n.x ?? 0;
-            const y = n.y ?? 0;
-            const dim = lit !== null && !lit.has(id);
-            const selected = id === selectedId;
-            ctx.globalAlpha = dim ? 0.15 : 1;
-
-            // glow
-            const g = ctx.createRadialGradient(x, y, n.radius * 0.4, x, y, n.radius * 2.2);
-            g.addColorStop(0, `rgba(111,227,255,${0.35 * glow})`);
-            g.addColorStop(1, 'rgba(111,227,255,0)');
-            ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(x, y, n.radius * 2.2, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = C.node;
-            ctx.beginPath();
-            ctx.arc(x, y, n.radius, 0, Math.PI * 2);
-            ctx.fill();
-            if (selected) {
-              // gold ring + thicker outline (not colour alone)
-              ctx.strokeStyle = C.selected;
-              ctx.lineWidth = 3 / scale;
-              ctx.beginPath();
-              ctx.arc(x, y, n.radius + 4 / scale, 0, Math.PI * 2);
-              ctx.stroke();
-            }
-
-            const showLabel = labelled.has(id) || id === hoverId || (lit?.has(id) ?? false);
-            if (showLabel) {
-              const px = (LABEL_PX * textSize) / scale;
-              const ty = y + n.radius + LABEL_GAP / scale;
-              ctx.font = `600 ${px}px Inter, system-ui, sans-serif`;
-              ctx.textAlign = 'center';
-              ctx.textBaseline = 'top';
-              // dark halo so labels stay readable over links and glow
-              ctx.lineJoin = 'round';
-              ctx.lineWidth = 4 / scale;
-              ctx.strokeStyle = 'rgba(7,10,23,0.9)';
-              ctx.strokeText(n.name, x, ty);
-              ctx.fillStyle = C.label;
-              ctx.fillText(n.name, x, ty);
-            }
-            ctx.globalAlpha = 1;
+            renderers.drawNode({
+              ctx,
+              x: n.x ?? 0,
+              y: n.y ?? 0,
+              radius: n.radius,
+              name: n.name,
+              scale,
+              opacity: revealedAt ? starOpacity(revealedAt.get(id), performance.now()) : 1,
+              dimmed: lit !== null && !lit.has(id),
+              selected: id === selectedId,
+              showLabel: labelled.has(id) || id === hoverId || (lit?.has(id) ?? false),
+              glow,
+              textSize,
+            });
           }}
         />
       )}

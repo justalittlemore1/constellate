@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
+import { resetUiFlags } from '../lib/uiFlags';
 
 // jsdom has no matchMedia, canvas or ResizeObserver; components must cope without them anyway.
 if (typeof window.matchMedia !== 'function') {
@@ -23,4 +24,5 @@ afterEach(() => {
   document.documentElement.removeAttribute('data-motion');
   document.documentElement.removeAttribute('data-low-stim');
   document.documentElement.style.removeProperty('--text-size');
+  resetUiFlags();
 });

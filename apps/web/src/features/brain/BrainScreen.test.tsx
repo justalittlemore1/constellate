@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ALL_UI_FLAGS_ON, setUiFlags } from '../../lib/uiFlags';
 import { createMockApi, mockBrainFromGraphs, type BrainPayload } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
@@ -43,7 +44,9 @@ async function builtApi() {
   return api;
 }
 
-describe('Brain view', () => {
+describe('Brain view with every flag on (search, Galaxy/List toggle, header regenerate)', () => {
+  beforeEach(() => setUiFlags(ALL_UI_FLAGS_ON));
+
   it('renders the fixture payload in the galaxy with radius from mention count', async () => {
     // jsdom has no layout: give the canvas container a size
     vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(390);
@@ -51,7 +54,7 @@ describe('Brain view', () => {
     renderApp({ route: '/brain', api: await builtApi(), element: <BrainScreen /> });
 
     const graph = await screen.findByTestId('force-graph');
-    expect(screen.getByRole('img', { name: /^Brain galaxy of 8 concepts\. Switch to the List view/ })).toBe(
+    expect(screen.getByRole('img', { name: /^Brain galaxy of 8 concepts\. Use the Text view/ })).toBe(
       screen.getByTestId('brain-canvas'),
     );
     expect(within(graph).getAllByRole('button')).toHaveLength(fixturePayload.concepts.length);
@@ -146,7 +149,7 @@ describe('Brain view', () => {
     const spy = vi.spyOn(api, 'rebuildBrain');
     const user = userEvent.setup();
     renderApp({ api });
-    await user.click(screen.getByRole('button', { name: 'Open library' }));
+    await user.click(screen.getByRole('button', { name: 'Open menu' }));
     await user.click(screen.getByRole('button', { name: 'Generate Brain' }));
     await waitFor(() => expect(spy).toHaveBeenCalledOnce());
     expect(await screen.findByRole('button', { name: 'List' })).toBeInTheDocument();

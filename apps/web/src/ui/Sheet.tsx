@@ -61,23 +61,23 @@ export function Sheet({ open, onClose, title, side = 'bottom', header, children,
         tabIndex={-1}
         data-testid={testId}
         className={cx(
-          'surface absolute flex flex-col border-line text-ink outline-none',
+          // star-chart frame: square corners, --thread top hairline, corner ticks (see ui/StarFrame)
+          'surface star-frame absolute flex flex-col text-ink outline-none',
           side === 'bottom'
-            ? 'sheet-up inset-x-0 bottom-0 max-h-[88%] rounded-t-[var(--radius)] border-t pb-[env(safe-area-inset-bottom)]'
-            : 'sheet-left inset-y-0 left-0 w-[86%] max-w-[360px] border-r pt-[env(safe-area-inset-top)]',
+            ? 'sheet-up inset-x-0 bottom-0 max-h-[88%] pb-[env(safe-area-inset-bottom)]'
+            : 'sheet-left inset-y-0 left-0 w-[86%] max-w-[360px] border-r border-r-line pt-[env(safe-area-inset-top)]',
         )}
       >
-        {side === 'bottom' && <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-white/20" />}
-        <div className="flex items-center justify-between gap-2 px-4 pt-2">
-          <h2 id={titleId} className="min-w-0 truncate text-lg font-semibold">
+        <div className="flex items-center justify-between gap-2 border-b border-line px-5 pt-3 pb-2">
+          <h2 id={titleId} className="min-w-0 truncate text-xl font-semibold tracking-wide">
             {title}
           </h2>
           <IconButton label="Close" onClick={onClose}>
             <X aria-hidden size={20} />
           </IconButton>
         </div>
-        {header && <div className="px-4 pb-2">{header}</div>}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">{children}</div>
+        {header && <div className="px-5 py-3">{header}</div>}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-8">{children}</div>
       </div>
     </div>,
     container,

@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { ALL_UI_FLAGS_ON, setUiFlags } from '../../lib/uiFlags';
 import { createMockApi } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
@@ -11,13 +12,15 @@ async function openDrawer() {
   const api = createMockApi();
   const user = userEvent.setup();
   renderApp({ api });
-  await user.click(screen.getByRole('button', { name: 'Open library' }));
-  const drawer = screen.getByRole('dialog', { name: 'Library' });
+  await user.click(screen.getByRole('button', { name: 'Open menu' }));
+  const drawer = screen.getByRole('dialog', { name: 'Constellate' });
   await within(drawer).findByRole('link', { name: new RegExp(demo.title) });
   return { api, user, drawer };
 }
 
-describe('library drawer', () => {
+describe('sidebar with every flag on (the features hidden in the redesign still work)', () => {
+  beforeEach(() => setUiFlags(ALL_UI_FLAGS_ON));
+
   it('lists recent conversations with Solo / Group tags and links to the map', async () => {
     const { drawer } = await openDrawer();
     const link = within(drawer).getByRole('link', { name: new RegExp(demo.title) });
@@ -79,12 +82,12 @@ describe('library drawer', () => {
     await user.type(within(drawer).getByRole('textbox', { name: 'New folder name' }), 'Temp');
     await user.keyboard('{Escape}');
     expect(within(drawer).queryByRole('textbox', { name: 'New folder name' })).not.toBeInTheDocument();
-    expect(screen.getByRole('dialog', { name: 'Library' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Constellate' })).toBeInTheDocument();
   });
 
   it('toggles a favourite', async () => {
     const { api, user, drawer } = await openDrawer();
-    const star = within(drawer).getByRole('button', { name: `Favourite ${demo.title}` });
+    const star = within(drawer).getByRole('button', { name: `Star ${demo.title}` });
     expect(star).toHaveAttribute('aria-pressed', String(demo.isFavorite));
     await user.click(star);
     await waitFor(async () => expect((await api.listConversations())[0]!.isFavorite).toBe(!demo.isFavorite));

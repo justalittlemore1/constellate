@@ -1,0 +1,63 @@
+/**
+ * UI flags for the redesign (wave 1). "Hide" means behind a flag, never delete: every item the
+ * humans asked to hide stays in the code, off by default, and its tests run with it switched on.
+ * Flip a default to bring something back.
+ */
+export const UI_FLAG_DEFAULTS = {
+  /** Home: "Where will your conversation take you?" */
+  homeTagline: false,
+  /** Home: "Tap to start. Everyone is asked to agree first." under the mic orb */
+  homeOrbHint: false,
+  /** Home: the top-right Settings icon (Settings stays reachable from the sidebar) */
+  homeSettingsButton: false,
+  /** Home: the slow pulse around the mic orb (no pulsing glows in the new style) */
+  homeOrbPulse: false,
+
+  /** Sidebar: the gradient "Generate Brain" button pinned at the top (replaced by a plain "Brain" link) */
+  sidebarGenerateBrain: false,
+  /** Sidebar: search by title */
+  sidebarSearch: false,
+  /** Sidebar: the "Settings" row in the sections list (a minimal link stays at the bottom) */
+  sidebarSettingsRow: false,
+  /** Sidebar: folders, "All conversations" and the add-folder button */
+  sidebarFolders: false,
+  /** Sidebar: the "Recent conversations" header */
+  sidebarRecentHeading: false,
+  /** Sidebar rows: the Solo / Group tag */
+  sidebarRowTags: false,
+  /** Sidebar rows: the ⋯ options menu (move to folder) */
+  sidebarRowMenu: false,
+
+  /** Brain: concept search */
+  brainSearch: false,
+  /** Brain: the Galaxy / List toggle (replaced by a single "Text view" icon) */
+  brainViewToggle: false,
+  /** Brain: the regenerate icon in the header (replaced by the on-page Generate button) */
+  brainHeaderRegenerate: false,
+
+  /** Diary: recall cards */
+  diaryRecallCards: false,
+} as const;
+
+export type UiFlag = keyof typeof UI_FLAG_DEFAULTS;
+
+const flags: Record<UiFlag, boolean> = { ...UI_FLAG_DEFAULTS };
+
+/** Read at render time. */
+export function uiFlag(name: UiFlag): boolean {
+  return flags[name];
+}
+
+/** Tests (and future settings) only: switch flags for this session. */
+export function setUiFlags(patch: Partial<Record<UiFlag, boolean>>): void {
+  Object.assign(flags, patch);
+}
+
+export function resetUiFlags(): void {
+  Object.assign(flags, UI_FLAG_DEFAULTS);
+}
+
+/** Every flag on: the pre-redesign UI, for tests that cover the hidden features. */
+export const ALL_UI_FLAGS_ON: Record<UiFlag, boolean> = Object.fromEntries(
+  Object.keys(UI_FLAG_DEFAULTS).map((k) => [k, true]),
+) as Record<UiFlag, boolean>;

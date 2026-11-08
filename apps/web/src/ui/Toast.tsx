@@ -47,7 +47,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <div
                 key={t.id}
                 className={cx(
-                  'surface rounded-full border px-4 py-2 text-sm font-semibold shadow-lg',
+                  'surface border px-4 py-2 text-sm font-semibold shadow-lg',
                   t.tone === 'error'
                     ? 'border-flag/60 text-flag'
                     : t.tone === 'success'

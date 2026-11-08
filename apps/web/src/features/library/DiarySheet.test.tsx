@@ -5,6 +5,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMockApi } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
+import { setUiFlags } from '../../lib/uiFlags';
 import { installFlowDomStubs } from '../map/testing';
 import { REFLECTION_PROMPT } from './DiarySheet';
 import { composePromise, parsePromise } from './promises';
@@ -166,7 +167,8 @@ describe('diary sheet', () => {
     await waitFor(() => expect(within(section).getByRole('checkbox', { name: 'Done' })).not.toBeChecked());
   });
 
-  it('recall cards ask first, then reveal the node and record the result', async () => {
+  it('recall cards (flag on) ask first, then reveal the node and record the result', async () => {
+    setUiFlags({ diaryRecallCards: true });
     const api = createMockApi(undefined, {
       recallCards: [
         {

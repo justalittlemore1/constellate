@@ -80,7 +80,7 @@ function ConceptBody({
                 <button
                   type="button"
                   onClick={() => onSelect(c.id)}
-                  className="min-h-11 rounded-full border border-line px-3 text-left text-sm hover:border-topic/60"
+                  className="min-h-11 border border-line px-3 text-left text-sm hover:border-topic/60"
                 >
                   <span className="font-semibold">{c.name}</span>
                   <span className="text-ink-2"> · {RELATION_WORDS[relation]}</span>
@@ -98,11 +98,11 @@ function ConceptBody({
         {occurrences.length === 0 ? (
           <p className="text-sm text-ink-2">No moments are linked to this concept any more.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="hairline-list flex flex-col border-y border-line">
             {occurrences.map((o) => {
               const names = namesFor(o.conversationId);
               return (
-                <li key={o.nodeId} className="flex items-center gap-2 rounded-xl border border-line py-2 pl-3">
+                <li key={o.nodeId} className="flex items-center gap-2 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-2">
                       {formatDate(o.startedAt)} · {formatClock(o.startMs)}
