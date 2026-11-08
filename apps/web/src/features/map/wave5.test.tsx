@@ -331,3 +331,43 @@ describe('Play without a recording (A4 transcript playback)', () => {
     expect(await playTranscriptMoment({ key: 'n1', startMs: 0, endMs: null, utterances: [] })).toBe(false);
   });
 });
+
+describe('labels never fade (colour contrast mid-reveal)', () => {
+  const block = (selector: string) => {
+    const i = mapCss.indexOf(selector);
+    expect(i, selector).toBeGreaterThanOrEqual(0);
+    return mapCss.slice(i, mapCss.indexOf('}\n', mapCss.indexOf('{', i)) + 1);
+  };
+
+  it('the star grows and its art fades, but no animation touches the label opacity', () => {
+    // the node wrapper only scales (it holds the label)
+    const appear = mapCss.slice(mapCss.indexOf('@keyframes cmap-appear'), mapCss.indexOf('.cmap-appear {'));
+    expect(appear).toMatch(/transform: scale\(0\.55\)/);
+    expect(appear).not.toMatch(/opacity/);
+    // the label is hidden until its turn, then shown whole: visibility only
+    const show = mapCss.slice(
+      mapCss.indexOf('@keyframes cmap-label-show'),
+      mapCss.indexOf(".cmap-appear > [data-testid='node-label']"),
+    );
+    expect(show).toMatch(/visibility: hidden/);
+    expect(show).not.toMatch(/opacity/);
+    expect(block(".cmap-appear > [data-testid='node-label']")).toMatch(/animation: cmap-label-show/);
+    // the art (svg, badges, glyphs) is what fades
+    expect(mapCss).toMatch(/\.cmap-appear > svg,[\s\S]*?animation: cmap-fade-in/);
+  });
+
+  it('a revealed label ends at full opacity in the text colour token', () => {
+    render(<ConversationMap state={demo} reveal />);
+    for (const label of document.querySelectorAll<HTMLElement>('[data-testid="node-label"]')) {
+      // nothing between the label and the canvas sets a partial opacity (dimming aside, which is off)
+      let el: HTMLElement | null = label;
+      while (el && !el.classList.contains('react-flow__node')) {
+        expect(el.style.opacity === '' || el.style.opacity === '1', el.className).toBe(true);
+        el = el.parentElement;
+      }
+    }
+    // the label text keeps the full-contrast token
+    expect(block('.cmap-label {')).toMatch(/color: var\(--text\)/);
+    expect(block('.cmap-label {')).not.toMatch(/opacity/);
+  });
+});
