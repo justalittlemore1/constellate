@@ -380,7 +380,8 @@ export class LiveSession {
               conversationId: this.conversationId,
               atMs,
               nodeId: node?.id ?? null,
-              note: null,
+              // the schema has already trimmed it to 1–140 chars
+              note: msg.note ?? null,
               source: msg.source,
             },
           },

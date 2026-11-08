@@ -197,6 +197,51 @@ describe('live protocol', () => {
     expect(Object.keys((await h.store.loadGraph(conversationId))!.nodes)).toHaveLength(1);
   });
 
+  it('a flag with a note persists and reloads; a flag without one stores null', async () => {
+    h = await makeHarness();
+    const c = await connect(h.app);
+    c.send(hello());
+    const { conversationId } = await c.waitFor('ready');
+    c.sendAudio(AUDIO_BYTES_PER_MS * 2_000);
+    await until(() => h.adapters[0]!.pushedBytes === AUDIO_BYTES_PER_MS * 2_000);
+    c.send({ t: 'flag', atMs: 1_000, source: 'button', note: '  ask Sam about the essay  ' });
+    c.send({ t: 'flag', atMs: 1_500, source: 'key' });
+    await until(() => c.messages.filter((m) => m.t === 'ops').length === 2);
+    const sent = c.messages.flatMap((m) =>
+      m.t === 'ops' ? m.batch.ops.flatMap((o) => (o.op === 'flag.add' ? [o.flag.note] : [])) : [],
+    );
+    expect(sent).toEqual(['ask Sam about the essay', null]); // broadcast as stored
+    c.send({ t: 'stop' });
+    await c.waitFor('stopped');
+
+    const reloaded = (await h.store.loadGraph(conversationId))!;
+    expect(reloaded.flags.map((f) => [f.atMs, f.note])).toEqual([
+      [1_000, 'ask Sam about the essay'],
+      [1_500, null],
+    ]);
+    expect(h.store.materialized(conversationId).flags.map((f) => f.note)).toEqual(['ask Sam about the essay', null]);
+    const res = await h.app.inject({
+      method: 'GET',
+      url: `/conversations/${conversationId}`,
+      headers: { authorization: 'Bearer token-a' },
+    });
+    expect(res.json().flags.map((f: { note: string | null }) => f.note)).toEqual(['ask Sam about the essay', null]);
+  });
+
+  it('a blank or over-long flag note is refused without ending the session', async () => {
+    h = await makeHarness();
+    const c = await connect(h.app);
+    c.send(hello());
+    await c.waitFor('ready');
+    c.send({ t: 'flag', atMs: 0, source: 'button', note: '   ' });
+    expect(await c.waitFor('error')).toMatchObject({ code: 'protocol', fatal: false });
+    c.send({ t: 'flag', atMs: 0, source: 'button', note: 'x'.repeat(141) });
+    await until(() => c.messages.filter((m) => m.t === 'error').length === 2);
+    c.send({ t: 'ping' });
+    await c.waitFor('pong');
+    expect(c.messages.some((m) => m.t === 'ops')).toBe(false);
+  });
+
   it('clamps flag times to the audio clock', async () => {
     h = await makeHarness();
     const c = await connect(h.app);
