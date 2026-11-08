@@ -7,14 +7,27 @@ import { LlmError } from './llm/errors';
 const open = (label: string, starts: string, explicit = true) =>
   dec({
     action: 'new_topic',
-    new_topic: { label, summary: 's', level: 1, relation: 'sibling_of_active', parent_node_id: null, starts_at_utterance: starts, explicit_shift: explicit },
+    new_topic: {
+      label,
+      summary: 's',
+      level: 1,
+      relation: 'sibling_of_active',
+      parent_node_id: null,
+      starts_at_utterance: starts,
+      explicit_shift: explicit,
+    },
   });
 
 function setup(script: Parameters<typeof scriptedLlm>[0]) {
   const deps = memoryDeps();
   const llm = scriptedLlm(script);
   const records: DecisionRecord[] = [];
-  const interp = createInterpreter(deps, { llm, scheduler: deps.clock, systemPrompt: 'SYSTEM', onDecision: (r) => records.push(r) });
+  const interp = createInterpreter(deps, {
+    llm,
+    scheduler: deps.clock,
+    systemPrompt: 'SYSTEM',
+    onDecision: (r) => records.push(r),
+  });
   const feed = async (u: ReturnType<typeof utt>) => {
     deps.clock.advance(u.endMs);
     interp.pushUtterance(u);
@@ -122,7 +135,10 @@ describe('live interpreter', () => {
       if (n === 2) return open('Concert Tickets', 'u2');
       expect(a.user).toContain('REVISIT CANDIDATES');
       expect(a.user).toMatch(/n1 \| Hockey Playoffs Goalie \| similarity/);
-      return dec({ action: 'revisit', revisit: { node_id: 'n1', starts_at_utterance: 'u3', label: null, summary: 'hockey playoffs goalie again' } });
+      return dec({
+        action: 'revisit',
+        revisit: { node_id: 'n1', starts_at_utterance: 'u3', label: null, summary: 'hockey playoffs goalie again' },
+      });
     });
     await t.feed(utt(1, 'anyway hockey playoffs goalie', 0, 2_000));
     await t.feed(utt(2, 'anyway concert tickets', 3_000, 5_000));
@@ -135,7 +151,10 @@ describe('live interpreter', () => {
   it('stop flushes the buffer, closes the active node and leaves threads unexplored', async () => {
     const t = setup((_a, n) =>
       n === 1
-        ? dec({ ...open('Camping', 'u1'), intentions: [{ kind: 'deferred_topic', label: 'Soccer', quote_utterance: 'u1' }] })
+        ? dec({
+            ...open('Camping', 'u1'),
+            intentions: [{ kind: 'deferred_topic', label: 'Soccer', quote_utterance: 'u1' }],
+          })
         : dec({ action: 'continue' }),
     );
     await t.feed(utt(1, 'remind me to tell you about soccer', 0, 3_000));

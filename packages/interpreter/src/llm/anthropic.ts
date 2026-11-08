@@ -13,7 +13,9 @@ export interface AnthropicClientOptions {
   client?: Anthropic;
 }
 
-function tuning(model: string): Pick<Anthropic.MessageCreateParamsNonStreaming, 'max_tokens' | 'thinking' | 'output_config'> {
+function tuning(
+  model: string,
+): Pick<Anthropic.MessageCreateParamsNonStreaming, 'max_tokens' | 'thinking' | 'output_config'> {
   if (model === MODELS.interpreter.anthropic) {
     return { max_tokens: 2_000, thinking: { type: 'disabled' }, output_config: { effort: 'low' } };
   }
@@ -30,14 +32,18 @@ export function createAnthropicClient(opts: AnthropicClientOptions = {}): LlmCli
         {
           model,
           ...base,
-          output_config: { ...base.output_config, format: { type: 'json_schema', schema: schema as Record<string, unknown> } },
+          output_config: {
+            ...base.output_config,
+            format: { type: 'json_schema', schema: schema as Record<string, unknown> },
+          },
           system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content: user }],
         },
         { timeout: timeoutMs, maxRetries: 0 },
       );
       const ms = performance.now() - t0;
-      if (res.stop_reason === 'refusal') throw new LlmError('refusal', `model refused (${res.stop_details?.category ?? 'unknown'})`);
+      if (res.stop_reason === 'refusal')
+        throw new LlmError('refusal', `model refused (${res.stop_details?.category ?? 'unknown'})`);
       if (res.stop_reason === 'max_tokens') throw new LlmError('truncated', 'response hit max_tokens');
       const text = res.content.flatMap((b) => (b.type === 'text' ? [b.text] : [])).join('');
       let data: T;

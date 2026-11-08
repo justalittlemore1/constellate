@@ -9,10 +9,7 @@ export const RELATIONS = ['child_of_active', 'sibling_of_active', 'child_of', 'n
 
 export const DecisionSchema = z.object({
   action: z.enum(['continue', 'new_topic', 'revisit']),
-  continue: z
-    .object({ summary_update: z.string().optional().nullable() })
-    .optional()
-    .nullable(),
+  continue: z.object({ summary_update: z.string().optional().nullable() }).optional().nullable(),
   new_topic: z
     .object({
       label: z.string().min(1),
@@ -85,7 +82,15 @@ export const DECISION_JSON_SCHEMA = {
             starts_at_utterance: str,
             explicit_shift: { type: 'boolean' },
           },
-          required: ['label', 'summary', 'level', 'relation', 'parent_node_id', 'starts_at_utterance', 'explicit_shift'],
+          required: [
+            'label',
+            'summary',
+            'level',
+            'relation',
+            'parent_node_id',
+            'starts_at_utterance',
+            'explicit_shift',
+          ],
         },
         { type: 'null' },
       ],
@@ -142,7 +147,8 @@ export function parseDecision(raw: unknown): { ok: true; decision: Decision } | 
     return { ok: false, error: r.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`).join('; ') };
   }
   const d = r.data;
-  if (d.action === 'new_topic' && !d.new_topic) return { ok: false, error: 'action is new_topic but new_topic is null' };
+  if (d.action === 'new_topic' && !d.new_topic)
+    return { ok: false, error: 'action is new_topic but new_topic is null' };
   if (d.action === 'revisit' && !d.revisit) return { ok: false, error: 'action is revisit but revisit is null' };
   if (d.new_topic?.relation === 'child_of' && d.action === 'new_topic' && !d.new_topic.parent_node_id) {
     return { ok: false, error: 'relation child_of requires parent_node_id' };

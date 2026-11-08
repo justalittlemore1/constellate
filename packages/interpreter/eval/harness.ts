@@ -50,7 +50,14 @@ export function loadFixtures(only?: string[]): TranscriptFixture[] {
 }
 
 export function fixtureUtterances(f: TranscriptFixture, conversationId: string): Utterance[] {
-  return f.utterances.map((u, i) => ({ id: `u${i + 1}`, conversationId, speaker: u.speaker, startMs: u.startMs, endMs: u.endMs, text: u.text }));
+  return f.utterances.map((u, i) => ({
+    id: `u${i + 1}`,
+    conversationId,
+    speaker: u.speaker,
+    startMs: u.startMs,
+    endMs: u.endMs,
+    text: u.text,
+  }));
 }
 
 export interface RunResult {
@@ -134,12 +141,16 @@ export function score(run: RunResult): Score {
   const topics = topicNodes(state);
   const holding = (uid: string) => topics.find((n) => n.utteranceIds.includes(uid));
   const near = (a: number, b: number) => Math.abs(a - b) <= tol;
-  const starts = topics.slice(1).filter((n) => n.utteranceIds.length > 0).map(firstUtterance);
+  const starts = topics
+    .slice(1)
+    .filter((n) => n.utteranceIds.length > 0)
+    .map(firstUtterance);
   const checks: Check[] = [];
   const add = (name: string, pass: boolean, detail: string) => checks.push({ name, pass, detail });
 
   if (run.error) add('ran without error', false, run.error);
-  if (ex.topicCount !== undefined) add('topic count', topics.length === ex.topicCount, `${topics.length} (want ${ex.topicCount})`);
+  if (ex.topicCount !== undefined)
+    add('topic count', topics.length === ex.topicCount, `${topics.length} (want ${ex.topicCount})`);
   if (ex.topicCountRange) {
     const [lo, hi] = ex.topicCountRange;
     add('topic count range', topics.length >= lo && topics.length <= hi, `${topics.length} (want ${lo}–${hi})`);
@@ -158,22 +169,38 @@ export function score(run: RunResult): Score {
       }
     }
     boundary = { tp, produced: starts.length, expected: want.length };
-    add('boundaries', tp === want.length, `found ${tp}/${want.length}; starts at ${starts.map((s) => `u${s}`).join(', ') || '—'} (want ${ex.boundaries.join(', ')} ±${tol})`);
+    add(
+      'boundaries',
+      tp === want.length,
+      `found ${tp}/${want.length}; starts at ${starts.map((s) => `u${s}`).join(', ') || '—'} (want ${ex.boundaries.join(', ')} ±${tol})`,
+    );
   }
 
   if (ex.anchorKeywords) {
     const a = (state.conversation.macroAnchor ?? '').toLowerCase();
-    add('macro anchor', ex.anchorKeywords.some((k) => a.includes(k.toLowerCase())), `"${state.conversation.macroAnchor ?? ''}"`);
+    add(
+      'macro anchor',
+      ex.anchorKeywords.some((k) => a.includes(k.toLowerCase())),
+      `"${state.conversation.macroAnchor ?? ''}"`,
+    );
   }
 
   for (const { parent, child } of ex.nesting ?? []) {
     const p = holding(parent);
     const c = holding(child);
     let ok = false;
-    for (let n: TopicNode | undefined = c?.parentId ? state.nodes[c.parentId] : undefined; n; n = n.parentId ? state.nodes[n.parentId] : undefined) {
+    for (
+      let n: TopicNode | undefined = c?.parentId ? state.nodes[c.parentId] : undefined;
+      n;
+      n = n.parentId ? state.nodes[n.parentId] : undefined
+    ) {
       if (p && n.threadId === p.threadId) ok = true;
     }
-    add(`nesting ${parent} ⊃ ${child}`, ok, `${c?.label ?? '—'} → parent ${c?.parentId ? state.nodes[c.parentId]?.label : '—'} (want under ${p?.label ?? '—'})`);
+    add(
+      `nesting ${parent} ⊃ ${child}`,
+      ok,
+      `${c?.label ?? '—'} → parent ${c?.parentId ? state.nodes[c.parentId]?.label : '—'} (want under ${p?.label ?? '—'})`,
+    );
   }
 
   let revisitOk: boolean | null = null;
@@ -186,7 +213,14 @@ export function score(run: RunResult): Score {
       const e = edges.find((ed) => {
         const src = state.nodes[ed.sourceId];
         const dst = state.nodes[ed.targetId];
-        return !matched.has(ed.id) && src && dst && target && near(firstUtterance(src), uNum(r.at)) && dst.threadId === target.threadId;
+        return (
+          !matched.has(ed.id) &&
+          src &&
+          dst &&
+          target &&
+          near(firstUtterance(src), uNum(r.at)) &&
+          dst.threadId === target.threadId
+        );
       });
       if (e) {
         matched.add(e.id);
@@ -200,16 +234,28 @@ export function score(run: RunResult): Score {
   for (const [a, b] of ex.sameThread ?? []) {
     const na = holding(a);
     const nb = holding(b);
-    add(`same thread ${a}/${b}`, !!na && !!nb && na.threadId === nb.threadId, `${na?.label ?? '—'} / ${nb?.label ?? '—'}`);
+    add(
+      `same thread ${a}/${b}`,
+      !!na && !!nb && na.threadId === nb.threadId,
+      `${na?.label ?? '—'} / ${nb?.label ?? '—'}`,
+    );
   }
   for (const [a, b] of ex.differentThreads ?? []) {
     const na = holding(a);
     const nb = holding(b);
-    add(`different threads ${a}/${b}`, !!na && !!nb && na.threadId !== nb.threadId, `${na?.label ?? '—'} / ${nb?.label ?? '—'}`);
+    add(
+      `different threads ${a}/${b}`,
+      !!na && !!nb && na.threadId !== nb.threadId,
+      `${na?.label ?? '—'} / ${nb?.label ?? '—'}`,
+    );
   }
   for (const [a, b] of ex.noBoundaryWithin ?? []) {
     const bad = starts.filter((s) => s >= uNum(a) && s <= uNum(b));
-    add(`no boundary in ${a}–${b}`, bad.length === 0, bad.length ? `starts at ${bad.map((s) => `u${s}`).join(', ')}` : 'none');
+    add(
+      `no boundary in ${a}–${b}`,
+      bad.length === 0,
+      bad.length ? `starts at ${bad.map((s) => `u${s}`).join(', ')}` : 'none',
+    );
   }
 
   let threads: Score['threads'] = null;
@@ -219,7 +265,8 @@ export function score(run: RunResult): Score {
     let matched = 0;
     for (const p of ex.pending) {
       const n = produced.find(
-        (x) => !used.has(x.id) && p.keywords.some((k) => `${x.label} ${x.summary}`.toLowerCase().includes(k.toLowerCase())),
+        (x) =>
+          !used.has(x.id) && p.keywords.some((k) => `${x.label} ${x.summary}`.toLowerCase().includes(k.toLowerCase())),
       );
       if (!n) {
         add(`pending "${p.keywords[0]}"`, false, 'not created');
@@ -233,7 +280,12 @@ export function score(run: RunResult): Score {
         const want = uNum(p.resolvedAt);
         const linked = Object.values(state.edges).some((e) => {
           const t = state.nodes[e.targetId];
-          return e.kind === 'tether' && e.sourceId === n.id && t?.kind === 'topic' && t.utteranceIds.some((u) => near(uNum(u), want));
+          return (
+            e.kind === 'tether' &&
+            e.sourceId === n.id &&
+            t?.kind === 'topic' &&
+            t.utteranceIds.some((u) => near(uNum(u), want))
+          );
         });
         ok &&= linked;
         detail += linked ? ', linked to the later topic' : ', NOT linked to the later topic';
@@ -241,20 +293,41 @@ export function score(run: RunResult): Score {
       add(`pending "${p.keywords[0]}"`, ok, detail);
     }
     threads = { matched, produced: produced.length, expected: ex.pending.length };
-    add('pending count', produced.length === ex.pending.length, `${produced.length} (want ${ex.pending.length})${produced.length ? `: ${produced.map((x) => x.label).join(', ')}` : ''}`);
+    add(
+      'pending count',
+      produced.length === ex.pending.length,
+      `${produced.length} (want ${ex.pending.length})${produced.length ? `: ${produced.map((x) => x.label).join(', ')}` : ''}`,
+    );
   }
 
   if (ex.commitments) {
     const cs = state.commitments;
-    const ok = cs.length === ex.commitments.length && ex.commitments.every((c) => cs.some((x) => c.keywords.some((k) => x.text.toLowerCase().includes(k.toLowerCase()))));
-    add('commitments', ok, `${cs.length ? cs.map((c) => `"${c.text}"`).join(', ') : 'none'} (want ${ex.commitments.length})`);
+    const ok =
+      cs.length === ex.commitments.length &&
+      ex.commitments.every((c) =>
+        cs.some((x) => c.keywords.some((k) => x.text.toLowerCase().includes(k.toLowerCase()))),
+      );
+    add(
+      'commitments',
+      ok,
+      `${cs.length ? cs.map((c) => `"${c.text}"`).join(', ') : 'none'} (want ${ex.commitments.length})`,
+    );
   }
 
   if (ex.maxChildlessLevel1Ms !== undefined) {
     const long = topics.filter(
-      (n) => n.level === 1 && !topics.some((c) => c.parentId === n.id) && (n.endMs ?? run.durationMs) - n.startMs > ex.maxChildlessLevel1Ms!,
+      (n) =>
+        n.level === 1 &&
+        !topics.some((c) => c.parentId === n.id) &&
+        (n.endMs ?? run.durationMs) - n.startMs > ex.maxChildlessLevel1Ms!,
     );
-    add('no long childless level-1 node', long.length === 0, long.length ? long.map((n) => `${n.label} ${Math.round(((n.endMs ?? run.durationMs) - n.startMs) / 1000)} s`).join(', ') : 'ok');
+    add(
+      'no long childless level-1 node',
+      long.length === 0,
+      long.length
+        ? long.map((n) => `${n.label} ${Math.round(((n.endMs ?? run.durationMs) - n.startMs) / 1000)} s`).join(', ')
+        : 'ok',
+    );
   }
 
   const minutes = run.durationMs / 60_000;
@@ -279,7 +352,11 @@ function fmt(ms: number): string {
 
 export function outline(state: GraphState): string {
   const nodes = Object.values(state.nodes).sort((a, b) => a.startMs - b.startMs || a.seq - b.seq);
-  const revisitOf = new Map(Object.values(state.edges).filter((e) => e.kind === 'revisit').map((e) => [e.sourceId, e.targetId]));
+  const revisitOf = new Map(
+    Object.values(state.edges)
+      .filter((e) => e.kind === 'revisit')
+      .map((e) => [e.sourceId, e.targetId]),
+  );
   const lines = [`anchor: ${state.conversation.macroAnchor ?? '(none)'}`];
   for (const n of nodes) {
     const ids = n.utteranceIds.map(uNum).sort((a, b) => a - b);
@@ -287,12 +364,16 @@ export function outline(state: GraphState): string {
     if (n.kind === 'topic') {
       const back = revisitOf.get(n.id);
       const mark = back ? ` ↺ revisits "${state.nodes[back]?.label}"` : '';
-      lines.push(`${'  '.repeat(n.level - 1)}- [L${n.level}] ${n.label} (${fmt(n.startMs)}, ${range})${mark} — ${n.summary}`);
+      lines.push(
+        `${'  '.repeat(n.level - 1)}- [L${n.level}] ${n.label} (${fmt(n.startMs)}, ${range})${mark} — ${n.summary}`,
+      );
     } else {
       const tethers = Object.values(state.edges)
         .filter((e) => e.kind === 'tether' && e.sourceId === n.id)
         .map((e) => state.nodes[e.targetId]?.label);
-      lines.push(`- (${n.kind}, ${n.status}) ${n.label} at ${fmt(n.startMs)}${tethers.length ? ` → discussed in "${tethers.join('", "')}"` : ''}`);
+      lines.push(
+        `- (${n.kind}, ${n.status}) ${n.label} at ${fmt(n.startMs)}${tethers.length ? ` → discussed in "${tethers.join('", "')}"` : ''}`,
+      );
     }
   }
   for (const c of state.commitments) lines.push(`- (promise) "${c.text}" at ${fmt(c.atMs)}`);
@@ -337,12 +418,27 @@ export function summarise(runs: RunResult[], scores: Score[]): Summary {
     total: scores.length,
     p50,
     p95: percentile(lat, 95),
-    boundaryP: ratio(sum((s) => s.boundary?.tp ?? 0), sum((s) => s.boundary?.produced ?? 0)),
-    boundaryR: ratio(sum((s) => s.boundary?.tp ?? 0), sum((s) => s.boundary?.expected ?? 0)),
-    threadP: ratio(sum((s) => s.threads?.matched ?? 0), sum((s) => s.threads?.produced ?? 0)),
-    threadR: ratio(sum((s) => s.threads?.matched ?? 0), sum((s) => s.threads?.expected ?? 0)),
+    boundaryP: ratio(
+      sum((s) => s.boundary?.tp ?? 0),
+      sum((s) => s.boundary?.produced ?? 0),
+    ),
+    boundaryR: ratio(
+      sum((s) => s.boundary?.tp ?? 0),
+      sum((s) => s.boundary?.expected ?? 0),
+    ),
+    threadP: ratio(
+      sum((s) => s.threads?.matched ?? 0),
+      sum((s) => s.threads?.produced ?? 0),
+    ),
+    threadR: ratio(
+      sum((s) => s.threads?.matched ?? 0),
+      sum((s) => s.threads?.expected ?? 0),
+    ),
     revisitAcc: ratio(rv.filter((s) => s.revisitOk).length, rv.length),
-    nodesPerMin: ratio(sum((s) => s.topics), minutes),
+    nodesPerMin: ratio(
+      sum((s) => s.topics),
+      minutes,
+    ),
     tokensPerMin: ratio(tokens, minutes),
     calls: runs.reduce((a, r) => a + r.records.length, 0),
     failedCalls: runs.reduce((a, r) => a + r.records.filter((d) => !d.decision).length, 0),
@@ -353,7 +449,14 @@ export function summarise(runs: RunResult[], scores: Score[]): Summary {
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
-export function renderReport(opts: { provider: string; model: string; mode: string; note?: string; runs: RunResult[]; scores: Score[] }): string {
+export function renderReport(opts: {
+  provider: string;
+  model: string;
+  mode: string;
+  note?: string;
+  runs: RunResult[];
+  scores: Score[];
+}): string {
   const s = summarise(opts.runs, opts.scores);
   const target = 60 / INTERPRETER.targetSecondsPerNode;
   const out: string[] = [];
@@ -370,9 +473,18 @@ export function renderReport(opts: { provider: string; model: string; mode: stri
     '| --- | --- | --- | --- | --- | --- |',
   );
   opts.scores.forEach((sc, i) => {
-    const lat = percentile(opts.runs[i]!.records.filter((d) => d.decision).map((d) => d.ms), 50);
-    const failed = sc.checks.filter((c) => !c.pass).map((c) => `${c.name}: ${c.detail}`).join('; ') || '—';
-    out.push(`| ${sc.id} | ${sc.pass ? 'pass' : '**FAIL**'} | ${sc.topics} | ${sc.nodesPerMin.toFixed(2)} | ${(lat / 1000).toFixed(2)} s | ${failed.replace(/\|/g, '/')} |`);
+    const lat = percentile(
+      opts.runs[i]!.records.filter((d) => d.decision).map((d) => d.ms),
+      50,
+    );
+    const failed =
+      sc.checks
+        .filter((c) => !c.pass)
+        .map((c) => `${c.name}: ${c.detail}`)
+        .join('; ') || '—';
+    out.push(
+      `| ${sc.id} | ${sc.pass ? 'pass' : '**FAIL**'} | ${sc.topics} | ${sc.nodesPerMin.toFixed(2)} | ${(lat / 1000).toFixed(2)} s | ${failed.replace(/\|/g, '/')} |`,
+    );
   });
   out.push('');
   opts.scores.forEach((sc, i) => {
@@ -380,7 +492,10 @@ export function renderReport(opts: { provider: string; model: string; mode: stri
     out.push(`## ${sc.id} — ${sc.pass ? 'pass' : 'FAIL'}`, '');
     for (const c of sc.checks) out.push(`- ${c.pass ? '✓' : '✗'} ${c.name}: ${c.detail}`);
     const errs = run.records.filter((d) => d.error || d.warnings.length);
-    for (const d of errs) out.push(`- note (${d.windowIds[0]}…${d.windowIds[d.windowIds.length - 1]}): ${[d.error, ...d.warnings].filter(Boolean).join('; ')}`);
+    for (const d of errs)
+      out.push(
+        `- note (${d.windowIds[0]}…${d.windowIds[d.windowIds.length - 1]}): ${[d.error, ...d.warnings].filter(Boolean).join('; ')}`,
+      );
     out.push('', '```', outline(run.state), '```', '');
   });
   return out.join('\n');

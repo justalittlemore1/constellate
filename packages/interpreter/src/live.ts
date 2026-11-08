@@ -17,7 +17,15 @@ import { granularityHint, type NodeCreation } from './granularity';
 import { createLlmClient, interpreterModel, providerFromEnv } from './llm';
 import { withTimeout } from './llm/errors';
 import type { LlmClient } from './llm/types';
-import { emptyMemory, effectiveActiveId, parkOps, stopOps, translate, validateDecision, type GateMemory } from './translate';
+import {
+  emptyMemory,
+  effectiveActiveId,
+  parkOps,
+  stopOps,
+  translate,
+  validateDecision,
+  type GateMemory,
+} from './translate';
 import { msUntilPause, pauseBefore, pauseDue, triggerOnUtterance, type TriggerReason } from './trigger';
 
 export interface Scheduler {
@@ -136,7 +144,9 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       if (!v) return [];
       const exclude = effectiveActiveId(state, memory) ?? undefined;
       const matches = await deps.matchNodes(v, INTERPRETER.revisitCandidateK, exclude);
-      return matches.filter((m) => m.similarity >= INTERPRETER.revisitCandidateMin && state.nodes[m.id]?.kind === 'topic');
+      return matches.filter(
+        (m) => m.similarity >= INTERPRETER.revisitCandidateMin && state.nodes[m.id]?.kind === 'topic',
+      );
     } catch (e) {
       log('interpreter.candidates.error', { message: String(e) });
       return [];
@@ -145,7 +155,9 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
 
   async function autoResolve(state: GraphState, d: Decision): Promise<string[]> {
     if (d.action !== 'new_topic' || !d.new_topic) return [];
-    const open = Object.values(state.nodes).filter((n) => n.kind !== 'topic' && n.status === 'active' && embeddings.has(n.id));
+    const open = Object.values(state.nodes).filter(
+      (n) => n.kind !== 'topic' && n.status === 'active' && embeddings.has(n.id),
+    );
     if (open.length === 0) return [];
     try {
       const [v] = await deps.embed([`${d.new_topic.label}. ${d.new_topic.summary}`]);
@@ -221,14 +233,22 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
         record.attempts = attempt;
         try {
           const res = await withTimeout(
-            getLlm().json<unknown>({ system, user, schema: DECISION_JSON_SCHEMA, model, timeoutMs: INTERPRETER.callTimeoutMs }),
+            getLlm().json<unknown>({
+              system,
+              user,
+              schema: DECISION_JSON_SCHEMA,
+              model,
+              timeoutMs: INTERPRETER.callTimeoutMs,
+            }),
             INTERPRETER.callTimeoutMs + 500,
           );
           record.ms += res.ms;
           record.inTok += res.inTok;
           record.outTok += res.outTok;
           const parsed = parseDecision(res.data);
-          const error = parsed.ok ? validateDecision(parsed.decision, packed.aliases, batch, deps.getState(), memory) : parsed.error;
+          const error = parsed.ok
+            ? validateDecision(parsed.decision, packed.aliases, batch, deps.getState(), memory)
+            : parsed.error;
           if (parsed.ok && !error) decision = parsed.decision;
           else {
             record.error = error;
@@ -255,7 +275,15 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       const result = translate({
         state: fresh,
         decision,
-        aliases: packContext({ state: fresh, utterancesById: byId, recent: [], window: batch, rollingSummary: '', candidates: [], hint: '' }).aliases,
+        aliases: packContext({
+          state: fresh,
+          utterancesById: byId,
+          recent: [],
+          window: batch,
+          rollingSummary: '',
+          candidates: [],
+          hint: '',
+        }).aliases,
         window: batch,
         utterancesById: byId,
         memory,
@@ -275,7 +303,13 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       log('interpreter.error', { message: record.error });
     } finally {
       deps.setStage?.('listening');
-      log('interpreter.decision', { reason, ms: Math.round(record.ms), attempts: record.attempts, ops: record.opCount, error: record.error });
+      log('interpreter.decision', {
+        reason,
+        ms: Math.round(record.ms),
+        attempts: record.attempts,
+        ops: record.opCount,
+        error: record.error,
+      });
       opts.onDecision?.(record);
     }
   }

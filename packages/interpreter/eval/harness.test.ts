@@ -12,7 +12,16 @@ const embed = async (ts: string[]) => ts.map((t) => bagEmbed(t));
 const topic = (label: string, starts: string, extra: Partial<NonNullable<Decision['new_topic']>> = {}): Decision =>
   dec({
     action: 'new_topic',
-    new_topic: { label, summary: label, level: 1, relation: 'sibling_of_active', parent_node_id: null, starts_at_utterance: starts, explicit_shift: true, ...extra },
+    new_topic: {
+      label,
+      summary: label,
+      level: 1,
+      relation: 'sibling_of_active',
+      parent_node_id: null,
+      starts_at_utterance: starts,
+      explicit_shift: true,
+      ...extra,
+    },
   });
 
 /** An "oracle" answering from a table keyed by utterance; the latest keyed utterance in the window wins. */
@@ -28,7 +37,15 @@ describe('eval harness scoring', () => {
   const [f01, , f03, f04, , f06] = loadFixtures(['01', '02', '03', '04', '05', '06']);
 
   it('a correct decision sequence passes 01 (simple shift)', async () => {
-    const run = await runFixture(f01!, oracle({ u1: { ...topic('Canucks Game', 'u1'), macro_anchor: 'Catching up' }, u6: topic('Friday Concert', 'u6') }), embed, 'test');
+    const run = await runFixture(
+      f01!,
+      oracle({
+        u1: { ...topic('Canucks Game', 'u1'), macro_anchor: 'Catching up' },
+        u6: topic('Friday Concert', 'u6'),
+      }),
+      embed,
+      'test',
+    );
     const s = score(run);
     expect(s.checks.filter((c) => !c.pass)).toEqual([]);
     expect(s.pass).toBe(true);
@@ -36,7 +53,12 @@ describe('eval harness scoring', () => {
   });
 
   it('a late boundary fails 01', async () => {
-    const run = await runFixture(f01!, oracle({ u1: topic('Canucks Game', 'u1'), u9: topic('Friday Concert', 'u9') }), embed, 'test');
+    const run = await runFixture(
+      f01!,
+      oracle({ u1: topic('Canucks Game', 'u1'), u9: topic('Friday Concert', 'u9') }),
+      embed,
+      'test',
+    );
     const s = score(run);
     expect(s.pass).toBe(false);
     expect(s.checks.find((c) => c.name === 'boundaries')!.pass).toBe(false);
@@ -48,7 +70,10 @@ describe('eval harness scoring', () => {
       oracle({
         u1: topic('Free Will', 'u1'),
         u8: topic('Job Offer', 'u8'),
-        u16: dec({ action: 'revisit', revisit: { node_id: 'n1', starts_at_utterance: 'u16', label: null, summary: 'free will again' } }),
+        u16: dec({
+          action: 'revisit',
+          revisit: { node_id: 'n1', starts_at_utterance: 'u16', label: null, summary: 'free will again' },
+        }),
       }),
       embed,
       'test',
@@ -62,7 +87,12 @@ describe('eval harness scoring', () => {
     const good = await runFixture(
       f04!,
       // the marker in u4 closes the first window (u1–u4), so the deferral arrives with the first topic
-      oracle({ u1: { ...topic('Camping Trip', 'u1'), intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u4' }] } }),
+      oracle({
+        u1: {
+          ...topic('Camping Trip', 'u1'),
+          intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u4' }],
+        },
+      }),
       embed,
       'test',
     );
@@ -77,7 +107,10 @@ describe('eval harness scoring', () => {
       oracle({
         u1: topic('Orgo Final Studying', 'u1'),
         u9: topic('Pigeon', 'u9', { explicit_shift: false, level: 2, relation: 'child_of_active' }),
-        u12: dec({ action: 'revisit', revisit: { node_id: 'n1', starts_at_utterance: 'u12', label: null, summary: 'back to studying' } }),
+        u12: dec({
+          action: 'revisit',
+          revisit: { node_id: 'n1', starts_at_utterance: 'u12', label: null, summary: 'back to studying' },
+        }),
       }),
       embed,
       'test',
@@ -87,7 +120,12 @@ describe('eval harness scoring', () => {
   });
 
   it('renders a report with the summary table and outlines', async () => {
-    const run = await runFixture(f01!, oracle({ u1: topic('Canucks Game', 'u1'), u6: topic('Friday Concert', 'u6') }), embed, 'test');
+    const run = await runFixture(
+      f01!,
+      oracle({ u1: topic('Canucks Game', 'u1'), u6: topic('Friday Concert', 'u6') }),
+      embed,
+      'test',
+    );
     const md = renderReport({ provider: 'test', model: 'test', mode: 'scripted', runs: [run], scores: [score(run)] });
     expect(md).toContain('Scenarios passed: 1/1');
     expect(md).toContain('| 01-simple-shift | pass |');
@@ -110,7 +148,10 @@ describe('eval replay', () => {
       for (const f of loadFixtures()) {
         const run = await runFixture(f, llm, emb, model);
         expect(run.error, f.id).toBeNull();
-        expect(run.records.every((r) => !r.error?.includes('no recording')), f.id).toBe(true);
+        expect(
+          run.records.every((r) => !r.error?.includes('no recording')),
+          f.id,
+        ).toBe(true);
       }
     }, 120_000);
   }

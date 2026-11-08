@@ -19,7 +19,9 @@ function makeAi(opts: GeminiClientOptions): GoogleGenAI {
 }
 
 function thinkingLevel(model: string): ThinkingLevel {
-  return model === MODELS.interpreter.gemini || model === MODELS.interpreter.fast ? ThinkingLevel.LOW : ThinkingLevel.MEDIUM;
+  return model === MODELS.interpreter.gemini || model === MODELS.interpreter.fast
+    ? ThinkingLevel.LOW
+    : ThinkingLevel.MEDIUM;
 }
 
 export function createGeminiClient(opts: GeminiClientOptions = {}): LlmClient {
@@ -43,7 +45,8 @@ export function createGeminiClient(opts: GeminiClientOptions = {}): LlmClient {
         });
         const ms = performance.now() - t0;
         const text = res.text;
-        if (!text) throw new LlmError('empty', `empty response (${res.candidates?.[0]?.finishReason ?? 'no candidate'})`);
+        if (!text)
+          throw new LlmError('empty', `empty response (${res.candidates?.[0]?.finishReason ?? 'no candidate'})`);
         let data: T;
         try {
           data = JSON.parse(text) as T;
@@ -78,7 +81,8 @@ export function createGeminiEmbedder(opts: GeminiClientOptions = {}): (texts: st
       config: { outputDimensionality: MODELS.embedDims },
     });
     const out = (res.embeddings ?? []).map((e) => normalise(e.values ?? []));
-    if (out.length !== texts.length) throw new Error(`embedContent returned ${out.length} vectors for ${texts.length} texts`);
+    if (out.length !== texts.length)
+      throw new Error(`embedContent returned ${out.length} vectors for ${texts.length} texts`);
     return out;
   };
 }

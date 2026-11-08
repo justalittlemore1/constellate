@@ -56,7 +56,14 @@ export function createReplayClient(
       if (mode === 'replay' || !inner) throw new LlmError('replay_miss', `no recording for ${args.model} ${key}`);
       const res = await inner.json<T>(args);
       mkdirSync(folder, { recursive: true });
-      const rec: Recording = { key, model: args.model, data: res.data, ms: Math.round(res.ms), inTok: res.inTok, outTok: res.outTok };
+      const rec: Recording = {
+        key,
+        model: args.model,
+        data: res.data,
+        ms: Math.round(res.ms),
+        inTok: res.inTok,
+        outTok: res.outTok,
+      };
       writeFileSync(file, `${JSON.stringify(rec)}\n`);
       store.used.add(file);
       return res;
@@ -83,7 +90,8 @@ export function createReplayEmbedder(
       } else missing.push(i);
     });
     if (missing.length > 0) {
-      if (mode === 'replay' || !inner) throw new LlmError('replay_miss', `no embedding recording for ${missing.length} text(s)`);
+      if (mode === 'replay' || !inner)
+        throw new LlmError('replay_miss', `no embedding recording for ${missing.length} text(s)`);
       const got = await inner(missing.map((i) => texts[i]!));
       mkdirSync(folder, { recursive: true });
       missing.forEach((i, j) => {

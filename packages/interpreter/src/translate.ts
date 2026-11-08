@@ -104,12 +104,7 @@ export function validateDecision(
 
 /** 1–4 words, no trailing punctuation, first letters capitalised. */
 export function cleanLabel(raw: string): string {
-  const words = raw
-    .replace(/["“”]/g, '')
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, LABEL_MAX_WORDS);
+  const words = raw.replace(/["“”]/g, '').trim().split(/\s+/).filter(Boolean).slice(0, LABEL_MAX_WORDS);
   const label = words.map((w) => (w[0] ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
   return label.replace(/[.,;:!?…-]+$/, '') || 'Untitled';
 }
@@ -336,7 +331,11 @@ export function translate(input: TranslateInput): TranslateResult {
   const b = new Builder(input.state, input.memory, input.newId);
   const created: TranslateResult['created'] = [];
   const idOf = (alias: string | null | undefined) => (alias ? aliases.toId.get(alias) : undefined);
-  const indexOf = (uid: string) => Math.max(0, window.findIndex((u) => u.id === uid));
+  const indexOf = (uid: string) =>
+    Math.max(
+      0,
+      window.findIndex((u) => u.id === uid),
+    );
 
   // 1 ─ settle the pending provisional node
   let action = d.action;

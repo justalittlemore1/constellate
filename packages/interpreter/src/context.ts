@@ -80,16 +80,12 @@ export function packContext(input: PackInput): Packed {
   for (const n of topics) {
     const isActive = n.id === activeId;
     const status =
-      n.status === 'provisional'
-        ? isActive
-          ? 'ACTIVE (provisional)'
-          : 'provisional'
-        : isActive
-          ? 'ACTIVE'
-          : n.status;
+      n.status === 'provisional' ? (isActive ? 'ACTIVE (provisional)' : 'provisional') : isActive ? 'ACTIVE' : n.status;
     const span = `${fmtTime(n.startMs)}–${n.endMs !== null ? fmtTime(n.endMs) : ''}`;
     const thread =
-      topics.filter((t) => t.threadId === n.threadId).length > 1 ? ` | thread of ${al(topics.find((t) => t.threadId === n.threadId)!.id)}` : '';
+      topics.filter((t) => t.threadId === n.threadId).length > 1
+        ? ` | thread of ${al(topics.find((t) => t.threadId === n.threadId)!.id)}`
+        : '';
     lines.push(`${al(n.id)} | L${n.level} | ${n.label} | parent ${al(n.parentId)} | ${status} | ${span}${thread}`);
   }
 

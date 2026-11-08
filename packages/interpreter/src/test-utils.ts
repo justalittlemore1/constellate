@@ -8,7 +8,13 @@ import type { Decision } from './decision';
 import type { Scheduler } from './live';
 import type { LlmClient, LlmJsonArgs } from './llm/types';
 
-export function utt(n: number, text: string, startMs: number, endMs = startMs + 5_000, speaker: number | null = 0): Utterance {
+export function utt(
+  n: number,
+  text: string,
+  startMs: number,
+  endMs = startMs + 5_000,
+  speaker: number | null = 0,
+): Utterance {
   return { id: `u${n}`, conversationId: TEST_CONVERSATION_ID, speaker, startMs, endMs, text };
 }
 
@@ -57,7 +63,10 @@ export interface MemoryDeps extends InterpreterDeps {
   clock: VirtualClock;
 }
 
-export function memoryDeps(clock = new VirtualClock(), embed = async (ts: string[]) => ts.map((t) => bagEmbed(t))): MemoryDeps {
+export function memoryDeps(
+  clock = new VirtualClock(),
+  embed = async (ts: string[]) => ts.map((t) => bagEmbed(t)),
+): MemoryDeps {
   let n = 0;
   let seq = 0;
   const deps: MemoryDeps = {

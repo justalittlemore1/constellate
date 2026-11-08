@@ -56,13 +56,20 @@ async function main() {
       console.log(`[eval] ${provider}: no recordings for ${model}, skipped`);
       continue;
     }
-    const llm = createReplayClient(mode === 'replay' ? null : createLlmClient(fast ? 'gemini' : provider), RECORDINGS, mode, store);
+    const llm = createReplayClient(
+      mode === 'replay' ? null : createLlmClient(fast ? 'gemini' : provider),
+      RECORDINGS,
+      mode,
+      store,
+    );
     const runs: RunResult[] = [];
     for (const f of fixtures) {
       process.stdout.write(`[eval] ${provider} ${f.id} … `);
       const run = await runFixture(f, llm, embed, model);
       const sc = score(run);
-      console.log(`${sc.pass ? 'pass' : 'FAIL'} (${sc.topics} topics, ${run.records.length} calls${run.error ? `, error: ${run.error}` : ''})`);
+      console.log(
+        `${sc.pass ? 'pass' : 'FAIL'} (${sc.topics} topics, ${run.records.length} calls${run.error ? `, error: ${run.error}` : ''})`,
+      );
       runs.push(run);
     }
     const scores = runs.map(score);

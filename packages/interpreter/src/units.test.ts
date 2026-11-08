@@ -72,7 +72,13 @@ describe('granularity', () => {
     const c = [10_000, 30_000, 50_000].map((atMs) => ({ atMs, explicit: false }));
     expect(granularityHint(s, 60_000, c)).toBe(HINT_CONSERVATIVE);
     expect(granularityHint(s, 75_000, c)).toBe('');
-    expect(granularityHint(s, 60_000, c.map((x) => ({ ...x, explicit: true })))).toBe('');
+    expect(
+      granularityHint(
+        s,
+        60_000,
+        c.map((x) => ({ ...x, explicit: true })),
+      ),
+    ).toBe('');
   });
 });
 
@@ -117,7 +123,15 @@ describe('context packing', () => {
   });
 
   it('tells the model the first decision must open a topic', () => {
-    const p = packContext({ state: makeGraph(), utterancesById: new Map(), recent: [], window: [utt(1, 'hi', 0)], rollingSummary: '', candidates: [], hint: '' });
+    const p = packContext({
+      state: makeGraph(),
+      utterancesById: new Map(),
+      recent: [],
+      window: [utt(1, 'hi', 0)],
+      rollingSummary: '',
+      candidates: [],
+      hint: '',
+    });
     expect(p.text).toContain('this decision must be new_topic');
     expect(p.text).toContain('MACRO ANCHOR: (not set yet');
     expect(p.text).not.toContain('GRANULARITY HINT');
@@ -135,7 +149,15 @@ describe('decision schema', () => {
   it('requires parent_node_id for child_of', () => {
     const d = dec({
       action: 'new_topic',
-      new_topic: { label: 'X', summary: 's', level: 2, relation: 'child_of', parent_node_id: null, starts_at_utterance: 'u1', explicit_shift: false },
+      new_topic: {
+        label: 'X',
+        summary: 's',
+        level: 2,
+        relation: 'child_of',
+        parent_node_id: null,
+        starts_at_utterance: 'u1',
+        explicit_shift: false,
+      },
     });
     expect(parseDecision(d).ok).toBe(false);
   });
