@@ -118,7 +118,8 @@ function Label({
           align,
           l.side === 'above' ? 'justify-end' : 'justify-start',
         )}
-        style={{ width: l.w, height: l.h, left: box + (l.x0 - place.x), top: box + (l.y0 - place.y) }}
+        // min-height, never a fixed height: the box can grow, so a line is never cut in half
+        style={{ width: l.w, minHeight: l.h, left: box + (l.x0 - place.x), top: box + (l.y0 - place.y) }}
       >
         {body}
       </div>

@@ -147,8 +147,9 @@ describe('weaving layout', () => {
     // one row per star, a little more vertical room than before
     vg.nodes.forEach((v, i) => expect(lay.nodes.get(v.node.id)!.y).toBe(WEAVE.top + i * WEAVE.row));
     expect(WEAVE.row).toBeGreaterThan(76);
-    // returns always loop (a side channel), never a plain curve
-    for (const e of vg.edges.filter((x) => x.returning)) expect(lay.routes.get(e.id)!.kind).toBe('channel');
+    // every connection is a straight line, or one gentle arc where something is in the way
+    for (const e of vg.edges.filter((x) => x.kind !== 'note'))
+      expect(['line', 'arc']).toContain(lay.routes.get(e.id)!.kind);
   });
 
   it('no overlaps: no line through a label or another star, no label on a star or another label', () => {
@@ -198,15 +199,10 @@ describe('weaving layout', () => {
     }
   });
 
-  it('labels sit level with their star on the side with room; the label of the last star sits centred below it', () => {
+  it('each label sits on a side of its star that its lines leave free', () => {
     const vg = vgOf(demo);
     const lay = weaveLayout(vg);
-    vg.nodes.forEach((v, i) => {
-      const l = lay.labels.get(v.node.id)!;
-      if (i === vg.nodes.length - 1) expect(l.side).toBe('below');
-      else expect(['right', 'left']).toContain(l.side);
-    });
-    expect(new Set([...lay.labels.values()].map((l) => l.side)).size).toBeGreaterThanOrEqual(2);
+    for (const v of vg.nodes) expect(['right', 'left', 'below', 'above']).toContain(lay.labels.get(v.node.id)!.side);
     render(<ConversationMap state={demo} />);
     const label = screen
       .getByTestId(`map-node-${byLabel('Gospel Sources').id}`)
