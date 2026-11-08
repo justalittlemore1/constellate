@@ -21,6 +21,7 @@ import {
   type ServerMsg,
 } from '@constellate/shared';
 import type { Capture, CaptureSource } from './audio';
+import { FLAG_NOTE_MAX_CHARS } from './flags';
 import type { LiveTransport, TransportFactory } from './transport';
 
 export type LivePhase = 'idle' | 'consenting' | 'connecting' | 'live' | 'stopping' | 'stopped' | 'error';
@@ -86,6 +87,7 @@ export const MAX_BUFFERED_FRAMES = 50;
 export const STOP_TIMEOUT_MS = 20_000;
 export const MAX_CAPTIONS = 20;
 export const PARK_MAX_CHARS = 80;
+
 
 /** WebSocket close codes after which reconnecting is pointless */
 const FATAL_CLOSE_CODES = new Set([1008, 1011]);
@@ -267,7 +269,10 @@ export class LiveController {
         return this.onBatch(msg.batch);
       case 'caption':
         if (msg.final) {
-          const captions = [...this.snap.captions, { text: msg.text, startMs: msg.startMs, utteranceId: msg.utteranceId }];
+          const captions = [
+            ...this.snap.captions,
+            { text: msg.text, startMs: msg.startMs, utteranceId: msg.utteranceId },
+          ];
           this.set({ captions: captions.slice(-MAX_CAPTIONS), interim: null });
         } else {
           this.set({ interim: msg.text });
@@ -468,6 +473,20 @@ export class LiveController {
   flag(source: FlagSource): boolean {
     if (this.snap.phase !== 'live') return false;
     this.sendOrQueue({ t: 'flag', atMs: Math.round(this.clockMs()), source });
+    return true;
+  }
+
+  /**
+   * Flag the moment `atMs` (when the press started, never in the future) with a short note. The
+   * note rides on the `flag` message (contract: optional `note`, 1–140 chars after trimming) and
+   * the server stores it as Flag.note on the topic covering that moment. Queued like any flag
+   * while reconnecting. An empty note sends a plain flag.
+   */
+  flagWithNote(source: FlagSource, note: string, atMs: number = this.clockMs()): boolean {
+    if (this.snap.phase !== 'live') return false;
+    const at = Math.round(Math.max(0, Math.min(atMs, this.clockMs())));
+    const clean = note.trim().slice(0, FLAG_NOTE_MAX_CHARS);
+    this.sendOrQueue({ t: 'flag', atMs: at, source, ...(clean ? { note: clean } : {}) });
     return true;
   }
 

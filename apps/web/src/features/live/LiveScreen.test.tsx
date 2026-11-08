@@ -6,6 +6,7 @@ import { usePrefs } from '../../lib/prefs';
 import { installFlowDomStubs } from '../map/testing';
 import { MapBoundary } from './LiveMap';
 import type { LiveDeps } from './controller';
+import { FLAG_HOLD_MS, type LiveFeatures } from './flags';
 import { mockDeps } from './deps';
 import { LiveNodeList } from './LiveNodeList';
 import { PhoneFrame } from '../../app/PhoneFrame';
@@ -34,11 +35,19 @@ function renderScreen(
   deps: LiveDeps,
   source: Parameters<typeof LiveScreen>[0]['initialSource'] = { kind: 'mic' },
   speed?: number,
+  features?: Partial<LiveFeatures>,
 ) {
   const onDone = vi.fn();
   const onCancel = vi.fn();
   const utils = render(
-    <LiveScreen initialSource={source} deps={deps} speed={speed} onDone={onDone} onCancel={onCancel} />,
+    <LiveScreen
+      initialSource={source}
+      deps={deps}
+      speed={speed}
+      features={features}
+      onDone={onDone}
+      onCancel={onCancel}
+    />,
   );
   return { onDone, onCancel, ...utils };
 }
@@ -66,7 +75,9 @@ describe('LiveScreen on the mock server', () => {
 
   it('in the node list (low-stimulation): grows topics, shows captions, flags and parks, then lists open threads', async () => {
     usePrefs.getState().set({ lowStimulation: true });
-    const { onDone } = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
+    const { onDone } = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, undefined, {
+      parkThought: true,
+    });
     await advance(0);
     fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
     await advance(60_000); // four minutes of conversation at 4×
@@ -204,8 +215,8 @@ describe('LiveScreen accessibility', () => {
       fireEvent.keyDown(el, { key });
     });
 
-  async function startDemo() {
-    const utils = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
+  async function startDemo(features?: Partial<LiveFeatures>) {
+    const utils = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, undefined, features);
     await advance(0);
     fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
     await advance(20_000);
@@ -226,7 +237,7 @@ describe('LiveScreen accessibility', () => {
   });
 
   it('Park traps focus, ignores F typed in its field, closes on Escape and returns focus to the opener', async () => {
-    await startDemo();
+    await startDemo({ parkThought: true });
     expect(screen.getByTestId('live-content')).not.toHaveAttribute('inert');
     const opener = screen.getByRole('button', { name: 'Park a thought' });
     opener.focus();
@@ -418,5 +429,141 @@ describe('caption strip', () => {
     expect(long[long.length - shown.length - 1]).toBe(' '); // starts at a word boundary
     // screen readers still get the whole caption
     expect(screen.getByText(long)).toHaveClass('sr-only');
+  });
+});
+
+describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
+  let server: MockLiveServer;
+  let deps: LiveDeps;
+  beforeEach(() => {
+    ({ server, deps } = mockDeps({ speed: 4 }));
+  });
+  afterEach(() => server.dispose());
+
+  async function live(features?: Partial<LiveFeatures>) {
+    const utils = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, 4, features);
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
+    await advance(20_000); // ~80 s of conversation: Historical Jesus is the current topic
+    return utils;
+  }
+  const flagButton = () => screen.getByRole('button', { name: /^(Flag|Keep holding…)$/ });
+  const hold = async () => {
+    const b = flagButton();
+    fireEvent.pointerDown(b);
+    await advance(FLAG_HOLD_MS);
+    fireEvent.pointerUp(b);
+  };
+  const shiftF = () =>
+    act(() => {
+      fireEvent.keyDown(window, { key: 'F', code: 'KeyF', shiftKey: true });
+    });
+
+  it('hides Park a thought by default: no button, two controls in the bar', async () => {
+    await live();
+    expect(screen.queryByRole('button', { name: 'Park a thought' })).not.toBeInTheDocument();
+    const bar = screen.getByRole('navigation', { name: 'Recording controls' });
+    expect(within(bar).getAllByRole('button').map((b) => b.textContent)).toEqual(['Flag', 'Stop']);
+  });
+
+  it('a tap still flags without a note', async () => {
+    await live();
+    const b = flagButton();
+    fireEvent.pointerDown(b);
+    fireEvent.pointerUp(b);
+    await advance(1);
+    expect(screen.queryByRole('dialog', { name: 'Add a note to this flag' })).not.toBeInTheDocument();
+    expect(server.state.flags.some((f) => f.source === 'button' && f.note === null)).toBe(true);
+  });
+
+  it('hold → labelled note field (≤ 140) in the star-chart frame → saved on the topic node, not as a new node', async () => {
+    await live();
+    const nodesBefore = Object.keys(server.state.nodes).length;
+    await hold();
+    const dialog = screen.getByRole('dialog', { name: 'Add a note to this flag' });
+    expect(dialog).toHaveAttribute('data-frame', 'star-chart');
+    expect(dialog.className).toContain('rounded-none');
+    const field = within(dialog).getByRole('textbox', { name: 'Note' });
+    expect(field).toHaveFocus();
+    expect(field).toHaveAttribute('maxLength', '140');
+    fireEvent.change(field, { target: { value: 'Sam on the Q source' } });
+    expect(within(dialog).getByText('19/140 characters')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Save note' }));
+    await advance(1);
+    const flag = server.state.flags.find((f) => f.note === 'Sam on the Q source');
+    expect(flag).toMatchObject({ source: 'button' });
+    expect(server.state.nodes[flag!.nodeId!]?.label).toBe('Historical Jesus');
+    expect(Object.keys(server.state.nodes)).toHaveLength(nodesBefore);
+    expect(screen.getByText('Flagged with a note')).toBeInTheDocument();
+  });
+
+  it('Escape cancels the note: nothing is flagged and focus goes back to Flag', async () => {
+    await live();
+    const flagsBefore = server.state.flags.length;
+    flagButton().focus();
+    await hold();
+    expect(screen.getByRole('dialog', { name: 'Add a note to this flag' })).toBeInTheDocument();
+    act(() => {
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    });
+    expect(screen.queryByRole('dialog', { name: 'Add a note to this flag' })).not.toBeInTheDocument();
+    expect(flagButton()).toHaveFocus();
+    await advance(10);
+    expect(server.state.flags).toHaveLength(flagsBefore);
+  });
+
+  it('Shift+F is the keyboard way in; "Flag without note" adds the plain flag', async () => {
+    await live();
+    shiftF();
+    const dialog = screen.getByRole('dialog', { name: 'Add a note to this flag' });
+    // typing F in the note never counts towards a double-F flag
+    const field = within(dialog).getByRole('textbox', { name: 'Note' });
+    fireEvent.keyDown(field, { key: 'f' });
+    fireEvent.keyDown(field, { key: 'f' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Flag without note' }));
+    await advance(1);
+    const keyFlags = server.state.flags.filter((f) => f.source === 'key');
+    expect(keyFlags).toHaveLength(1);
+    expect(keyFlags[0]!.note).toBeNull();
+  });
+
+  it('Enter in the note saves it', async () => {
+    await live();
+    shiftF();
+    const field = screen.getByRole('textbox', { name: 'Note' });
+    fireEvent.change(field, { target: { value: 'quick one' } });
+    fireEvent.keyDown(field, { key: 'Enter' });
+    await advance(1);
+    expect(server.state.flags.some((f) => f.note === 'quick one' && f.source === 'key')).toBe(true);
+  });
+
+  it('degraded (flagNotes: false): hold and Shift+F just flag, no note field', async () => {
+    await live({ flagNotes: false });
+    await hold();
+    expect(screen.queryByRole('dialog', { name: 'Add a note to this flag' })).not.toBeInTheDocument();
+    await advance(1);
+    expect(server.state.flags.filter((f) => f.source === 'button')).toHaveLength(1);
+    await advance(2000); // past the debounce
+    shiftF();
+    expect(screen.queryByRole('dialog', { name: 'Add a note to this flag' })).not.toBeInTheDocument();
+    await advance(1);
+    expect(server.state.flags.filter((f) => f.source === 'key')).toHaveLength(1);
+  });
+
+  it('consent and Before you go use the square star-chart frame; the recording dot is steady', async () => {
+    renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
+    await advance(0);
+    const consent = screen.getByRole('dialog', { name: 'Play the demo conversation' });
+    expect(consent).toHaveAttribute('data-frame', 'star-chart');
+    expect(within(consent).getByText(/Press and hold Flag \(or press Shift\+F\) to add a note/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
+    await advance(5000);
+    const dot = screen.getByText('Recording').querySelector('span[aria-hidden]')!;
+    expect(dot.className).not.toMatch(/animate|pulse/);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    await advance(0);
+    const bye = screen.getByRole('dialog', { name: 'Before you go' });
+    expect(bye).toHaveAttribute('data-frame', 'star-chart');
+    expect(bye.querySelector('[class*="rounded-xl"], [class*="rounded-full"]')).toBeNull();
   });
 });

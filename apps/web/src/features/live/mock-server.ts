@@ -186,7 +186,7 @@ export class MockLiveServer {
               conversationId: this.conversationId,
               atMs,
               nodeId: topicAt(this.state, atMs)?.id ?? null,
-              note: null,
+              note: msg.note ?? null,
               source: msg.source,
             },
           },

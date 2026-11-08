@@ -1,12 +1,16 @@
 /**
- * Dialogs of the live screen, built on A4's <Sheet> (ui/Sheet.tsx): labelled modal dialog, focus
- * moves in and is trapped, Escape / scrim / Close button call onClose, focus returns to the opener.
+ * Dialogs of the live screen. Consent, Before you go and the flag note use the star-chart frame
+ * (StarChartSheet: square corners); Park a thought (hidden by flags.ts) stays on A4's <Sheet>. All are
+ * labelled modal dialogs: focus moves in and is trapped, Escape / scrim / Close call onClose, focus
+ * returns to the opener.
  */
 import type { TopicNode } from '@constellate/shared';
 import { FileAudio, MicOff, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { Sheet } from '../../ui';
 import { PARK_MAX_CHARS, type LiveSnapshot } from './controller';
+import { FLAG_NOTE_MAX_CHARS } from './flags';
+import { frameBtn, StarChartSheet } from './StarChartSheet';
 
 const primaryBtn =
   'flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-topic px-5 font-semibold text-bg disabled:opacity-50';
@@ -19,14 +23,17 @@ export function ConsentSheet({
   demo,
   onAgree,
   onCancel,
+  notes = false,
 }: {
   open: boolean;
   demo: boolean;
   onAgree(): void;
   onCancel(): void;
+  /** flag notes are on: mention hold / Shift+F */
+  notes?: boolean;
 }) {
   return (
-    <Sheet
+    <StarChartSheet
       open={open}
       onClose={onCancel}
       title={demo ? 'Play the demo conversation' : 'Before we start'}
@@ -47,16 +54,88 @@ export function ConsentSheet({
       )}
       <p className="mt-3 text-[13px] text-ink-2">
         Flag a moment with the Flag button, a double-press of F or Space, or your headphones&rsquo; next-track button.
+        {notes && ' Press and hold Flag (or press Shift+F) to add a note.'}
       </p>
       <div className="mt-5 flex flex-col gap-2">
-        <button data-autofocus type="button" className={primaryBtn} onClick={onAgree}>
+        <button data-autofocus type="button" className={frameBtn.primary} onClick={onAgree}>
           {demo ? 'Start the demo' : 'Everyone agrees — start'}
         </button>
-        <button type="button" className={secondaryBtn} onClick={onCancel}>
+        <button type="button" className={frameBtn.secondary} onClick={onCancel}>
           Cancel
         </button>
       </div>
-    </Sheet>
+    </StarChartSheet>
+  );
+}
+
+/**
+ * A short note for the flag being added. Save note → flag with the note; Flag without note → the
+ * plain flag; Escape / Close / scrim → cancel (nothing is flagged).
+ */
+export function FlagNoteSheet({
+  open,
+  onSave,
+  onFlagOnly,
+  onCancel,
+}: {
+  open: boolean;
+  onSave(note: string): void;
+  onFlagOnly(): void;
+  onCancel(): void;
+}) {
+  return (
+    <StarChartSheet open={open} onClose={onCancel} title="Add a note to this flag" testId="flag-note-sheet">
+      <FlagNoteForm onSave={onSave} onFlagOnly={onFlagOnly} />
+    </StarChartSheet>
+  );
+}
+
+/** separate component so the text resets every time the sheet opens */
+function FlagNoteForm({ onSave, onFlagOnly }: { onSave(note: string): void; onFlagOnly(): void }) {
+  const id = useId();
+  const [text, setText] = useState('');
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) onSave(text);
+  };
+  return (
+    <form onSubmit={submit}>
+      <label htmlFor={`${id}-note`} className="block text-[13px] font-semibold">
+        Note
+      </label>
+      <p id={`${id}-help`} className="text-[13px] text-ink-2">
+        What made this moment worth flagging? It stays on the topic, with the flag.
+      </p>
+      <textarea
+        data-autofocus
+        id={`${id}-note`}
+        aria-describedby={`${id}-help ${id}-count`}
+        value={text}
+        maxLength={FLAG_NOTE_MAX_CHARS}
+        rows={3}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          // Enter saves, Shift+Enter makes a new line
+          if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            if (text.trim()) onSave(text);
+          }
+        }}
+        placeholder="e.g. Sam's point about the Q source"
+        className="mt-2 w-full resize-none rounded-none border border-[var(--border)] bg-black/30 px-3 py-2 text-[15px] text-ink placeholder:text-ink-2/70"
+      />
+      <p id={`${id}-count`} className="mt-1 text-right text-[11.5px] tabular-nums text-ink-2">
+        {text.length}/{FLAG_NOTE_MAX_CHARS} characters
+      </p>
+      <div className="mt-3 flex gap-2">
+        <button type="button" className={`${frameBtn.secondary} flex-1`} onClick={onFlagOnly}>
+          Flag without note
+        </button>
+        <button type="submit" className={`${frameBtn.primary} flex-1`} disabled={!text.trim()}>
+          Save note
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -132,7 +211,7 @@ export function BeforeYouGo({
 }) {
   const done = snapshot.phase === 'stopped';
   return (
-    <Sheet open={open} onClose={onLeave} title="Before you go" testId="before-you-go">
+    <StarChartSheet open={open} onClose={onLeave} title="Before you go" testId="before-you-go">
       {threads.length > 0 ? (
         <>
           <p className="mt-1 text-[15px]">
@@ -141,7 +220,7 @@ export function BeforeYouGo({
           </p>
           <ul className="mt-3 flex max-h-56 flex-col gap-2 overflow-y-auto" aria-label="Open threads">
             {threads.map((n) => (
-              <li key={n.id} className="flex items-baseline gap-2 rounded-xl border border-thread/40 px-3 py-2">
+              <li key={n.id} className="flex items-baseline gap-2 rounded-none border border-thread/40 px-3 py-2">
                 <span aria-hidden className="text-thread">
                   {n.kind === 'parked' ? '✎' : '◌'}
                 </span>
@@ -159,10 +238,10 @@ export function BeforeYouGo({
       <p className="mt-3 text-[13px] text-ink-2" role="status">
         {statusLine(snapshot)}
       </p>
-      <button type="button" className={`${primaryBtn} mt-4 w-full`} disabled={!done} onClick={onOpenMap}>
+      <button type="button" className={`${frameBtn.primary} mt-4 w-full`} disabled={!done} onClick={onOpenMap}>
         Open the map
       </button>
-    </Sheet>
+    </StarChartSheet>
   );
 }
 

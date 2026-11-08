@@ -407,3 +407,46 @@ describe('stop', () => {
     c.dispose();
   });
 });
+
+describe('flag with a note', () => {
+  it('sends the note on the flag message, trimmed and capped at 140, dated at the press', async () => {
+    const { c, net, capture } = await liveMic();
+    capture.emit(30); // 3 s on the audio clock
+    expect(c.flagWithNote('button', `  ${'x'.repeat(200)}  `, 1200)).toBe(true);
+    expect(net.last.sent.at(-1)).toEqual({ t: 'flag', atMs: 1200, source: 'button', note: 'x'.repeat(140) });
+    c.dispose();
+  });
+
+  it('never dates a flag in the future', async () => {
+    const { c, net, capture } = await liveMic();
+    capture.emit(5);
+    c.flagWithNote('key', 'later', 99_999);
+    expect(net.last.sent.at(-1)).toEqual({ t: 'flag', atMs: 500, source: 'key', note: 'later' });
+    c.dispose();
+  });
+
+  it('an empty note is a plain flag (no note field on the wire)', async () => {
+    const { c, net, capture } = await liveMic();
+    capture.emit(10);
+    c.flagWithNote('button', '   ', 300);
+    expect(net.last.sent.at(-1)).toEqual({ t: 'flag', atMs: 300, source: 'button' });
+    c.dispose();
+  });
+
+  it('a note written while reconnecting is sent once the connection is back', async () => {
+    const { c, net, capture } = await liveMic();
+    capture.emit(20);
+    net.last.drop();
+    expect(c.flagWithNote('key', 'keep this', 1000)).toBe(true);
+    await vi.advanceTimersByTimeAsync(BACKOFF_MS[0]);
+    net.last.open();
+    net.last.push({ t: 'ready', conversationId: TEST_CONVERSATION_ID });
+    expect(net.last.sent).toContainEqual({ t: 'flag', atMs: 1000, source: 'key', note: 'keep this' });
+    c.dispose();
+  });
+
+  it('is rejected when nothing is live', async () => {
+    const idle = new LiveController(MIC, fakeDeps().deps);
+    expect(idle.flagWithNote('key', 'note')).toBe(false);
+  });
+});
