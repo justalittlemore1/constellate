@@ -1,10 +1,5 @@
 /** Test doubles for the live client (imported by *.test.ts only). */
-import {
-  AUDIO_FRAME_BYTES,
-  type ClientMsg,
-  type GraphState,
-  type ServerMsg,
-} from '@constellate/shared';
+import { AUDIO_FRAME_BYTES, type ClientMsg, type GraphState, type ServerMsg } from '@constellate/shared';
 import { vi } from 'vitest';
 import type { Capture, CaptureSource } from './audio';
 import type { LiveDeps } from './controller';

@@ -13,7 +13,7 @@ import { SettingsScreen } from './SettingsScreen';
  *   /login        A4  email + password
  *   /             A4  Home: starfield, Welcome, mic orb, library drawer, Generate Brain
  *   /live/:id     A6  live screen (map from A3), captions, Flag / Park a thought / Stop
- *                     `/live/new` starts a recording; `/live/new?replay=<fixture>` a transcript replay
+ *                     `/live/new` records; `/live/demo?fixture=<id>` replays a transcript fixture
  *   /c/:id        A3  saved map, playback, toolbar · A4 Diary sheet
  *   /brain        A4  galaxy view + concept sheet
  *   /favorites    A4  highlights and flagged moments

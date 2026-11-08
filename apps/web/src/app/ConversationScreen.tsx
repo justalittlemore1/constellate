@@ -16,15 +16,6 @@ export function ConversationScreen() {
   const graph = useGraph(id);
   const [diaryOpen, setDiaryOpen] = useState(params.get('diary') === '1');
 
-  if (graph.isPending) {
-    return (
-      <main className="flex h-full items-center justify-center">
-        <p role="status" className="text-ink-2">
-          Loading conversation…
-        </p>
-      </main>
-    );
-  }
   if (graph.isError) {
     return (
       <main className="flex h-full flex-col">
@@ -39,17 +30,23 @@ export function ConversationScreen() {
     );
   }
 
+  // the layout renders at once (map area included) and fills in when the graph arrives
   const g = graph.data;
   return (
     <main className="flex h-full flex-col">
       <ScreenHeader
-        title={g.conversation.title}
+        title={g?.conversation.title ?? 'Conversation'}
         actions={
-          <IconButton label="Open diary" aria-haspopup="dialog" onClick={() => setDiaryOpen(true)}>
+          <IconButton label="Open diary" aria-haspopup="dialog" disabled={!g} onClick={() => setDiaryOpen(true)}>
             <BookOpen aria-hidden size={22} />
           </IconButton>
         }
       />
+      {!g && (
+        <p role="status" className="px-4 text-sm text-ink-2">
+          Loading conversation…
+        </p>
+      )}
 
       {/* Map area: replaced by A3's saved-map screen (map, scrubber, toolbar) */}
       <section
@@ -57,12 +54,17 @@ export function ConversationScreen() {
         className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center"
       >
         <p className="text-ink-2 text-sm">Placeholder — built by A3 + A4 (the map lands with A3).</p>
-        <Button variant="secondary" icon={<BookOpen aria-hidden size={18} />} onClick={() => setDiaryOpen(true)}>
+        <Button
+          variant="secondary"
+          disabled={!g}
+          icon={<BookOpen aria-hidden size={18} />}
+          onClick={() => setDiaryOpen(true)}
+        >
           Open the diary
         </Button>
       </section>
 
-      <DiarySheet open={diaryOpen} onClose={() => setDiaryOpen(false)} graph={g} />
+      {g && <DiarySheet open={diaryOpen} onClose={() => setDiaryOpen(false)} graph={g} />}
     </main>
   );
 }

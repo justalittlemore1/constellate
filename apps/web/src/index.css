@@ -104,11 +104,11 @@ body {
 }
 :root[data-motion='reduce'] *,
 :root[data-motion='reduce'] *::before,
-:root[data-motion='reduce'] *::after {
+:root[data-motion='reduce'] *::after,
+:root[data-low-stim='true'] *,
+:root[data-low-stim='true'] *::before,
+:root[data-low-stim='true'] *::after {
   animation: none !important;
   transition: none !important;
   scroll-behavior: auto !important;
-}
-:root[data-low-stim='true'] .orb {
-  animation: none;
 }

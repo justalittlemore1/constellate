@@ -116,6 +116,7 @@ export interface Api {
   addParticipant(conversationId: string, displayName: string): Promise<Participant>;
   removeParticipant(id: string): Promise<void>;
 
+  /** only when `capabilities.editCommitments` (see ApiCapabilities) */
   updateCommitment(id: string, patch: Partial<Pick<Commitment, 'text' | 'done'>>): Promise<void>;
 
   listRecallCards(conversationId: string): Promise<RecallCard[]>;
@@ -130,8 +131,49 @@ export interface Api {
   /** signed URL for a recording (null when there is none, e.g. in mock mode) */
   audioUrl(audioPath: string | null): Promise<string | null>;
 
-  /** delete every conversation (recording + rows), folder and concept of the signed-in user */
-  deleteMyData(): Promise<void>;
+  /**
+   * Delete every conversation (recording + rows), folder and concept of the signed-in user.
+   * Keeps going past individual failures and reports exactly what was and wasn't removed.
+   */
+  deleteMyData(): Promise<DeleteReport>;
+
+  readonly capabilities: ApiCapabilities;
+}
+
+export interface ApiCapabilities {
+  /**
+   * Promise (commitment) edits. Off for the real API: commitments live in the server's op log and
+   * there is no `commitment.update` op yet, so a direct table write would revert on the next
+   * `GET /conversations/:id`. Turn on once that op exists (additive contract change).
+   */
+  editCommitments: boolean;
+}
+
+export interface DeleteReport {
+  conversationsTotal: number;
+  conversationsDeleted: number;
+  foldersDeleted: boolean;
+  conceptsDeleted: boolean;
+}
+
+export function deleteComplete(r: DeleteReport): boolean {
+  return r.conversationsDeleted === r.conversationsTotal && r.foldersDeleted && r.conceptsDeleted;
+}
+
+/** Plain-language summary of a partial deletion, naming what is left. */
+export function describeDeleteReport(r: DeleteReport): string {
+  if (deleteComplete(r)) return 'All your data was deleted.';
+  const left: string[] = [];
+  const failed = r.conversationsTotal - r.conversationsDeleted;
+  if (failed > 0)
+    left.push(`${failed} of ${r.conversationsTotal} ${r.conversationsTotal === 1 ? 'conversation' : 'conversations'}`);
+  if (!r.foldersDeleted) left.push('your folders');
+  if (!r.conceptsDeleted) left.push('your Brain concepts');
+  const done =
+    r.conversationsDeleted > 0
+      ? `${r.conversationsDeleted} ${r.conversationsDeleted === 1 ? 'conversation was' : 'conversations were'} deleted, but `
+      : '';
+  return `Not everything was deleted: ${done}${left.join(', ')} could not be removed. Please try again.`;
 }
 
 /** A topic node is "an open thread" when it was deferred or parked and never picked up. */

@@ -1,5 +1,7 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cx } from './cx';
+import { overlayRoot } from './Sheet';
 
 export type ToastTone = 'info' | 'success' | 'error';
 interface ToastItem {
@@ -26,30 +28,39 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => show, [show]);
 
+  // the live region sits in the overlay layer, outside `#app-content`, so it is still announced
+  // while a sheet makes the screens inert
+  const [root, setRoot] = useState<HTMLElement | null>(null);
+  useEffect(() => setRoot(overlayRoot()), []);
+
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div
-        role="status"
-        aria-live="polite"
-        className="pointer-events-none absolute inset-x-0 bottom-24 z-50 flex flex-col items-center gap-2 px-4"
-      >
-        {items.map((t) => (
+      {root &&
+        createPortal(
           <div
-            key={t.id}
-            className={cx(
-              'surface rounded-full border px-4 py-2 text-sm font-semibold shadow-lg',
-              t.tone === 'error'
-                ? 'border-flag/60 text-flag'
-                : t.tone === 'success'
-                  ? 'border-topic/60'
-                  : 'border-line',
-            )}
+            role="status"
+            aria-live="polite"
+            className="pointer-events-none absolute inset-x-0 bottom-24 z-50 flex flex-col items-center gap-2 px-4"
           >
-            {t.message}
-          </div>
-        ))}
-      </div>
+            {items.map((t) => (
+              <div
+                key={t.id}
+                className={cx(
+                  'surface rounded-full border px-4 py-2 text-sm font-semibold shadow-lg',
+                  t.tone === 'error'
+                    ? 'border-flag/60 text-flag'
+                    : t.tone === 'success'
+                      ? 'border-topic/60'
+                      : 'border-line',
+                )}
+              >
+                {t.message}
+              </div>
+            ))}
+          </div>,
+          root,
+        )}
     </ToastContext.Provider>
   );
 }

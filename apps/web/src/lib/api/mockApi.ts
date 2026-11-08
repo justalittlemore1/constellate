@@ -157,13 +157,22 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
     },
 
     async deleteMyData() {
+      const conversationsTotal = graphs.size;
       graphs.clear();
       folders = [];
       participants = [];
       recall = [];
       brain = { concepts: [], links: [], occurrences: {} };
       built = false;
+      return {
+        conversationsTotal,
+        conversationsDeleted: conversationsTotal,
+        foldersDeleted: true,
+        conceptsDeleted: true,
+      };
     },
+
+    capabilities: { editCommitments: true },
   };
   return api;
 }

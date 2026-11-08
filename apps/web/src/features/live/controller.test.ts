@@ -397,7 +397,10 @@ describe('stop', () => {
     const c = new LiveController({ kind: 'wav', data: new ArrayBuffer(8) }, f.deps);
     c.requestConsent();
     await c.consent();
-    expect(f.deps.startCapture).toHaveBeenCalledWith({ kind: 'wav', data: expect.any(ArrayBuffer) }, expect.any(Function));
+    expect(f.deps.startCapture).toHaveBeenCalledWith(
+      { kind: 'wav', data: expect.any(ArrayBuffer) },
+      expect.any(Function),
+    );
     f.net.last.open();
     expect(f.net.last.sent[0]).toMatchObject({ t: 'hello', source: 'mic' });
     f.net.last.push({ t: 'ready', conversationId: TEST_CONVERSATION_ID });

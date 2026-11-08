@@ -67,6 +67,28 @@ describe('settings', () => {
   });
 });
 
+describe('delete my data, partial failure', () => {
+  it('says what could not be deleted and stays on Settings', async () => {
+    const api = createMockApi();
+    api.deleteMyData = async () => ({
+      conversationsTotal: 2,
+      conversationsDeleted: 1,
+      foldersDeleted: true,
+      conceptsDeleted: true,
+    });
+    const user = userEvent.setup();
+    renderApp({ route: '/settings', api });
+    await user.click(screen.getByRole('button', { name: 'Delete my data' }));
+    await user.type(screen.getByRole('textbox', { name: 'Type DELETE to confirm' }), 'DELETE');
+    await user.click(screen.getByRole('button', { name: 'Delete everything' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Not everything was deleted: 1 conversation was deleted, but 1 of 2 conversations could not be removed.',
+    );
+    expect(screen.getByTestId('location')).toHaveTextContent('/settings');
+    expect(screen.getByRole('dialog', { name: 'Delete all your data?' })).toBeInTheDocument();
+  });
+});
+
 describe('starfield', () => {
   it('places stars deterministically', () => {
     expect(makeStars(5)).toEqual(makeStars(5));

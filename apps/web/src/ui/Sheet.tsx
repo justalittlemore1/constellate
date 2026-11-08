@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cx } from './cx';
 import { IconButton } from './IconButton';
@@ -19,8 +19,19 @@ export interface SheetProps {
 }
 
 /** The PhoneFrame provides `#overlay-root` so sheets stay inside the phone on desktop. */
-function overlayRoot(): HTMLElement {
+export function overlayRoot(): HTMLElement {
   return document.getElementById('overlay-root') ?? document.body;
+}
+
+/** While open, the screens behind the sheet are `inert` (no focus, hidden from assistive tech). */
+function useInertBackground(open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    const content = document.getElementById('app-content');
+    if (!content || content.hasAttribute('inert')) return; // a parent sheet already did it
+    content.setAttribute('inert', '');
+    return () => content.removeAttribute('inert');
+  }, [open]);
 }
 
 /**
@@ -31,6 +42,7 @@ export function Sheet({ open, onClose, title, side = 'bottom', header, children,
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
   useFocusTrap(panel, open, onClose);
+  useInertBackground(open);
   if (!open) return null;
 
   return createPortal(

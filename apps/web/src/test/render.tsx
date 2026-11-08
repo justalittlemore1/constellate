@@ -12,6 +12,8 @@ export interface RenderOptions {
   api?: Api;
   /** omit for mock mode (demo user signed in) */
   authClient?: AuthClient;
+  /** defaults to true when no `authClient` is given */
+  mock?: boolean;
   /** render this element instead of the full route table */
   element?: ReactElement;
   /** path pattern for `element` (default: matches anything) */
@@ -24,11 +26,18 @@ function LocationProbe() {
   return <output data-testid="location">{loc.pathname + loc.search}</output>;
 }
 
-export function renderApp({ route = '/', api = createMockApi(), authClient, element, path = '*' }: RenderOptions = {}) {
+export function renderApp({
+  route = '/',
+  api = createMockApi(),
+  authClient,
+  mock,
+  element,
+  path = '*',
+}: RenderOptions = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const utils = render(
     <QueryClientProvider client={qc}>
-      <AuthProvider client={authClient ?? null} mock={!authClient}>
+      <AuthProvider client={authClient ?? null} mock={mock ?? !authClient}>
         <ApiProvider api={api}>
           <MemoryRouter initialEntries={[route]}>
             <ToastProvider>

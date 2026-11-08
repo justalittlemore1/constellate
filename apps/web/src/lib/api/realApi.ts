@@ -238,11 +238,30 @@ export function createRealApi({ supabase, serverHttpUrl, userId, accessToken, fe
     },
 
     async deleteMyData() {
+      // TODO(A1): replace with one atomic server route (e.g. DELETE /me/data) when it exists
       const rows = check(await supabase.from(TABLES.conversations).select('id')) as Row[];
-      // the server route removes the recording and cascades every row (graph, transcript, embeddings)
-      for (const r of rows) await server(`/conversations/${String(r.id)}`, { method: 'DELETE' });
-      check(await supabase.from(TABLES.folders).delete().eq('user_id', userId));
-      check(await supabase.from(TABLES.concepts).delete().eq('user_id', userId));
+      let conversationsDeleted = 0;
+      for (const r of rows) {
+        try {
+          // the server route removes the recording and cascades every row (graph, transcript, embeddings)
+          await server(`/conversations/${String(r.id)}`, { method: 'DELETE' });
+          conversationsDeleted++;
+        } catch {
+          /* reported below; keep deleting the rest */
+        }
+      }
+      const ok = async (p: PromiseLike<{ error: { message: string } | null }>) => {
+        try {
+          return !(await p).error;
+        } catch {
+          return false;
+        }
+      };
+      const foldersDeleted = await ok(supabase.from(TABLES.folders).delete().eq('user_id', userId));
+      const conceptsDeleted = await ok(supabase.from(TABLES.concepts).delete().eq('user_id', userId));
+      return { conversationsTotal: rows.length, conversationsDeleted, foldersDeleted, conceptsDeleted };
     },
+
+    capabilities: { editCommitments: false },
   };
 }

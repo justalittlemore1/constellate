@@ -2,7 +2,7 @@ import type { Commitment, GraphState, TopicNode } from '@constellate/shared';
 import { Eye, Map as MapIcon, Pencil, Plus, X } from 'lucide-react';
 import { useId, useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
-import { isOpenThread, type RecallCard } from '../../lib/api';
+import { isOpenThread, useApi, type RecallCard } from '../../lib/api';
 import { formatClock, formatDateTime, formatDuration } from '../../lib/format';
 import { routes } from '../../lib/routes';
 import { Button, Chip, IconButton, Sheet, TextArea, TextField } from '../../ui';
@@ -36,6 +36,7 @@ function DiaryContent({ graph }: { graph: GraphState }) {
   const update = useUpdateConversation();
   const save = (patch: Parameters<typeof update.mutate>[0]['patch']) => update.mutate({ id: c.id, patch });
 
+  const canEditPromises = useApi().capabilities.editCommitments;
   const threads = Object.values(graph.nodes)
     .filter(isOpenThread)
     .sort((a, b) => a.seq - b.seq);
@@ -87,6 +88,9 @@ function DiaryContent({ graph }: { graph: GraphState }) {
 
       <section aria-labelledby="promises-h">
         <SectionTitle id="promises-h">Promises</SectionTitle>
+        {graph.commitments.length > 0 && !canEditPromises && (
+          <p className="mb-2 text-xs text-ink-2">Filling in the “When” and ticking promises off is coming soon.</p>
+        )}
         {graph.commitments.length === 0 ? (
           <p className="text-sm text-ink-2">No promises were made.</p>
         ) : (
@@ -236,6 +240,33 @@ function ThreadRow({ node, conversationId }: { node: TopicNode; conversationId: 
 }
 
 function PromiseRow({ promise }: { promise: Commitment }) {
+  const api = useApi();
+  return api.capabilities.editCommitments ? (
+    <EditablePromise promise={promise} />
+  ) : (
+    <ReadOnlyPromise promise={promise} />
+  );
+}
+
+/** Shown until promise edits can be saved through the server (see ApiCapabilities.editCommitments). */
+function ReadOnlyPromise({ promise }: { promise: Commitment }) {
+  const parsed = parsePromise(promise.text);
+  return (
+    <li className="rounded-xl border border-line p-3">
+      <p className={promise.done ? 'text-ink-2 line-through' : ''}>
+        <span className="text-ink-2">When </span>
+        <span className="text-thread">{parsed.cue ?? '___'}</span>
+        <span className="text-ink-2">, I will </span>
+        {parsed.action}
+      </p>
+      <p className="mt-1 text-xs text-ink-2">
+        {promise.done ? 'Done' : 'Not done yet'} · said at {formatClock(promise.atMs)}
+      </p>
+    </li>
+  );
+}
+
+function EditablePromise({ promise }: { promise: Commitment }) {
   const update = useUpdateCommitment(promise.conversationId);
   const parsed = parsePromise(promise.text);
   const [cue, setCue] = useState(parsed.cue ?? '');

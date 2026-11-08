@@ -147,6 +147,15 @@ describe('diary sheet', () => {
     await waitFor(async () => expect((await api.listRecallCards(id))[0]!.lastResult).toBe('remembered'));
   });
 
+  it('renders the screen layout (map area included) while the graph is still loading', () => {
+    const api = createMockApi();
+    api.getGraph = () => new Promise(() => {});
+    renderApp({ route: `/c/${id}`, api });
+    expect(screen.getByRole('region', { name: 'Conversation map' })).toBeInTheDocument();
+    expect(screen.getByText('Loading conversation…')).toHaveAttribute('role', 'status');
+    expect(screen.getByRole('button', { name: 'Open diary' })).toBeDisabled();
+  });
+
   it('?diary=1 opens the diary on arrival', async () => {
     renderApp({ route: `/c/${id}?diary=1` });
     expect(await screen.findByRole('dialog', { name: 'Diary' })).toBeInTheDocument();

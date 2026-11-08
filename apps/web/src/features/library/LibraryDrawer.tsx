@@ -212,8 +212,9 @@ function FolderSection({
                   onClick={() => onFilter({ kind: 'folder', id: f.id })}
                 >
                   {f.name}
-                  <span className="ml-auto text-sm text-ink-2" aria-label={`${counts.get(f.id) ?? 0} conversations`}>
+                  <span className="ml-auto text-sm text-ink-2">
                     {counts.get(f.id) ?? 0}
+                    <span className="sr-only"> conversations</span>
                   </span>
                 </FilterButton>
                 <IconButton label={`Rename folder ${f.name}`} onClick={() => setEditing(f.id)}>

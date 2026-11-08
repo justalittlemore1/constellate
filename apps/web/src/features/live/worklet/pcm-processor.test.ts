@@ -1,6 +1,14 @@
 import { AUDIO_FRAME_BYTES, AUDIO_SAMPLE_RATE } from '@constellate/shared';
 import { describe, expect, it } from 'vitest';
-import { FRAME_SAMPLES, FrameAssembler, PcmPipeline, Resampler, TARGET_RATE, floatToInt16, toMono } from './pcm-processor.js';
+import {
+  FRAME_SAMPLES,
+  FrameAssembler,
+  PcmPipeline,
+  Resampler,
+  TARGET_RATE,
+  floatToInt16,
+  toMono,
+} from './pcm-processor.js';
 
 const QUANTUM = 128; // AudioWorklet render quantum
 
