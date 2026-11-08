@@ -13,13 +13,18 @@ export function parseClientFrame(raw: string): ParseResult {
   const parsed = ClientMsgSchema.safeParse(json);
   if (!parsed.success) {
     const consentMissing =
-      typeof json === 'object' && json !== null && (json as { t?: unknown }).t === 'hello' && (json as { consent?: unknown }).consent !== true;
+      typeof json === 'object' &&
+      json !== null &&
+      (json as { t?: unknown }).t === 'hello' &&
+      (json as { consent?: unknown }).consent !== true;
     return {
       ok: false,
       error: {
         t: 'error',
         code: 'protocol',
-        message: consentMissing ? 'recording requires consent: true' : `invalid message: ${parsed.error.issues[0]?.message ?? 'unknown'}`,
+        message: consentMissing
+          ? 'recording requires consent: true'
+          : `invalid message: ${parsed.error.issues[0]?.message ?? 'unknown'}`,
         fatal: consentMissing,
       },
     };
