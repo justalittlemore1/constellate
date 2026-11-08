@@ -14,14 +14,14 @@ For every node, exactly one of:
 
 ## Similar is not the same
 
-- `same_as` only when a person would say "that's the same subject I talked about before": "Working Out" and "Going to the Gym" are the same concept; "Existentialism" and "Personal Philosophy" are **not** (related, so create a new concept with `related_to`).
-- Same word, different meaning never merges: "Java" the programming language and "Java" the island; "Mercury" the planet and the singer. Read the descriptions.
-- A specific idea inside a broader concept is a new, narrower concept (`narrower_than`), not the same one: "Resurrection Historicity" is narrower than "Christianity".
-- Nodes within this conversation that are occurrences of the same thread should map to the same concept (use `same_as` for the second if the first created it is not possible — instead give both the same `new_concept.name`; the server de-duplicates by name).
+- `same_as` only when a person would say "that's the same subject I talked about before": "Jogging" and "Going for Runs" are the same concept; "Existentialism" and "Personal Philosophy" are **not** (related, so create a new concept with `related_to`).
+- Same word, different meaning never merges: "Python" the programming language and the snake; "Mercury" the planet and the singer. Read the descriptions.
+- A specific idea inside a broader concept is a new, narrower concept (`narrower_than`), not the same one: "Ranked-Choice Voting" is narrower than "Electoral Reform".
+- If two nodes in this conversation are the same thread and no candidate fits, give both the same `new_concept.name`; the server de-duplicates by name.
 
 ## Naming
 
-- `name`: 1–4 words, Title Case, the general concept rather than this conversation's angle ("Free Will", not "Sapolsky's Free Will Argument").
+- `name`: 1–4 words, Title Case, the general concept rather than this conversation's angle ("Stoicism", not "Ana's Take on Marcus Aurelius").
 - `description`: one sentence, at most 140 characters, general enough to cover future conversations about it.
 - Never name or describe traits of people (health, religion, politics); concepts are subjects discussed.
 
