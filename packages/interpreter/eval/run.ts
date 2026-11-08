@@ -9,6 +9,7 @@
  *     --note "what changed"        recorded in the report
  *     --resample                   fresh Claude answers (a second sample); embeddings stay reused
  *     --score-against <git ref>    also score the runs with that ref's fixture expectations
+ *     --max-embed-requests N       stop embedding after N requests in this run (then degrade)
  *     --timeout-min 15             hard timeout (a PID file also stops a second run from starting)
  *     --record                     full re-record of Claude answers AND embeddings (needs the
  *                                  humans' OK: it spends the embedding quota)
@@ -37,6 +38,7 @@ import {
 import { tuning } from '../src/llm/anthropic';
 import { loadFixtures, renderReport, runFixture, score, summarise, type RunResult } from './harness';
 import { guardProcess } from './guard';
+import { withRunLimit } from './run-limit';
 import { RECORDINGS } from './recordings-path';
 
 export { RECORDINGS } from './recordings-path';
@@ -69,7 +71,10 @@ async function main() {
   const llmMode: ReplayMode = replay ? 'replay' : record || flag('resample') ? 'record' : 'auto';
   // misses are collected per fixture pass and embedded in one batched request (flushDeferred)
   const embedMode: ReplayMode = replay ? 'replay' : record ? 'record' : 'defer';
-  const cap = createDailyCap({ limit: EVAL_EMBED_CAP_PER_DAY });
+  const cap = withRunLimit(
+    createDailyCap({ limit: EVAL_EMBED_CAP_PER_DAY }),
+    Number(arg('max-embed-requests') ?? Infinity),
+  );
   const models: string[] = [MODELS.interpreter.anthropic, ...(flag('compare') ? [MODELS.refine] : [])];
   const fixtures = loadFixtures(arg('only')?.split(','));
   const store = newReplayStore();
