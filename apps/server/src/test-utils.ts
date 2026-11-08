@@ -147,6 +147,7 @@ export async function makeHarness(over: Partial<ServerDeps> = {}): Promise<Harne
     // finalisation runs only when a test asks for it (POST /finalize or its own onStopped)
     onStopped: () => {},
     transcribeFile: null,
+    decideMerge: null,
     waitForRecordingMs: 0,
     ...over,
   };

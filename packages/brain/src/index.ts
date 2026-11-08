@@ -46,3 +46,6 @@ export function cooccurrence(a: ReadonlySet<string>, b: ReadonlySet<string>): nu
   const either = a.size + b.size - both;
   return either === 0 ? 0 : both / either;
 }
+
+export * from './merge';
+export * from './build';

@@ -311,24 +311,24 @@ export class SupabaseStore implements Store {
 
   async upsertConcepts(userId: string, concepts: ConceptRow[]) {
     if (!concepts.length) return;
-    // parents first so the self-referencing foreign key is satisfied
-    const ordered = [...concepts].sort(
-      (a, b) => Number(Boolean(a.parentConceptId)) - Number(Boolean(b.parentConceptId)),
-    );
-    check(
-      'concepts',
-      await this.db.from(TABLES.concepts).upsert(
-        ordered.map((c) => ({
-          id: c.id,
-          user_id: userId,
-          name: c.name,
-          description: c.description,
-          parent_concept_id: c.parentConceptId,
-          mention_count: c.mentionCount,
-          embedding: c.embedding ? vec(c.embedding) : null,
-        })),
-      ),
-    );
+    const row = (c: ConceptRow, parent: string | null) => ({
+      id: c.id,
+      user_id: userId,
+      name: c.name,
+      description: c.description,
+      parent_concept_id: parent,
+      mention_count: c.mentionCount,
+      embedding: c.embedding ? vec(c.embedding) : null,
+    });
+    // two phases so the self-referencing parent foreign key never sees a row that is not there yet
+    check('concepts', await this.db.from(TABLES.concepts).upsert(concepts.map((c) => row(c, null))));
+    const withParent = concepts.filter((c) => c.parentConceptId);
+    if (withParent.length) {
+      check(
+        'concepts.parent',
+        await this.db.from(TABLES.concepts).upsert(withParent.map((c) => row(c, c.parentConceptId))),
+      );
+    }
   }
 
   async setNodeConcepts(assignments: { nodeId: string; conceptId: string }[]) {

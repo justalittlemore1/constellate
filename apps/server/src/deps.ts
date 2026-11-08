@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
+import { loadMergeSystemPrompt } from '@constellate/brain';
 import { createLiveInterpreter, finalizeConversation } from '@constellate/interpreter';
 import type { CreateLiveInterpreter, FinalizeConversation } from '@constellate/shared';
 import { geminiEmbedder, noEmbedder, type Embedder } from './ai/embed';
+import { anthropicMergeDecider, type MergeDecider } from './brain/merge-llm';
 import type { Env } from './env';
 import { geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
 import { GraphHub } from './graph/hub';
@@ -23,6 +26,8 @@ export interface ServerDeps extends Omit<LiveDeps, 'log'> {
   transcribeFile: FileTranscriber | null;
   /** after `stop`, how long finalisation waits for the recording upload */
   waitForRecordingMs: number;
+  /** Brain concept merge (`MODELS.brain`); null → conservative heuristic */
+  decideMerge: MergeDecider | null;
   ai: GoogleGenAI | null;
 }
 
@@ -65,7 +70,17 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
     abandonAfterMs: env.ABANDON_AFTER_MS,
     transcribeFile: ai ? geminiFileTranscriber(ai) : null,
     waitForRecordingMs: 45_000,
+    decideMerge: env.ANTHROPIC_API_KEY ? lazyMergeDecider(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })) : null,
     ai,
     ...overrides,
+  };
+}
+
+/** The merge prompt file (A2's) is read on first use. */
+function lazyMergeDecider(client: Anthropic): MergeDecider {
+  let decider: Promise<MergeDecider> | null = null;
+  return async (req) => {
+    decider ??= loadMergeSystemPrompt().then((system) => anthropicMergeDecider(client, system));
+    return (await decider)(req);
   };
 }
