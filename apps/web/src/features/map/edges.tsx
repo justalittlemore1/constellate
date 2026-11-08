@@ -1,9 +1,12 @@
 /**
- * Edge components. Types differ by line pattern and arrow, not only hue:
- *  flow    — solid 1.5 px curve, arrowhead, slow particles moving forward (no particles under reduced motion)
- *  revisit — dashed arc swinging out to the left margin, arrowhead into the earlier node
- *  tether  — dotted line, no arrow
- *  user    — long-dash line with arrowhead (drawn by the user)
+ * Edge components. Types differ by line shape, not only hue:
+ *  flow    — comet trail: a solid curve, bright and thicker at the source, fading toward the target,
+ *            so direction reads without an arrowhead. A return to an earlier topic (merged stars)
+ *            loops out to the side and back into the star; a long forward jump runs down a side
+ *            channel instead of cutting through the topics in between.
+ *  revisit — (flag `revisitArcs`) dashed arc swinging out to the left margin, arrowhead into the earlier node
+ *  tether  — fine dotted line, no gradient, no arrow (deferred / parked threads)
+ *  user    — long-dash comet trail (drawn by the user)
  *  note    — thin faint connector from a sticky note to its node
  * Geometry helpers are exported for unit tests.
  */
@@ -70,6 +73,51 @@ export function revisitPath(s: Pt, t: Pt, sr: number, tr: number): string {
   return `M ${a.x} ${a.y} C ${cx} ${a.y}, ${cx} ${b.y}, ${b.x} ${b.y}`;
 }
 
+/** A forward jump longer than this (about 1.5 rows) runs down a side channel. */
+export const SKIP_DY = 150;
+
+/**
+ * Side channel between two nodes: leave the source from its side, run out to a channel beside
+ * both, come back into the target's side. Used for returns (going up) and long forward jumps.
+ * `side` is −1 (left) or +1 (right).
+ */
+export function channelPath(s: Pt, t: Pt, sr: number, tr: number, side: -1 | 1): string {
+  const swing = 60 + Math.min(40, Math.abs(t.y - s.y) * 0.04);
+  const a = { x: s.x + side * sr, y: s.y };
+  const b = { x: t.x + side * (tr + 3), y: t.y };
+  const cx = side < 0 ? Math.min(s.x, t.x) - swing : Math.max(s.x, t.x) + swing;
+  return `M ${a.x} ${a.y} C ${cx} ${a.y}, ${cx} ${b.y}, ${b.x} ${b.y}`;
+}
+
+/** Returns loop on the left when both ends sit in the first lane, otherwise on the right. */
+export function returnSide(s: Pt, t: Pt): -1 | 1 {
+  return s.x <= 210 && t.x <= 210 ? -1 : 1;
+}
+
+export type FlowRoute = 'direct' | 'return' | 'skip';
+
+export function flowRoute(s: Pt, t: Pt, returning: boolean): FlowRoute {
+  if (returning) return 'return';
+  return t.y - s.y > SKIP_DY ? 'skip' : 'direct';
+}
+
+/** The comet path for a flow / user edge, by route. */
+export function cometPath(s: Pt, t: Pt, sr: number, tr: number, gap: number, returning: boolean): string {
+  const route = flowRoute(s, t, returning);
+  if (route === 'return') return channelPath(s, t, sr, tr, returnSide(s, t));
+  if (route === 'skip') return channelPath(s, t, sr, tr, t.x > s.x + 20 ? 1 : -1);
+  return flowPath(s, t, sr, tr, gap);
+}
+
+/** First and last points of a path made of numbers (start of the comet head, end of its tail). */
+export function pathEnds(d: string): [Pt, Pt] {
+  const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  return [
+    { x: n[0] ?? 0, y: n[1] ?? 0 },
+    { x: n[n.length - 2] ?? 0, y: n[n.length - 1] ?? 0 },
+  ];
+}
+
 /** Straight segment between two rims (tethers). */
 export function rimToRim(s: Pt, t: Pt, sr: number, tr: number): string {
   const len = Math.hypot(t.x - s.x, t.y - s.y) || 1;
@@ -98,25 +146,67 @@ function pts(props: P): [Pt, Pt] {
   ];
 }
 
-export function FlowEdge(props: P) {
+const svgId = (id: string) => id.replace(/[^\w-]/g, '_');
+
+/**
+ * Comet trail: a gradient along the path from the source (opaque) to the target (faint), plus a
+ * short wider "head" at the source. `dash` makes the user-drawn variant.
+ */
+function Comet({ props, kind, colour, dash }: { props: P; kind: 'flow' | 'user'; colour: string; dash?: string }) {
   const [s, t] = pts(props);
-  const d = flowPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, props.data?.labelGap ?? 0);
-  const st = strokeOf(props, EDGE_COLOR.flow);
-  const particles = props.data?.motion && !props.data?.dimmed;
+  const data = props.data;
+  const d = cometPath(
+    s,
+    t,
+    data?.sourceRadius ?? 0,
+    data?.targetRadius ?? 0,
+    data?.labelGap ?? 0,
+    Boolean(data?.returning),
+  );
+  const [a, b] = pathEnds(d);
+  const st = strokeOf(props, colour);
+  const id = `cmap-comet-${svgId(props.id)}`;
+  const bright = data?.highlighted || data?.onPath;
+  const particles = data?.particles && data?.motion && !data?.dimmed;
   return (
-    <g data-testid={`map-edge-${props.id}`} data-kind="flow" opacity={st.opacity}>
+    <g
+      data-testid={`map-edge-${props.id}`}
+      data-kind={kind}
+      data-route={flowRoute(s, t, Boolean(data?.returning))}
+      opacity={st.opacity}
+    >
+      <defs>
+        <linearGradient id={id} gradientUnits="userSpaceOnUse" x1={a.x} y1={a.y} x2={b.x} y2={b.y}>
+          <stop offset="0" stopColor={colour} stopOpacity={1} />
+          <stop offset="1" stopColor={colour} stopOpacity={bright ? 0.45 : 0.12} />
+        </linearGradient>
+        <linearGradient id={`${id}-head`} gradientUnits="userSpaceOnUse" x1={a.x} y1={a.y} x2={b.x} y2={b.y}>
+          <stop offset="0" stopColor={colour} stopOpacity={0.55} />
+          <stop offset="0.3" stopColor={colour} stopOpacity={0} />
+        </linearGradient>
+      </defs>
       <path
         d={d}
         fill="none"
-        stroke={st.stroke}
+        stroke={`url(#${id}-head)`}
+        strokeWidth={st.width + 2}
+        strokeLinecap="round"
+        data-testid="comet-head"
+      />
+      <path
+        d={d}
+        fill="none"
+        stroke={`url(#${id})`}
         strokeWidth={st.width}
-        strokeOpacity={props.data?.highlighted ? 1 : 0.75}
+        strokeLinecap="round"
+        strokeDasharray={dash}
         markerEnd={props.markerEnd}
         style={st.style}
+        data-testid="comet-trail"
       />
       {particles &&
         [0, 1.6].map((begin) => (
-          <circle key={begin} r={1.8} fill="var(--topic)" data-testid="particle">
+          <circle key={begin} r={1.8} fill={colour} data-testid="particle">
             <animateMotion dur="3.2s" begin={`${begin}s`} repeatCount="indefinite" path={d} />
           </circle>
         ))}
@@ -124,23 +214,12 @@ export function FlowEdge(props: P) {
   );
 }
 
+export function FlowEdge(props: P) {
+  return <Comet props={props} kind="flow" colour={EDGE_COLOR.flow} />;
+}
+
 export function UserEdge(props: P) {
-  const [s, t] = pts(props);
-  const d = flowPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, props.data?.labelGap ?? 0);
-  const st = strokeOf(props, EDGE_COLOR.user);
-  return (
-    <g data-testid={`map-edge-${props.id}`} data-kind="user" opacity={st.opacity}>
-      <path
-        d={d}
-        fill="none"
-        stroke={st.stroke}
-        strokeWidth={st.width}
-        strokeDasharray="10 4"
-        markerEnd={props.markerEnd}
-        style={st.style}
-      />
-    </g>
-  );
+  return <Comet props={props} kind="user" colour={EDGE_COLOR.user} dash="10 4" />;
 }
 
 export function RevisitEdge(props: P) {
@@ -173,10 +252,10 @@ export function TetherEdge(props: P) {
         d={d}
         fill="none"
         stroke={st.stroke}
-        strokeWidth={st.width + 0.5}
-        strokeDasharray="0.5 5"
+        strokeWidth={st.width - 0.25}
+        strokeDasharray="0.5 4"
         strokeLinecap="round"
-        strokeOpacity={0.9}
+        strokeOpacity={0.85}
         style={st.style}
       />
     </g>

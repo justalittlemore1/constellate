@@ -91,8 +91,8 @@ describe('playback through the shared player', () => {
     renderSaved(`/c/${id}`, api);
     const n = byLabel('Gospel Sources');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    // Play appears once the recording URL has resolved
-    await user.click(await screen.findByRole('button', { name: `Play ${n.label}` }));
+    // a click opens the sheet; Play appears once the recording URL has resolved
+    await user.click(await screen.findByRole('button', { name: 'Play this moment' }));
     await waitFor(() => expect(play).toHaveBeenCalled());
     const audio = play.mock.contexts[0] as HTMLAudioElement;
     expect(audio.src).toBe('https://example.test/rec.webm');
@@ -101,7 +101,6 @@ describe('playback through the shared player', () => {
   });
 
   it('offers no Play at all when there is no recording (mock mode)', async () => {
-    const user = userEvent.setup();
     const api = createMockApi();
     const audioUrl = vi.fn(async () => null);
     api.audioUrl = audioUrl;
@@ -109,8 +108,6 @@ describe('playback through the shared player', () => {
     const n = byLabel('Gospel Sources');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
     await waitFor(() => expect(audioUrl).toHaveBeenCalled());
-    expect(screen.queryByRole('button', { name: `Play ${n.label}` })).toBeNull();
-    await user.click(screen.getByRole('button', { name: `Open details for ${n.label}` }));
     const sheet = screen.getByRole('dialog', { name: n.label });
     expect(within(sheet).queryByRole('button', { name: /play/i })).toBeNull();
   });
@@ -122,7 +119,6 @@ describe('edits on the saved map', () => {
     renderSaved();
     const n = byLabel('Sunday Service');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    await user.click(screen.getByRole('button', { name: `Open details for ${n.label}` }));
     const sheet = screen.getByRole('dialog', { name: n.label });
     // the sheet's button is the only control whose name starts with "Highlight" (voice control, e2e)
     expect(screen.getAllByRole('button', { name: /^highlight/i, hidden: true })).toHaveLength(1);
@@ -132,7 +128,7 @@ describe('edits on the saved map', () => {
     expect(within(sheet).getByText('★ highlighted')).toBeInTheDocument();
   });
 
-  it('highlighter mode: taps paint and clear gold instead of opening previews', async () => {
+  it('highlighter mode: taps paint and clear gold instead of opening the sheet', async () => {
     const user = userEvent.setup();
     renderSaved();
     const a = byLabel('Historical Jesus');
@@ -144,13 +140,13 @@ describe('edits on the saved map', () => {
     // React Query delivers cache updates on the next tick
     fireEvent.click(tile(a.id));
     await waitFor(() => expect(tile(a.id)).toHaveAttribute('data-highlighted', 'true'));
-    expect(screen.queryByTestId('preview-card')).toBeNull();
+    expect(screen.queryByRole('dialog')).toBeNull();
     fireEvent.click(tile(a.id));
     await waitFor(() => expect(tile(a.id)).not.toHaveAttribute('data-highlighted'));
     await user.click(screen.getByRole('button', { name: 'Done' }));
     expect(screen.queryByTestId('highlighter-banner')).toBeNull();
     fireEvent.click(tile(a.id));
-    expect(screen.getByTestId('preview-card')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: a.label })).toBeInTheDocument();
   });
 
   it('adds a sticky note from the detail sheet; it appears on the canvas and in the sheet', async () => {
@@ -158,7 +154,6 @@ describe('edits on the saved map', () => {
     const { client } = renderSaved();
     const n = byLabel('Camus and Absurdism');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    await user.click(screen.getByRole('button', { name: `Open details for ${n.label}` }));
     const sheet = screen.getByRole('dialog', { name: n.label });
     await user.click(within(sheet).getByRole('button', { name: 'Add a note' }));
     await user.type(within(sheet).getByLabelText(`Note on ${n.label}`), 'Read The Stranger');
@@ -176,7 +171,6 @@ describe('edits on the saved map', () => {
     const existing = demo.annotations[0]!;
     const n = demo.nodes[existing.nodeId!]!;
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    await user.click(screen.getByRole('button', { name: `Open details for ${n.label}` }));
     const sheet = screen.getByRole('dialog', { name: n.label });
     await user.click(within(sheet).getByRole('button', { name: `Edit note: ${existing.text}` }));
     const box = within(sheet).getByLabelText('Edit note');
@@ -184,6 +178,47 @@ describe('edits on the saved map', () => {
     await user.type(box, 'Q source: check Kloppenborg');
     await user.click(within(sheet).getByRole('button', { name: 'Save note' }));
     expect(screen.getByTestId(`map-note-${existing.id}`)).toHaveTextContent('Q source: check Kloppenborg');
+  });
+});
+
+describe('a thread that came up twice is one star', () => {
+  it('its sheet lists every moment, each with its own Play; playing the return lights the star', async () => {
+    const user = userEvent.setup();
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    const api = createMockApi();
+    api.audioUrl = async () => 'https://example.test/rec.webm';
+    renderSaved(`/c/${id}`, api);
+    const first = byLabel('Resurrection Accounts', 0);
+    const back = byLabel('Resurrection Accounts', 1);
+    fireEvent.click(await screen.findByTestId(`map-node-${first.id}`));
+    expect(screen.queryByTestId(`map-node-${back.id}`)).toBeNull();
+    const sheet = screen.getByRole('dialog', { name: first.label });
+    const moments = within(sheet).getByTestId('moments');
+    expect(within(moments).getAllByRole('listitem')).toHaveLength(2);
+    await user.click(await within(sheet).findByRole('button', { name: `Play ${back.label} at 07:00–07:50` }));
+    await waitFor(() => expect(play).toHaveBeenCalled());
+    await waitFor(() => expect(within(tile(first.id)).getByText('playing')).toBeInTheDocument());
+  });
+
+  it('Remove highlight clears every occurrence', async () => {
+    const user = userEvent.setup();
+    const { client } = renderSaved();
+    const first = byLabel('Resurrection Accounts', 0);
+    const back = byLabel('Resurrection Accounts', 1);
+    fireEvent.click(await screen.findByTestId(`map-node-${first.id}`));
+    const sheet = screen.getByRole('dialog', { name: first.label });
+    await user.click(within(sheet).getByRole('button', { name: 'Remove highlight' }));
+    await waitFor(() => {
+      const g = client().getQueryData<GraphState>(graphKey(id))!;
+      expect(g.nodes[first.id]!.highlighted).toBe(false);
+      expect(g.nodes[back.id]!.highlighted).toBe(false);
+    });
+  });
+
+  it('?node= of a later occurrence opens on its star', async () => {
+    const back = byLabel('Resurrection Accounts', 1);
+    renderSaved(`/c/${id}?node=${back.id}`);
+    expect(await screen.findByTestId('preview-card')).toHaveTextContent('came up 2 times');
   });
 });
 

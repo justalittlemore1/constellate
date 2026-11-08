@@ -16,21 +16,33 @@ export const DETAIL_LABEL: Record<DetailLevel, string> = { broad: 'Broad', balan
 /** Below this zoom the map switches to Broad by itself (semantic zoom). */
 export const AUTO_BROAD_ZOOM = 0.5;
 
-export const RADIUS_MIN = 18;
-export const RADIUS_MAX = 30;
+export const RADIUS_MIN = 16;
+export const RADIUS_MAX = 34;
 /** level-2 nodes are drawn slightly smaller */
 export const LEVEL2_SCALE = 0.85;
 /** an unfinished node (still being discussed) counts as this long for sizing */
 const OPEN_NODE_MS = 30_000;
-const SHORT_MS = 20_000;
-const LONG_MS = 120_000;
+const SHORT_MS = 15_000;
+const LONG_MS = 180_000;
 
-/** Circle radius by how long the topic was discussed: 20 s → 18 px … 2 min → 30 px. */
+/** How long a node was discussed (an open node counts as 30 s). */
+export function durationMs(n: Pick<TopicNode, 'startMs' | 'endMs'>): number {
+  return n.endMs === null ? OPEN_NODE_MS : Math.max(0, n.endMs - n.startMs);
+}
+
+/**
+ * Radius by total time on topic: 15 s → 16 px … 3 min → 34 px. The *area* grows with time
+ * (square-root scale), so a topic discussed twice as long reads as twice as big.
+ */
+export function radiusForMs(ms: number, level: TopicNode['level']): number {
+  const t = Math.min(1, Math.max(0, (ms - SHORT_MS) / (LONG_MS - SHORT_MS)));
+  const r = RADIUS_MIN + Math.sqrt(t) * (RADIUS_MAX - RADIUS_MIN);
+  return Math.round((level === 2 ? r * LEVEL2_SCALE : r) * 10) / 10;
+}
+
+/** Circle radius of a single occurrence by how long it was discussed. */
 export function topicRadius(n: Pick<TopicNode, 'startMs' | 'endMs' | 'level'>): number {
-  const dur = n.endMs === null ? OPEN_NODE_MS : Math.max(0, n.endMs - n.startMs);
-  const t = Math.min(1, Math.max(0, (dur - SHORT_MS) / (LONG_MS - SHORT_MS)));
-  const r = RADIUS_MIN + t * (RADIUS_MAX - RADIUS_MIN);
-  return Math.round((n.level === 2 ? r * LEVEL2_SCALE : r) * 10) / 10;
+  return radiusForMs(durationMs(n), n.level);
 }
 
 /** Hollow ring radius for pending / parked threads. */
@@ -165,14 +177,34 @@ export function nodeVisibleText(n: TopicNode, sub: string | undefined): string {
  * Accessible name for a node on the canvas and in the outline. It starts with exactly the visible
  * text, so voice-control users can say what they see (WCAG 2.5.3, axe label-content-name-mismatch).
  */
-export function nodeAccessibleName(state: GraphState, n: TopicNode, activeNodeId: string | null, sub?: string): string {
+export function nodeAccessibleName(
+  state: GraphState,
+  n: TopicNode,
+  activeNodeId: string | null,
+  sub?: string,
+  occurrences: readonly TopicNode[] = [n],
+): string {
+  if (occurrences.length > 1) {
+    const active = occurrences.some((o) => o.id === activeNodeId) ? n.id : activeNodeId;
+    return [
+      nodeVisibleText(n, sub),
+      statusWords(n, active),
+      `came up ${occurrences.length} times: ${occurrences.map(timeRange).join(', ')}`,
+      ...relationWords(state, n).filter((w) => !w.startsWith('picked up again')),
+    ].join(', ');
+  }
   return [nodeVisibleText(n, sub), statusWords(n, activeNodeId), timeRange(n), ...relationWords(state, n)].join(', ');
 }
 
 // ───────────────────────── visibility by detail level ─────────────────────────
 
 export interface VisibleNode {
+  /** the star's node: the first occurrence of its thread (highlighted if any occurrence is) */
   node: TopicNode;
+  /** every occurrence this star stands for, in conversation order (just `[node]` unless merged) */
+  occurrences: TopicNode[];
+  /** total time on topic across all occurrences */
+  totalMs: number;
   radius: number;
   /** level-1 nodes in Broad: how many level-2 children are folded in */
   hiddenChildren: number;
@@ -189,12 +221,41 @@ export interface VisibleEdge {
   targetId: string;
   /** both ends highlighted: part of a highlighted branch */
   highlighted: boolean;
+  /** a flow edge that goes back to an earlier topic (merged returns): drawn as a loop */
+  returning?: boolean;
 }
 
 export interface VisibleGraph {
   nodes: VisibleNode[];
   edges: VisibleEdge[];
   notes: Annotation[];
+  /** any node id (including hidden later occurrences) → the id of the star drawn for it */
+  starOf: (id: string) => string;
+}
+
+export interface VisibleOptions {
+  /**
+   * Display-only: draw every occurrence of a thread as ONE star at the first occurrence's place,
+   * sized by the total time; flow into a later occurrence loops back to it, and later topics
+   * branch out from it. Revisit edges become self-loops and disappear. Data is unchanged.
+   */
+  mergeReturns?: boolean;
+}
+
+/**
+ * Occurrences grouped by thread: later occurrence id → first occurrence id. Only topics merge
+ * (pending / parked threads keep their own ring); a thread seen once maps to nothing.
+ */
+export function threadStars(state: GraphState): Map<string, string> {
+  const first = new Map<string, TopicNode>();
+  const out = new Map<string, string>();
+  for (const n of nodesInOrder(state)) {
+    if (n.kind !== 'topic') continue;
+    const f = first.get(n.threadId);
+    if (!f) first.set(n.threadId, n);
+    else out.set(n.id, f.id);
+  }
+  return out;
 }
 
 /** `node:` / `note:` prefixed ids keep React Flow node ids unique across both kinds. */
@@ -209,8 +270,9 @@ export const noteNodeId = (annotationId: string) => `note:${annotationId}`;
  *  - balanced: every node and note
  *  - detailed: as balanced (nodes also show their time; see TopicNode)
  */
-export function visibleGraph(state: GraphState, detail: DetailLevel): VisibleGraph {
-  const all = nodesInOrder(state);
+export function visibleGraph(state: GraphState, detail: DetailLevel, opts: VisibleOptions = {}): VisibleGraph {
+  const merged = opts.mergeReturns ? threadStars(state) : new Map<string, string>();
+  const all = nodesInOrder(state).filter((n) => !merged.has(n.id));
   const folded = new Map<string, string>(); // hidden id → visible stand-in id
   if (detail === 'broad') {
     let lastMain: TopicNode | null = null;
@@ -221,43 +283,65 @@ export function visibleGraph(state: GraphState, detail: DetailLevel): VisibleGra
       // a level-2 node before any main topic stays on the map rather than vanishing
     }
   }
-  const resolve = (id: string) => folded.get(id) ?? id;
+  const starOf = (id: string) => {
+    const m = merged.get(id) ?? id;
+    return folded.get(m) ?? m;
+  };
 
   const hiddenCount = new Map<string, number>();
   for (const [, to] of folded) hiddenCount.set(to, (hiddenCount.get(to) ?? 0) + 1);
 
+  const occurrences = new Map<string, TopicNode[]>();
+  for (const n of nodesInOrder(state)) {
+    const rep = merged.get(n.id) ?? n.id;
+    const list = occurrences.get(rep) ?? [];
+    list.push(n);
+    occurrences.set(rep, list);
+  }
+
   // a folded revisit (two level-2 occurrences) still shows as a return between their stand-ins
   const revisitSources = new Set(
     Object.values(state.edges)
-      .filter((e) => e.kind === 'revisit' && resolve(e.sourceId) !== resolve(e.targetId))
-      .map((e) => resolve(e.sourceId)),
+      .filter((e) => e.kind === 'revisit' && starOf(e.sourceId) !== starOf(e.targetId))
+      .map((e) => starOf(e.sourceId)),
   );
 
   const nodes: VisibleNode[] = all
     .filter((n) => !folded.has(n.id))
-    .map((n) => ({
-      node: n,
-      radius: nodeRadius(n),
-      hiddenChildren: hiddenCount.get(n.id) ?? 0,
-      isRevisit: revisitSources.has(n.id),
-      flags: flagsOn(state, n.id),
-    }));
+    .map((n) => {
+      const occ = occurrences.get(n.id) ?? [n];
+      const totalMs = occ.reduce((sum, o) => sum + durationMs(o), 0);
+      const highlighted = occ.some((o) => o.highlighted);
+      return {
+        node: highlighted === n.highlighted ? n : { ...n, highlighted },
+        occurrences: occ,
+        totalMs,
+        radius: n.kind === 'topic' ? radiusForMs(totalMs, n.level) : THREAD_RADIUS,
+        hiddenChildren: hiddenCount.get(n.id) ?? 0,
+        isRevisit: revisitSources.has(n.id),
+        flags: occ.reduce((sum, o) => sum + flagsOn(state, o.id), 0),
+      };
+    });
+  const shownHighlight = new Map(nodes.map((v) => [v.node.id, v.node.highlighted]));
 
   const edges: VisibleEdge[] = [];
   const seen = new Set<string>();
   for (const e of Object.values(state.edges)) {
-    const s = resolve(e.sourceId);
-    const t = resolve(e.targetId);
+    const s = starOf(e.sourceId);
+    const t = starOf(e.targetId);
     if (s === t || !state.nodes[s] || !state.nodes[t]) continue;
     const key = `${e.kind}|${s}|${t}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    const returning =
+      (e.kind === 'flow' || e.kind === 'user') && merged.size > 0 && state.nodes[t]!.seq < state.nodes[s]!.seq;
     edges.push({
       id: s === e.sourceId && t === e.targetId ? e.id : `${e.id}~${s}~${t}`,
       kind: e.kind,
       sourceId: s,
       targetId: t,
-      highlighted: Boolean(state.nodes[s]!.highlighted && state.nodes[t]!.highlighted),
+      highlighted: Boolean(shownHighlight.get(s) && shownHighlight.get(t)),
+      ...(returning ? { returning: true } : {}),
     });
   }
 
@@ -268,12 +352,12 @@ export function visibleGraph(state: GraphState, detail: DetailLevel): VisibleGra
         id: `note-link:${a.id}`,
         kind: 'note',
         sourceId: noteNodeId(a.id),
-        targetId: a.nodeId,
+        targetId: starOf(a.nodeId),
         highlighted: false,
       });
     }
   }
-  return { nodes, edges, notes };
+  return { nodes, edges, notes, starOf };
 }
 
 /** Detail level actually drawn: Broad when zoomed far out, whatever was chosen. */

@@ -76,7 +76,7 @@ describe('OutlineView', () => {
 describe('Map ↔ Outline', () => {
   it('switches to the outline and opens the detail sheet from it', async () => {
     const user = userEvent.setup();
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={{ outlineToggle: true }} />);
     await user.click(screen.getByRole('button', { name: 'Show as outline' }));
     expect(screen.getByRole('tree')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Broad' })).toBeNull();

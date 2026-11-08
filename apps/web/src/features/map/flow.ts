@@ -24,6 +24,8 @@ export interface MapNodeFlags {
   traced: TracedPath | null;
   /** id of the visually hidden keyboard instructions every node points at */
   describedBy?: string;
+  /** dots drifting along flow edges (flag `particles`) */
+  particles?: boolean;
 }
 
 export type TopicFlowData = {
@@ -48,6 +50,9 @@ export type MapEdgeData = {
   motion: boolean;
   /** height of the source's label block, so forward edges start below the text */
   labelGap: number;
+  /** flow back to an earlier (merged) star: drawn as a loop */
+  returning?: boolean;
+  particles?: boolean;
 };
 
 export type TopicFlowNode = Node<TopicFlowData, 'topic' | 'thread'>;
@@ -62,10 +67,11 @@ export const EDGE_COLOR: Record<VisibleEdgeKind, string> = {
   tether: 'var(--thread)',
   note: 'var(--text-2)',
 };
-/** literal colours for SVG markers (React Flow writes them into <marker> fill attributes) */
+/**
+ * Literal colours for SVG markers (React Flow writes them into <marker> fill attributes). Flow and
+ * user edges are comet trails whose fade shows the direction, so only revisit arcs keep an arrow.
+ */
 const MARKER_COLOR: Partial<Record<VisibleEdgeKind, string>> = {
-  flow: '#6FE3FF',
-  user: '#E8ECF8',
   revisit: '#C79BFF',
 };
 
@@ -78,6 +84,7 @@ export function toFlowNodes(
     const box = boxRadius(v.radius);
     const n = v.node;
     const side = box * 2;
+    const has = (id: string | null) => id !== null && v.occurrences.some((o) => o.id === id);
     return {
       id: n.id,
       type: n.kind === 'topic' ? 'topic' : 'thread',
@@ -99,9 +106,9 @@ export function toFlowNodes(
       data: {
         view: v,
         box,
-        active: n.id === flags.activeNodeId,
-        playing: n.id === flags.playingNodeId,
-        selected: n.id === flags.selectedNodeId,
+        active: has(flags.activeNodeId),
+        playing: has(flags.playingNodeId),
+        selected: has(flags.selectedNodeId),
         dimmed: Boolean(flags.traced && !flags.traced.nodeIds.has(n.id)),
         showTime: flags.showTime,
         motion: flags.motion,
@@ -160,6 +167,8 @@ export function toFlowEdges(graph: VisibleGraph, state: GraphState, flags: MapNo
         dimmed: Boolean(flags.traced && !edgeTraced(e, flags.traced)),
         onPath: Boolean(flags.traced && edgeTraced(e, flags.traced)),
         motion: flags.motion,
+        particles: Boolean(flags.particles),
+        ...(e.returning ? { returning: true } : {}),
         labelGap: src
           ? labelBlockHeight(
               src.label,
@@ -186,7 +195,9 @@ export function edgeAccessibleName(e: VisibleEdge, state: GraphState): string {
   const note = (id: string) => state.annotations.find((a) => noteNodeId(a.id) === id)?.text ?? '';
   switch (e.kind) {
     case 'flow':
-      return `Moved on from ${label(e.sourceId)} to ${label(e.targetId)}`;
+      return e.returning
+        ? `Came back from ${label(e.sourceId)} to ${label(e.targetId)}`
+        : `Moved on from ${label(e.sourceId)} to ${label(e.targetId)}`;
     case 'user':
       return `Your link from ${label(e.sourceId)} to ${label(e.targetId)}`;
     case 'revisit':
