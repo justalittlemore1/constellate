@@ -31,7 +31,9 @@ export function BrainScreen() {
   const lowStim = usePrefs((s) => s.lowStimulation);
   const [view, setView] = useState<View>(lowStim ? 'list' : 'galaxy');
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const reveal = useStarReveal(reduced);
+  // the slow star reveal plays on every visit (this mount), and again after each Generate
+  const reveal = useStarReveal(reduced, { startHidden: true });
+  const revealedOnEntry = useRef(false);
   const revealNext = useRef(false);
 
   const generate = () =>
@@ -46,6 +48,14 @@ export function BrainScreen() {
         );
       },
     });
+
+  // on entry: as soon as the Brain is here (cached or fetched), reveal it star by star
+  useEffect(() => {
+    if (revealedOnEntry.current || !brain.data) return;
+    revealedOnEntry.current = true;
+    reveal.start(revealOrder(brain.data.concepts));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brain.data]);
 
   // when the rebuilt Brain arrives (each refetch bumps dataUpdatedAt), start the reveal
   useEffect(() => {
@@ -155,14 +165,17 @@ export function BrainScreen() {
                     revealedAt={reveal.revealedAt}
                     linksFrom={reveal.linksFrom}
                   />
-                  <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs text-ink-2">
-                    {payload!.concepts.length} concepts · tap one to explore · Text view for keyboard
-                  </p>
                 </>
               ) : (
                 <ConceptList payload={payload!} onSelect={setSelectedId} />
               )}
             </div>
+            {view === 'galaxy' && (
+              // in the flow, below the canvas: with larger text it wraps, and must not sit on a label
+              <p data-testid="galaxy-hint" className="px-5 pt-2 text-center text-xs text-ink-2">
+                {payload!.concepts.length} concepts · tap one to explore · Text view for keyboard
+              </p>
+            )}
             <div className="flex justify-center px-5 pt-2 pb-[max(env(safe-area-inset-bottom),1rem)]">
               <Button variant="editorial" onClick={generate} disabled={rebuild.isPending}>
                 {rebuild.isPending ? 'Generating…' : 'Generate'}

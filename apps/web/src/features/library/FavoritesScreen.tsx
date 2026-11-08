@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import type { FavoriteMoment } from '../../lib/api';
 import { formatClock, formatDate } from '../../lib/format';
 import { routes } from '../../lib/routes';
+import { uiFlag } from '../../lib/uiFlags';
 import { ScreenHeader } from '../../ui';
 import { PlayMomentButton } from './PlayMomentButton';
 import { useConversations, useFavoriteMoments } from './queries';
@@ -113,26 +114,30 @@ function Section({
 
 function MomentRow({ moment: m }: { moment: FavoriteMoment }) {
   const isFlag = m.kind === 'flag';
+  const to = routes.conversation(m.conversationId, { node: m.nodeId ?? undefined, at: m.atMs });
   return (
     <li className="flex items-center gap-2 py-1">
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold">
-          <span className="sr-only">{isFlag ? 'Flagged: ' : 'Highlighted: '}</span>
-          {m.label}
-        </p>
+      {/* the whole text block is the link to that moment on the map (one hover / press wash) */}
+      {/* the visible text is the accessible name (it starts with the label); a hidden suffix says where it goes */}
+      <Link to={to} className="hover-wash block min-h-11 min-w-0 flex-1 px-2 py-1">
+        <p className="truncate font-semibold">{m.label}</p>
         <p className="truncate text-xs text-ink-2">
+          <span className="sr-only">{isFlag ? ', flagged moment, ' : ', highlighted topic, '}</span>
           {m.conversationTitle} · {formatClock(m.atMs)}
         </p>
         {m.summary && <p className="line-clamp-2 text-sm text-ink-2">{m.summary}</p>}
-      </div>
-      <PlayMomentButton momentKey={`${m.kind}-${m.id}`} audioPath={m.audioPath} atMs={m.atMs} label={m.label} />
-      <Link
-        to={routes.conversation(m.conversationId, { node: m.nodeId ?? undefined, at: m.atMs })}
-        aria-label={`Open ${m.label} in the map`}
-        className="hover-wash inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink"
-      >
-        <MapIcon aria-hidden size={18} />
+        <span className="sr-only">, open in the map</span>
       </Link>
+      <PlayMomentButton momentKey={`${m.kind}-${m.id}`} audioPath={m.audioPath} atMs={m.atMs} label={m.label} />
+      {uiFlag('highlightsMapIcon') && (
+        <Link
+          to={to}
+          aria-label={`Open ${m.label} in the map`}
+          className="hover-wash inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink"
+        >
+          <MapIcon aria-hidden size={18} />
+        </Link>
+      )}
     </li>
   );
 }

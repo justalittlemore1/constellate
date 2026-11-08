@@ -36,8 +36,11 @@ const ALL_VISIBLE: RevealState = { revealedAt: null, linksFrom: null };
  * After a Generate, stars appear a few at a time (each fading and scaling in), then the links draw
  * in, then everything settles to "all visible". Under reduced motion it is all there at once.
  */
-export function useStarReveal(reduced: boolean) {
-  const [state, setState] = useState<RevealState>(ALL_VISIBLE);
+export function useStarReveal(reduced: boolean, { startHidden = false }: { startHidden?: boolean } = {}) {
+  // `startHidden`: nothing shows until `start` (so a reveal on entry doesn't flash the whole sky first)
+  const [state, setState] = useState<RevealState>(() =>
+    startHidden && !reduced ? { revealedAt: new Map(), linksFrom: null } : ALL_VISIBLE,
+  );
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const interval = useRef<ReturnType<typeof setInterval> | null>(null);
 

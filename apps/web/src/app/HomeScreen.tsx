@@ -62,7 +62,12 @@ export function HomeScreen() {
           )}
         </div>
 
-        <Button variant="secondary" icon={<Play aria-hidden size={18} />} onClick={() => navigate(routes.demoLive())}>
+        <Button
+          variant="secondary"
+          feedback="border"
+          icon={<Play aria-hidden size={18} />}
+          onClick={() => navigate(routes.demoLive())}
+        >
           Try a demo conversation
         </Button>
       </div>

@@ -12,14 +12,17 @@
   --color-highlight: var(--highlight);
   --color-flag: var(--flag);
   --font-sans: var(--font);
-  /* nothing below 14 px: the smallest step is 14 px, body 17 px */
-  --text-xs: 0.875rem; /* 14 px */
+  /* larger by default: body 18 px, the smallest step 15 px, headings scaled to match */
+  --text-xs: 0.9375rem; /* 15 px */
   --text-xs--line-height: 1.35;
-  --text-sm: 0.9375rem; /* 15 px */
+  --text-sm: 1rem; /* 16 px */
   --text-sm--line-height: 1.4;
-  --text-base: 1.0625rem; /* 17 px */
-  --text-lg: 1.25rem; /* 20 px */
-  --text-xl: 1.375rem;
+  --text-base: 1.125rem; /* 18 px */
+  --text-lg: 1.375rem; /* 22 px */
+  --text-xl: 1.5rem; /* 24 px */
+  --text-2xl: 1.75rem; /* 28 px */
+  --text-3xl: 2.125rem; /* 34 px */
+  --text-4xl: 2.5rem; /* 40 px */
 }
 
 html {
@@ -39,7 +42,7 @@ body,
 }
 
 body {
-  font-size: 1.0625rem; /* 17 px body at 100 % */
+  font-size: 1.125rem; /* 18 px body at 100 % */
   font-weight: 400;
   /* Fraunces is variable on the optical-size axis: small text gets sturdier, larger text finer */
   font-optical-sizing: auto;

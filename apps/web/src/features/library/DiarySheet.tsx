@@ -6,7 +6,7 @@ import { isOpenThread, useApi, type RecallCard } from '../../lib/api';
 import { formatClock, formatDateTime, formatDuration } from '../../lib/format';
 import { routes } from '../../lib/routes';
 import { uiFlag } from '../../lib/uiFlags';
-import { Button, Chip, IconButton, Sheet, TextArea, TextField } from '../../ui';
+import { BottomSheet, Button, Chip, IconButton, TextArea, TextField } from '../../ui';
 import { PlayMomentButton } from './PlayMomentButton';
 import { composePromise, parsePromise } from './promises';
 import {
@@ -26,9 +26,9 @@ export const REFLECTION_PROMPT = 'What do you want to remember from this?';
  */
 export function DiarySheet({ open, onClose, graph }: { open: boolean; onClose: () => void; graph: GraphState }) {
   return (
-    <Sheet open={open} onClose={onClose} title="Diary" testId="diary-sheet">
+    <BottomSheet open={open} onClose={onClose} title="Diary" testId="diary-sheet">
       <DiaryContent graph={graph} />
-    </Sheet>
+    </BottomSheet>
   );
 }
 
@@ -219,7 +219,7 @@ function ThreadRow({ node, conversationId }: { node: TopicNode; conversationId: 
   const parked = node.kind === 'parked';
   const at = node.mentionedAtMs ?? node.startMs;
   return (
-    <li className="flex items-center gap-2 border-l border-dashed border-thread/70 py-1 pl-3">
+    <li className="flex items-center gap-2 border-l border-l-thread/70 py-1 pl-3 [border-left-style:dashed]">
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1 font-semibold">
           {parked && <Pencil aria-hidden size={14} className="text-thread" />}
@@ -301,21 +301,26 @@ function EditablePromise({ promise }: { promise: Commitment }) {
         <div className="min-w-0 flex-1">
           <p id={`${doneId}-text`} className={promise.done ? 'text-ink-2 line-through' : ''}>
             <span className="text-ink-2">When </span>
-            <label htmlFor={cueId} className="sr-only">
-              When should you do this?
+            {/* the label is the 44 px touch target; the input itself is one text line with a single
+                solid underline across its width, sitting on the baseline */}
+            <label
+              htmlFor={cueId}
+              data-testid="promise-cue-target"
+              className="inline-block cursor-text py-3 align-baseline"
+            >
+              <span className="sr-only">When should you do this?</span>
+              <input
+                id={cueId}
+                value={cue}
+                maxLength={80}
+                onChange={(e) => setCue(e.target.value)}
+                onBlur={saveCue}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
+                className="inline-block h-[1.35em] w-40 border-0 border-b border-solid border-thread/70 bg-transparent px-1 align-baseline leading-none text-thread"
+              />
             </label>
-            <input
-              id={cueId}
-              value={cue}
-              placeholder="___"
-              maxLength={80}
-              onChange={(e) => setCue(e.target.value)}
-              onBlur={saveCue}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur();
-              }}
-              className="min-h-11 w-40 border-b border-dashed border-thread/70 bg-transparent px-1 text-thread placeholder:text-thread/70"
-            />
             <span className="text-ink-2">, I will </span>
             {parsed.action}
           </p>

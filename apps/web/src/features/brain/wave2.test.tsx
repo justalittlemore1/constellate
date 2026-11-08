@@ -116,11 +116,11 @@ describe('Brain concept art — "O1: six diffraction spikes"', () => {
     expect(Math.abs(Number(big)) / Math.abs(Number(small))).toBeCloseTo(nodeRadius(9) / nodeRadius(1));
   });
 
-  it('has a core of radius ≈ 9 (scaled) and a white centre dot', () => {
+  it('has a small core (60 % of the node radius) and a white centre dot', () => {
     const rec = node();
     const arcs = rec.calls('arc').map((c) => c.args[2]);
-    expect(arcs[0]).toBe(9); // core = node radius at full size
-    expect(arcs[1]).toBeCloseTo(9 * 0.4); // centre
+    expect(arcs[0]).toBeCloseTo(9 * STAR_ART.coreRatio); // core
+    expect(arcs[1]).toBeCloseTo(9 * STAR_ART.coreRatio * STAR_ART.centreRatio); // centre
     expect(rec.sets('fillStyle')).toContain('#fff');
   });
 
@@ -138,7 +138,7 @@ describe('Brain concept art — "O1: six diffraction spikes"', () => {
     expect(appearScale(0)).toBeCloseTo(0.4);
     expect(appearScale(1)).toBe(1);
     const rec = node({ opacity: 0.5 });
-    expect(rec.calls('arc')[0]!.args[2]).toBeCloseTo(9 * appearScale(0.5));
+    expect(rec.calls('arc')[0]!.args[2]).toBeCloseTo(9 * STAR_ART.coreRatio * appearScale(0.5));
     expect(rec.sets('globalAlpha')[0]).toBe(0.5);
   });
 

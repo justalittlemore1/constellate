@@ -17,7 +17,7 @@ export function Chip({ tone = 'neutral', icon, children }: { tone?: ChipTone; ic
   return (
     <span
       className={cx(
-        'inline-flex items-center gap-1 border px-2 py-0.5 text-[0.875rem] font-semibold leading-tight',
+        'inline-flex items-center gap-1 border px-2 py-0.5 text-[0.9375rem] font-semibold leading-tight',
         TONES[tone],
       )}
     >

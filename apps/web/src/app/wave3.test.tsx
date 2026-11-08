@@ -35,16 +35,16 @@ describe('font: Fraunces, self-hosted', () => {
     expect(read('index.html')).not.toMatch(/fonts\.googleapis|fonts\.gstatic/);
   });
 
-  it('is large enough: body 17 px, nothing below 14 px, small text at weight 500', () => {
+  it('is large enough: body 18 px, nothing below 15 px, small text at weight 500', () => {
     const css = read('src/index.css');
-    expect(css).toMatch(/body \{[^}]*font-size: 1\.0625rem/); // 17 px
-    expect(css).toMatch(/--text-xs: 0\.875rem/); // the smallest step: 14 px
+    expect(css).toMatch(/body \{[^}]*font-size: 1\.125rem/); // 18 px
+    expect(css).toMatch(/--text-xs: 0\.9375rem/); // the smallest step: 15 px
     expect(css).toMatch(/\.text-xs,\s*\.text-sm,\s*small \{\s*font-weight: 500/);
-    // no fixed sizes below 14 px in A4 components (0.875rem = 14 px)
+    // no fixed sizes below 15 px in A4 components (0.9375rem = 15 px)
     for (const file of ['src/ui/Chip.tsx', 'src/ui/Button.tsx']) {
-      for (const m of read(file).matchAll(/text-\[([\d.]+)rem\]/g)) expect(Number(m[1])).toBeGreaterThanOrEqual(0.875);
+      for (const m of read(file).matchAll(/text-\[([\d.]+)rem\]/g)) expect(Number(m[1])).toBeGreaterThanOrEqual(0.9375);
     }
-    expect(LABEL_PX).toBeGreaterThanOrEqual(14); // Brain canvas labels
+    expect(LABEL_PX).toBeGreaterThanOrEqual(15); // Brain canvas labels
   });
 });
 
@@ -284,8 +284,9 @@ describe('one hover / press effect app-wide', () => {
   });
 
   it('A4 components carry no other hover colour changes', () => {
+    // the one exception, "Try a demo conversation", is Button's `feedback="border"`
+    expect(read('src/ui/Button.tsx').match(/hover:(text|bg|border)-[^\s'"]+/g)).toEqual(['hover:border-thread']);
     const files = [
-      'src/ui/Button.tsx',
       'src/ui/IconButton.tsx',
       'src/features/library/LibraryDrawer.tsx',
       'src/features/library/FavoritesScreen.tsx',
