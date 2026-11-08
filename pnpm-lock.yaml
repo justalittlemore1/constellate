@@ -47,6 +47,9 @@ importers:
 
   apps/server:
     dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^1.6.0
+        version: 1.6.0(zod@3.25.76)
       '@constellate/brain':
         specifier: workspace:*
         version: link:../../packages/brain

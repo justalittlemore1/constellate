@@ -1,0 +1,78 @@
+import { createPartFromUri, type GoogleGenAI, type Part } from '@google/genai';
+import { MODELS, type Ms } from '@constellate/shared';
+
+/** One speaker turn from the post-recording transcript. */
+export interface FileSegment {
+  speaker: number | null;
+  startMs: Ms;
+  endMs: Ms;
+  text: string;
+}
+
+export type FileTranscriber = (audio: Buffer, mimeType: string) => Promise<FileSegment[]>;
+
+/** PLAN: diarization and word timestamps are limited to 30 minutes of audio. */
+export const MAX_DIARIZED_MS = 30 * 60_000;
+
+/** "1.240s" → 1240 */
+export function parseOffset(v: string | undefined): Ms | null {
+  if (!v) return null;
+  const m = /^(-?\d+(?:\.\d+)?)s$/.exec(v.trim());
+  return m ? Math.round(Number(m[1]) * 1000) : null;
+}
+
+/**
+ * Pure: `audioTranscription` parts → speaker turns. Speaker labels ("spk_1", …) become indices
+ * 0, 1, … in order of first appearance; consecutive parts from the same speaker are merged.
+ */
+export function partsToSegments(parts: readonly Part[]): FileSegment[] {
+  const speakers = new Map<string, number>();
+  const out: FileSegment[] = [];
+  for (const p of parts) {
+    const t = p.audioTranscription;
+    if (!t) continue;
+    const words = (t.words ?? []).filter((w) => w.word?.trim());
+    const text = (words.length ? words.map((w) => w.word!.trim()).join(' ') : (t.text ?? '')).trim();
+    if (!text) continue;
+    const start = parseOffset(words[0]?.startOffset) ?? parseOffset(t.startOffset);
+    const end = parseOffset(words.at(-1)?.endOffset) ?? parseOffset(t.endOffset);
+    if (start === null || end === null) continue;
+    let speaker: number | null = null;
+    if (t.speakerLabel) {
+      if (!speakers.has(t.speakerLabel)) speakers.set(t.speakerLabel, speakers.size);
+      speaker = speakers.get(t.speakerLabel)!;
+    }
+    const prev = out.at(-1);
+    if (prev && prev.speaker === speaker) {
+      prev.text = `${prev.text} ${text}`;
+      prev.endMs = Math.max(prev.endMs, end);
+    } else {
+      out.push({ speaker, startMs: start, endMs: Math.max(start, end), text });
+    }
+  }
+  return out;
+}
+
+/** `MODELS.sttFile` with diarization + word timestamps (verbatim mode, required for both). */
+export function geminiFileTranscriber(ai: GoogleGenAI): FileTranscriber {
+  return async (audio, mimeType) => {
+    const file = await ai.files.upload({
+      file: new Blob([new Uint8Array(audio)], { type: mimeType }),
+      config: { mimeType },
+    });
+    if (!file.uri) throw new Error('file upload returned no uri');
+    try {
+      const res = await ai.models.generateContent({
+        model: MODELS.sttFile,
+        contents: [createPartFromUri(file.uri, file.mimeType ?? mimeType)],
+        config: { audioTranscriptionConfig: { diarization: true, wordTimestamp: true, mode: 'VERBATIM' as never } },
+      });
+      const parts = res.candidates?.[0]?.content?.parts ?? [];
+      const segments = partsToSegments(parts);
+      if (!segments.length) throw new Error('transcription returned no segments');
+      return segments;
+    } finally {
+      if (file.name) await ai.files.delete({ name: file.name }).catch(() => {});
+    }
+  };
+}

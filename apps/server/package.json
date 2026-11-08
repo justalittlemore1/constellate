@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@constellate/brain": "workspace:*",
     "@constellate/interpreter": "workspace:*",
     "@constellate/shared": "workspace:*",
