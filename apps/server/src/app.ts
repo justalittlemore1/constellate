@@ -6,19 +6,26 @@ import type { Env } from './env';
 import { createDefaultDeps, type ServerDeps } from './deps';
 import { send } from './live/protocol';
 import { LiveConnection, type LiveDeps, type Log } from './live/session';
+import { Finalizer } from './finalize/finalizer';
+import { conversationRoutes } from './routes/conversations';
 
 /**
- * Builds the Fastify app. A1 owns everything here; this is the H1 skeleton:
- *   GET  /health   liveness + configured providers (no secrets)
- *   WS   /live     live pipeline (see live/session.ts)
- * Planned (see docs/briefs/a1-server.md): GET /conversations/:id, POST /conversations/:id/ops,
- * POST /conversations/:id/finalize, DELETE /conversations/:id, POST /brain/rebuild, GET /brain.
+ * Builds the Fastify app (A1):
+ *   GET  /health          liveness + configured providers (no secrets)
+ *   WS   /live            live pipeline (live/session.ts)
+ *   /conversations/...    REST (routes/conversations.ts)
+ * `overrides` replaces any dependency (tests use an in-memory store, fake auth and fake speech).
  */
 export async function buildApp(env: Env, overrides: Partial<ServerDeps> = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: { level: env.LOG_LEVEL } });
   const log: Log = (event, data) => app.log.info({ event, ...data }, event);
   const deps = createDefaultDeps(env, log, overrides);
-  const liveDeps: LiveDeps = { ...deps, log };
+  const finalizer = new Finalizer({ ...deps, log });
+  const liveDeps: LiveDeps = {
+    ...deps,
+    log,
+    onStopped: deps.onStopped ?? ((conversationId) => void finalizer.run(conversationId, { waitForRecording: true })),
+  };
 
   await app.register(cors, {
     origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((s) => s.trim()),
@@ -36,6 +43,8 @@ export async function buildApp(env: Env, overrides: Partial<ServerDeps> = {}): P
       supabase: Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY),
     },
   }));
+
+  conversationRoutes(app, deps, finalizer, log);
 
   app.register(async (scope) => {
     scope.get('/live', { websocket: true }, (socket) => {

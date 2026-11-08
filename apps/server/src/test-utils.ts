@@ -4,6 +4,7 @@
  */
 import type { FastifyInstance } from 'fastify';
 import {
+  AUDIO_BYTES_PER_MS,
   placeNode,
   ServerMsgSchema,
   type CreateLiveInterpreter,
@@ -143,6 +144,10 @@ export async function makeHarness(over: Partial<ServerDeps> = {}): Promise<Harne
     },
     replaySpeed: 200,
     abandonAfterMs: 60_000,
+    // finalisation runs only when a test asks for it (POST /finalize or its own onStopped)
+    onStopped: () => {},
+    transcribeFile: null,
+    waitForRecordingMs: 0,
     ...over,
   };
   const app = await buildApp(loadEnv({ LOG_LEVEL: 'silent' }), deps);
@@ -213,4 +218,23 @@ export async function until(cond: () => boolean, timeoutMs = 3_000): Promise<voi
     if (Date.now() - start > timeoutMs) throw new Error('condition not met in time');
     await tick(5);
   }
+}
+
+/**
+ * Records a short conversation through the real live path: three utterances on two topics,
+ * then stop. Returns its id and the live utterances.
+ */
+export async function recordConversation(h: Harness, token = 'token-a'): Promise<string> {
+  const c = await connect(h.app);
+  c.send({ t: 'hello', token, source: 'mic', consent: true });
+  const { conversationId } = await c.waitFor('ready');
+  const fake = h.adapters.at(-1)!;
+  c.sendAudio(AUDIO_BYTES_PER_MS * 9_000);
+  fake.emit({ text: 'Did you see the hockey game', startMs: 0, endMs: 3_000 });
+  fake.emit({ text: 'The goalie was amazing', startMs: 3_000, endMs: 5_000 });
+  fake.emit({ text: 'NEW are you going to the concert', startMs: 5_500, endMs: 9_000 });
+  await c.waitFor('caption', (m) => m.final && m.utteranceId === 'u3');
+  c.send({ t: 'stop' });
+  await c.waitFor('stopped');
+  return conversationId;
 }

@@ -4,6 +4,7 @@ import { createLiveInterpreter, finalizeConversation } from '@constellate/interp
 import type { CreateLiveInterpreter, FinalizeConversation } from '@constellate/shared';
 import { geminiEmbedder, noEmbedder, type Embedder } from './ai/embed';
 import type { Env } from './env';
+import { geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
 import { GraphHub } from './graph/hub';
 import { LiveRegistry, SpeechUnavailableError, type LiveDeps, type Log, type SpeechRequest } from './live/session';
 import { GeminiLiveUpstream } from './speech/gemini-live';
@@ -18,6 +19,10 @@ import { createServiceClient, rejectAllAuth, supabaseAuth, type Auth } from './s
 /** Everything the routes and live sessions depend on; tests replace any of it. */
 export interface ServerDeps extends Omit<LiveDeps, 'log'> {
   finalizeConversation: FinalizeConversation;
+  /** post-recording diarized transcription; null keeps the live transcript */
+  transcribeFile: FileTranscriber | null;
+  /** after `stop`, how long finalisation waits for the recording upload */
+  waitForRecordingMs: number;
   ai: GoogleGenAI | null;
 }
 
@@ -58,6 +63,8 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
     newId: randomUUID,
     replaySpeed,
     abandonAfterMs: env.ABANDON_AFTER_MS,
+    transcribeFile: ai ? geminiFileTranscriber(ai) : null,
+    waitForRecordingMs: 45_000,
     ai,
     ...overrides,
   };
