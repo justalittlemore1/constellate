@@ -40,6 +40,9 @@ describe('Brain view', () => {
     renderApp({ route: '/brain', api: await builtApi(), element: <BrainScreen /> });
 
     const graph = await screen.findByTestId('force-graph');
+    expect(screen.getByRole('img', { name: /^Brain galaxy of 8 concepts\. Switch to the List view/ })).toBe(
+      screen.getByTestId('brain-canvas'),
+    );
     expect(within(graph).getAllByRole('button')).toHaveLength(fixturePayload.concepts.length);
     const faith = fixturePayload.concepts.find((c) => c.name === 'Faith vs Evidence')!;
     expect(faith.mentionCount).toBe(2);

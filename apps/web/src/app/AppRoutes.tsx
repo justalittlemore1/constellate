@@ -10,7 +10,7 @@ import { SettingsScreen } from './SettingsScreen';
 
 /**
  * Route table. Owner: A4. Every route except /login requires a session (mock mode signs in a
- * demo user). Placeholders name the workstream that replaces them.
+ * demo user).
  *   /login        A4  email + password
  *   /             A4  Home: starfield, Welcome, mic orb, library drawer, Generate Brain
  *   /live/:id     A6  live screen (map from A3), captions, Flag / Park a thought / Stop
@@ -50,18 +50,6 @@ function NotFound() {
       <p className="text-ink-2">That page drifted out of the constellation.</p>
       <Link to="/" className="inline-flex min-h-11 items-center text-topic underline">
         Go home
-      </Link>
-    </main>
-  );
-}
-
-function Placeholder({ title, owner }: { title: string; owner: string }) {
-  return (
-    <main className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="text-ink-2 text-sm">Placeholder — built by {owner}.</p>
-      <Link to="/" className="inline-flex min-h-11 items-center text-topic underline">
-        Home
       </Link>
     </main>
   );

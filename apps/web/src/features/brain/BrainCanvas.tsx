@@ -29,6 +29,11 @@ function endId(end: unknown): string {
   return typeof end === 'object' && end !== null ? String((end as { id: unknown }).id) : String(end);
 }
 
+/** The canvas is one picture to assistive tech; the List view carries the content. */
+export function galaxyLabel(concepts: number): string {
+  return `Brain galaxy of ${concepts} ${concepts === 1 ? 'concept' : 'concepts'}. Switch to the List view to explore them with a keyboard or screen reader.`;
+}
+
 /**
  * The galaxy: `react-force-graph-2d` with link distance 40 + 160·(1 − w) and radius 6 + 3·√mentions.
  * Labels for the 15 largest concepts, the hovered one and the selected one with its neighbours;
@@ -74,7 +79,13 @@ export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCan
   const glow = lowStim ? 0.35 : 1;
 
   return (
-    <div ref={wrap} className="absolute inset-0" data-testid="brain-canvas">
+    <div
+      ref={wrap}
+      role="img"
+      aria-label={galaxyLabel(payload.concepts.length)}
+      className="absolute inset-0"
+      data-testid="brain-canvas"
+    >
       {size.w > 0 && (
         <ForceGraph2D<GalaxyNode, GalaxyLink>
           ref={fg}
