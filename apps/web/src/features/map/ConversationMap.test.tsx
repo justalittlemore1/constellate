@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { usePrefs } from '../../lib/prefs';
-import { ConversationMap, KEYBOARD_HINT } from './ConversationMap';
+import { ConversationMap, HOVER_DWELL_MS, KEYBOARD_HINT } from './ConversationMap';
 import { FlowEdge, RevisitEdge, TetherEdge } from './edges';
 import type { MapFlowEdge } from './flow';
 import { installFlowDomStubs } from './testing';
@@ -24,6 +24,7 @@ const LEGACY: MapFlags = {
   cometTrails: true,
   facetedStars: true,
   storedLayout: true,
+  columnLayout: false,
 };
 
 beforeAll(() => installFlowDomStubs());
@@ -297,6 +298,7 @@ describe('interactions', () => {
       const n = nodeOf('Gospel Sources');
       const el = wrapper(n);
       fireEvent.mouseEnter(el);
+      act(() => vi.advanceTimersByTime(HOVER_DWELL_MS));
       const card = screen.getByTestId('preview-card');
       expect(card).toHaveTextContent(n.summary);
       expect(screen.queryByRole('dialog')).toBeNull();

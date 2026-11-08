@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { usePrefs } from '../../lib/prefs';
-import { ConversationMap, REVEAL_STEP_MS } from './ConversationMap';
+import { ConversationMap, HOVER_DWELL_MS, REVEAL_STEP_MS } from './ConversationMap';
 import { columnFlowPath, columnTetherPath, type Pt } from './edges';
 import { COLUMN, columnLayout, labelBox } from './layout';
 import { nodeSubLabel, visibleGraph, type VisibleGraph } from './model';
@@ -91,7 +91,7 @@ function samplePath(d: string, steps = 24): Pt[] {
   return out;
 }
 
-describe('column layout (display only)', () => {
+describe('round-4 column layout (now behind the columnLayout flag)', () => {
   it('leaves persisted x / y untouched', () => {
     const before = JSON.stringify(Object.values(demo.nodes).map((n) => [n.id, n.x, n.y]));
     columnLayout(vgOf(demo));
@@ -176,7 +176,7 @@ describe('column layout (display only)', () => {
   });
 
   it('the old layout is behind the storedLayout flag', () => {
-    const { unmount } = render(<ConversationMap state={demo} />);
+    const { unmount } = render(<ConversationMap state={demo} flags={{ columnLayout: true }} />);
     const n = byLabel('Gospel Sources');
     const side = parseFloat(screen.getByTestId(`map-node-${n.id}`).style.width);
     const p = columnLayout(vgOf(demo)).nodes.get(n.id)!;
@@ -202,7 +202,7 @@ describe('larger text at the default zoom', () => {
   });
 
   it('labels sit beside their star (right of topics, left of gutter threads)', () => {
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={{ columnLayout: true }} />);
     const label = (n: TopicNode) => screen.getByTestId(`map-node-${n.id}`).querySelector('[data-testid="node-label"]')!;
     expect(label(byLabel('Sunday Service'))).toHaveAttribute('data-side', 'right');
     expect(label(byLabel('Intramural Soccer', 'pending'))).toHaveAttribute('data-side', 'left');
@@ -217,6 +217,7 @@ describe('hover strip', () => {
       render(<ConversationMap state={demo} />);
       const n = wrapper(byLabel('Gospel Sources'));
       fireEvent.mouseEnter(n);
+      act(() => vi.advanceTimersByTime(HOVER_DWELL_MS));
       const strip = screen.getByTestId('preview-card');
       expect(screen.queryByRole('button', { name: 'Close preview' })).toBeNull();
       expect(strip.querySelector('[aria-label="Close preview"]')).toBeNull();

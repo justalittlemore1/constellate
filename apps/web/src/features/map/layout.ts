@@ -39,6 +39,18 @@ export const COLUMN = {
 
 export type LabelSide = 'right' | 'left';
 
+/** A label box placed by the weave layout (layout units, absolute). */
+export interface PlacedLabel {
+  side: 'below' | 'right' | 'left' | 'above';
+  x0: number;
+  y0: number;
+  w: number;
+  h: number;
+  lines: number;
+  /** text alignment inside the box */
+  align: 'start' | 'center' | 'end';
+}
+
 export interface PlacedNode {
   x: number;
   y: number;
@@ -47,13 +59,19 @@ export interface PlacedNode {
   labelSide: LabelSide;
   /** max label width at this position */
   labelWidth: number;
+  /** weave layout: exactly where the label goes */
+  label?: PlacedLabel;
 }
 
 export type ColumnRoute =
   | { kind: 'direct' }
   | { kind: 'left-channel'; x: number }
   | { kind: 'tether-direct' }
-  | { kind: 'tether-gutter'; x: number };
+  | { kind: 'tether-gutter'; x: number }
+  /** weave layout: an S-curve between neighbouring rows */
+  | { kind: 'curve' }
+  /** weave layout: out sideways, along a channel at x, sideways in (either side) */
+  | { kind: 'channel'; x: number };
 
 export interface ColumnLayout {
   nodes: Map<string, PlacedNode>;

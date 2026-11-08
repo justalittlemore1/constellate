@@ -15,7 +15,7 @@ import { ConversationMap } from './ConversationMap';
 import { LINE_COLOUR, linePath, pathMidpoint } from './edges';
 import { boxRadius } from './flow';
 import { visibleGraph } from './model';
-import { installFlowDomStubs } from './testing';
+import { hoverStar, installFlowDomStubs } from './testing';
 import {
   followY,
   graphBounds,
@@ -227,7 +227,7 @@ describe('8. hover / press wash', () => {
     render(<ConversationMap state={demo} onEdit={() => {}} />);
     expect(screen.getByRole('button', { name: 'Paint topics gold (highlighter)' })).toHaveClass('hover-wash');
     expect(screen.getByRole('button', { name: 'Text view' })).toHaveClass('hover-wash');
-    fireEvent.mouseEnter(tile(byLabel('Gospel Sources')).closest('.react-flow__node')!);
+    hoverStar(tile(byLabel('Gospel Sources')).closest('.react-flow__node')!);
     expect(screen.getByRole('button', { name: 'Open details for Gospel Sources' })).toHaveClass('hover-wash');
     // the map no longer carries its own stand-in wash
     expect(mapCss).not.toMatch(/cmap-control/);

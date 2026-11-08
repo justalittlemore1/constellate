@@ -7,14 +7,15 @@
  *    that time and makes its Play start there (no autoplay: browsers block it and it would surprise)
  *  - evidence quotes from the transcript
  */
-import { topicAt, type GraphOp, type GraphState, type TopicNode } from '@constellate/shared';
+import { topicAt, type GraphOp, type GraphState, type TopicNode, type Utterance } from '@constellate/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router';
 import { useApi } from '../../lib/api';
+import * as sharedAudio from '../../lib/audio';
 import { playMoment, stopPlayback, usePlayback } from '../../lib/audio';
 import { useToast } from '../../ui';
-import { ConversationMap } from './ConversationMap';
+import { ConversationMap, type MapView } from './ConversationMap';
 import { useUserOps } from './userOps';
 
 export interface DeepLink {
@@ -51,7 +52,40 @@ export function playStartMs(node: TopicNode, link: DeepLink, target: TopicNode |
   return node.startMs;
 }
 
-export function SavedMap({ graph }: { graph: GraphState }) {
+/** What A4's header button switches between: the star map, or the nodes as a list (the outline). */
+export type SavedMapView = 'map' | 'list';
+
+export interface SavedMapProps {
+  graph: GraphState;
+  /** controlled view: 'list' shows the nodes as an accessible list (the outline); default 'map' */
+  view?: SavedMapView;
+  /** called when the view changes from inside the map (the focus-only "Text view" / "Map view" link) */
+  onViewChange?: (view: SavedMapView) => void;
+  /**
+   * While true, the sky stays empty (no stars, no lines, nothing focusable on the canvas); when it
+   * turns false the one-by-one reveal starts from the beginning. A4: `diaryOpen && !revealedOnce`.
+   */
+  revealHold?: boolean;
+}
+
+/**
+ * Local adapter for A4's transcript playback in `lib/audio` (timed captions in the now-playing
+ * bar, "Transcript · no audio recorded"). Until A4 confirms the API it feature-detects
+ * `playTranscript({ key, startMs, endMs, utterances })`; resolves false when it isn't there yet.
+ */
+export async function playTranscriptMoment(moment: {
+  key: string;
+  startMs: number;
+  endMs: number | null;
+  utterances: Utterance[];
+}): Promise<boolean> {
+  const play = (sharedAudio as Record<string, unknown>).playTranscript;
+  if (typeof play !== 'function') return false;
+  await (play as (m: typeof moment) => Promise<void> | void)(moment);
+  return true;
+}
+
+export function SavedMap({ graph, view, onViewChange, revealHold = false }: SavedMapProps) {
   const api = useApi();
   const toast = useToast();
   const [params] = useSearchParams();
@@ -60,14 +94,6 @@ export function SavedMap({ graph }: { graph: GraphState }) {
   const target = useMemo(() => deepLinkTarget(graph, link), [graph, link]);
   const utterances = useQuery({ queryKey: ['utterances', id], queryFn: () => api.listUtterances(id) });
   const audioPath = graph.conversation.audioPath;
-  // offer Play only when a recording can actually be fetched (none in mock mode or before upload)
-  const recording = useQuery({
-    queryKey: ['audio-url', audioPath],
-    queryFn: () => api.audioUrl(audioPath),
-    enabled: Boolean(audioPath),
-    staleTime: 30 * 60_000,
-  });
-  const canPlay = Boolean(audioPath && recording.data);
   const { current } = usePlayback();
   const submit = useUserOps(id);
 
@@ -85,17 +111,25 @@ export function SavedMap({ graph }: { graph: GraphState }) {
         return;
       }
       try {
-        const url = await api.audioUrl(audioPath);
-        if (!url) {
-          toast('No recording is available for this conversation.', 'error');
+        const url = audioPath ? await api.audioUrl(audioPath) : null;
+        if (url) {
+          await playMoment(n.id, url, playStartMs(n, link, target));
           return;
         }
-        await playMoment(n.id, url, playStartMs(n, link, target));
+        // no recording (mock mode, or not uploaded yet): A4's shared player plays the transcript
+        const said = (utterances.data ?? []).filter((u) => n.utteranceIds.includes(u.id));
+        const played = await playTranscriptMoment({
+          key: n.id,
+          startMs: playStartMs(n, link, target),
+          endMs: n.endMs,
+          utterances: said,
+        });
+        if (!played) toast('No recording is available for this conversation.', 'error');
       } catch {
-        toast('Couldn’t play the recording.', 'error');
+        toast('Couldn’t play this moment.', 'error');
       }
     },
-    [current, api, audioPath, toast, link, target],
+    [current, api, audioPath, toast, link, target, utterances.data],
   );
 
   return (
@@ -104,10 +138,14 @@ export function SavedMap({ graph }: { graph: GraphState }) {
       activeNodeId={null}
       utterances={utterances.data}
       playingNodeId={current && graph.nodes[current] ? current : null}
-      onPlaySegment={canPlay ? (n) => void onPlay(n) : undefined}
+      // always offered: real audio when there is a recording, the transcript (A4's player) when not
+      onPlaySegment={(n) => void onPlay(n)}
       onEdit={onEdit}
       focusNodeId={target?.id ?? null}
       reveal
+      revealHold={revealHold}
+      {...(view !== undefined ? { view: view === 'list' ? ('outline' as const) : ('map' as const) } : {})}
+      {...(onViewChange ? { onViewChange: (v: MapView) => onViewChange(v === 'outline' ? 'list' : 'map') } : {})}
     />
   );
 }

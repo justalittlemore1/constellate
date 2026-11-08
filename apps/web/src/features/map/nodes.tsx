@@ -99,6 +99,31 @@ function Label({
       {sub && <span className="cmap-sub mt-0.5 tabular-nums">{sub}</span>}
     </>
   );
+  if (place?.label) {
+    // weave layout: exactly where the layout found room (below, right, left or above the star)
+    const l = place.label;
+    const align =
+      l.align === 'start'
+        ? 'items-start text-left'
+        : l.align === 'end'
+          ? 'items-end text-right'
+          : 'items-center text-center';
+    return (
+      <div
+        aria-hidden
+        data-testid="node-label"
+        data-side={l.side}
+        className={cx(
+          'cmap-label-weave absolute flex flex-col',
+          align,
+          l.side === 'above' ? 'justify-end' : 'justify-start',
+        )}
+        style={{ width: l.w, height: l.h, left: box + (l.x0 - place.x), top: box + (l.y0 - place.y) }}
+      >
+        {body}
+      </div>
+    );
+  }
   if (place) {
     // column layout: beside the star, vertically centred (right of topics, left of gutter threads)
     const right = place.labelSide === 'right';

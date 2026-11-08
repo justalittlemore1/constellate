@@ -170,3 +170,12 @@
   animation: cmap-draw 700ms ease-out backwards;
   animation-delay: inherit;
 }
+
+/* ── weave layout (round 5): smaller labels (≈ 13.5 px on screen), wherever the layout found room */
+.cmap-label-weave .cmap-label {
+  font-size: calc(13.5px * var(--text-size) * var(--cmap-label-scale, 1));
+  line-height: 1.2;
+}
+.cmap-label-weave .cmap-sub {
+  font-size: calc(11.5px * var(--text-size) * var(--cmap-label-scale, 1));
+}

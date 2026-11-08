@@ -26,6 +26,7 @@ import { ArrowDown, HelpCircle, Highlighter, List, Map as MapIcon, Maximize2, Mi
 import { resolveFlags, type MapFlags } from './flags';
 import { useAutoFollow } from './useAutoFollow';
 import { columnLayout } from './layout';
+import { weaveLayout } from './weave';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useMotionReduced } from '../../lib/prefs';
 import { Button, cx, IconButton } from '../../ui';
@@ -105,16 +106,22 @@ export interface ConversationMapProps {
   hideToolbar?: boolean;
   /** saved map: on mount, stars appear one by one in conversation order, then the lines draw in */
   reveal?: boolean;
+  /** keep the sky empty (no stars, lines or focus stops) until false; then the reveal starts from the beginning */
+  revealHold?: boolean;
   /** per-instance overrides of MAP_FLAGS (flags.ts) */
   flags?: Partial<MapFlags>;
   className?: string;
 }
 
 const TOOLBAR_INSET = 60;
+const EMPTY_NODES: MapFlowNode[] = [];
+const EMPTY_EDGES: ReturnType<typeof toFlowEdges> = [];
 /** saved-map reveal: gap between stars appearing, in conversation order */
 export const REVEAL_STEP_MS = 150;
 /** column layout: never below this zoom, so labels stay ≈ 16–17 px and stars ≥ 28 px */
 const COLUMN_MIN_ZOOM = 0.96;
+/** a mouse must rest on a star this long before its preview strip appears (keyboard focus is instant) */
+export const HOVER_DWELL_MS = 700;
 export const KEYBOARD_HINT =
   'Arrow keys move between topics in conversation order; each one shows a preview below. Enter opens the details.';
 /** how long the preview strip stays after the pointer leaves a star (time to reach the strip) */
@@ -177,6 +184,7 @@ function MapInner({
   onViewChange,
   hideToolbar = false,
   reveal = false,
+  revealHold = false,
   flags: flagsProp,
   className,
 }: ConversationMapProps) {
@@ -200,6 +208,7 @@ function MapInner({
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sheetId, setSheetId] = useState<string | null>(null);
   const [quickId, setQuickId] = useState<string | null>(null);
   const [tracedId, setTracedId] = useState<string | null>(null);
@@ -220,7 +229,11 @@ function MapInner({
   );
   const starById = useMemo(() => new Map(vg.nodes.map((v) => [v.node.id, v])), [vg]);
   // display-only column layout for phones (round 4); the persisted x / y stay behind `storedLayout`
-  const layout = useMemo(() => (F.storedLayout ? undefined : columnLayout(vg)), [vg, F.storedLayout]);
+  // round 5: the weaving layout; the round-4 column behind `columnLayout`, stored x / y behind `storedLayout`
+  const layout = useMemo(
+    () => (F.storedLayout ? undefined : F.columnLayout ? columnLayout(vg) : weaveLayout(vg)),
+    [vg, F.storedLayout, F.columnLayout],
+  );
   /** where a star is drawn (column layout), falling back to its persisted position */
   const posOf = useCallback(
     (id: string): { x: number; y: number } | null => layout?.nodes.get(id) ?? state.nodes[id] ?? null,
@@ -450,20 +463,36 @@ function MapInner({
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     hoverTimer.current = null;
   };
+  const clearDwell = () => {
+    if (dwellTimer.current) clearTimeout(dwellTimer.current);
+    dwellTimer.current = null;
+  };
   const onNodeMouseEnter: NodeMouseHandler<MapFlowNode> = useCallback((e, node) => {
     if (node.type === 'note') return;
     // desktop hover only; touch taps go straight to the sheet through onNodeClick
     if ((e.nativeEvent as PointerEvent).pointerType === 'touch') return;
     clearHoverTimer();
-    setHoverId(node.id);
+    clearDwell();
+    // only after the pointer rests on the star (a pass over it shows nothing)
+    dwellTimer.current = setTimeout(() => {
+      dwellTimer.current = null;
+      setHoverId(node.id);
+    }, HOVER_DWELL_MS);
   }, []);
   // linger a moment so the pointer can travel to the strip (which keeps itself open while hovered)
   const leaveHover = useCallback(() => {
+    clearDwell();
     clearHoverTimer();
     hoverTimer.current = setTimeout(() => setHoverId(null), HOVER_LINGER_MS);
   }, []);
   const onNodeMouseLeave = leaveHover;
-  useEffect(() => clearHoverTimer, []);
+  useEffect(
+    () => () => {
+      clearHoverTimer();
+      clearDwell();
+    },
+    [],
+  );
 
   // keyboard focus on a star shows its preview strip, like hover
   const onFocusCapture = useCallback((e: FocusEvent<HTMLDivElement>) => {
@@ -549,7 +578,12 @@ function MapInner({
   const empty = nodesInOrder(state).length === 0;
 
   return (
-    <div className={cx('cmap relative h-full w-full overflow-hidden bg-bg', className)} data-testid="conversation-map">
+    <div
+      className={cx('cmap relative h-full w-full overflow-hidden bg-bg', className)}
+      data-testid="conversation-map"
+      // weave labels stay ≈ 13.5 px on screen when the map is zoomed in past 1 (stars keep scaling)
+      style={{ '--cmap-label-scale': String(1 / Math.max(1, zoom)) } as React.CSSProperties}
+    >
       {/* keyboard / screen-reader way to the outline: invisible until it has keyboard focus */}
       <button
         type="button"
@@ -600,8 +634,9 @@ function MapInner({
             onPointerDownCapture={onPointerDownCapture}
           >
             <ReactFlow<MapFlowNode>
-              nodes={nodes}
-              edges={edges}
+              // held: an empty sky; releasing mounts every star, so their staggered fade-ins start then
+              nodes={revealHold ? EMPTY_NODES : nodes}
+              edges={revealHold ? EMPTY_EDGES : edges}
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               onInit={() => setReady(true)}
@@ -659,7 +694,7 @@ function MapInner({
         </div>
       )}
 
-      {empty && view === 'map' && (
+      {empty && !revealHold && view === 'map' && (
         <p className="pointer-events-none absolute inset-x-8 top-1/2 -translate-y-1/2 text-center text-sm text-ink-2">
           Topics appear here as the conversation goes.
         </p>

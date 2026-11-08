@@ -11,7 +11,7 @@ import { usePrefs } from '../../lib/prefs';
 import { ConversationMap } from './ConversationMap';
 import { AUTO_FOLLOW_RESUME_MS, MAP_FLAGS, resolveFlags } from './flags';
 import { durationMs, radiusForMs, threadStars, topicRadius, visibleGraph } from './model';
-import { installFlowDomStubs } from './testing';
+import { hoverStar, installFlowDomStubs } from './testing';
 import { useAutoFollow } from './useAutoFollow';
 
 beforeAll(() => installFlowDomStubs());
@@ -170,7 +170,7 @@ describe('fewer clicks', () => {
 
   it('hover (mouse) shows the preview strip, not the sheet', () => {
     render(<ConversationMap state={demo} />);
-    fireEvent.mouseEnter(wrapper(byLabel('Gospel Sources')));
+    hoverStar(wrapper(byLabel('Gospel Sources')));
     expect(screen.getByTestId('preview-card')).toHaveTextContent('Gospel Sources');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -264,7 +264,7 @@ describe('appearance', () => {
 describe('star-chart frame', () => {
   it('preview strip and sheets carry the frame and the serif title', () => {
     render(<ConversationMap state={demo} />);
-    fireEvent.mouseEnter(wrapper(byLabel('Gospel Sources')));
+    hoverStar(wrapper(byLabel('Gospel Sources')));
     expect(screen.getByTestId('preview-card')).toHaveClass('cmap-chart');
     expect(screen.getByTestId('preview-card').className).not.toMatch(/rounded/);
     fireEvent.click(tile(byLabel('Gospel Sources')));
