@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { cx } from './cx';
 import { IconButton } from './IconButton';
@@ -19,8 +19,19 @@ export interface SheetProps {
 }
 
 /** The PhoneFrame provides `#overlay-root` so sheets stay inside the phone on desktop. */
-function overlayRoot(): HTMLElement {
+export function overlayRoot(): HTMLElement {
   return document.getElementById('overlay-root') ?? document.body;
+}
+
+/** While open, the screens behind the sheet are `inert` (no focus, hidden from assistive tech). */
+function useInertBackground(open: boolean) {
+  useEffect(() => {
+    if (!open) return;
+    const content = document.getElementById('app-content');
+    if (!content || content.hasAttribute('inert')) return; // a parent sheet already did it
+    content.setAttribute('inert', '');
+    return () => content.removeAttribute('inert');
+  }, [open]);
 }
 
 /**
@@ -30,8 +41,14 @@ function overlayRoot(): HTMLElement {
 export function Sheet({ open, onClose, title, side = 'bottom', header, children, testId }: SheetProps) {
   const panel = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  useFocusTrap(panel, open, onClose);
-  if (!open) return null;
+  // Resolve the portal target after mount: a sheet that is open on the very first render would
+  // otherwise land in document.body (the PhoneFrame's #overlay-root isn't in the DOM yet), move on
+  // the next render and lose its initial focus. The layout effect re-renders before paint.
+  const [container, setContainer] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => setContainer(overlayRoot()), []);
+  useFocusTrap(panel, open && container !== null, onClose);
+  useInertBackground(open);
+  if (!open || !container) return null;
 
   return createPortal(
     <div className="absolute inset-0 z-40">
@@ -63,6 +80,6 @@ export function Sheet({ open, onClose, title, side = 'bottom', header, children,
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6">{children}</div>
       </div>
     </div>,
-    overlayRoot(),
+    container,
   );
 }

@@ -27,7 +27,7 @@ describe('app shell', () => {
   it('"Try a demo conversation" starts a transcript replay of the demo fixture', async () => {
     renderApp();
     await userEvent.click(screen.getByRole('button', { name: 'Try a demo conversation' }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/live/new?replay=demo-religion');
+    expect(screen.getByTestId('location')).toHaveTextContent('/live/demo?fixture=demo-religion');
   });
 
   it('hamburger opens the library drawer as a dialog', async () => {

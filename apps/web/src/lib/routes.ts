@@ -1,6 +1,7 @@
 /**
- * Route builders shared across workstreams. The live screen (A6) reads `?replay=<fixture id>` to
- * start a transcript replay (`hello` with `source: 'replay-transcript'`) instead of the microphone.
+ * Route builders shared across workstreams. Live routes follow A6's `LiveRoute`:
+ * `/live/new` records from the microphone; `/live/demo?fixture=<id>` replays a transcript fixture
+ * on the server (`hello` with `source: 'replay-transcript'`).
  */
 export const DEMO_REPLAY_FIXTURE = 'demo-religion';
 
@@ -8,7 +9,7 @@ export const routes = {
   home: '/',
   login: '/login',
   newLive: () => '/live/new',
-  demoLive: (fixture: string = DEMO_REPLAY_FIXTURE) => `/live/new?replay=${encodeURIComponent(fixture)}`,
+  demoLive: (fixture: string = DEMO_REPLAY_FIXTURE) => `/live/demo?fixture=${encodeURIComponent(fixture)}`,
   conversation: (id: string, opts: { node?: string; at?: number } = {}) => {
     const q = new URLSearchParams();
     if (opts.node) q.set('node', opts.node);

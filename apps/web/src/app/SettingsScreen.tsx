@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { LogOut, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { useApi } from '../lib/api';
+import { deleteComplete, describeDeleteReport, useApi } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { TEXT_SIZE_MAX, TEXT_SIZE_MIN, usePrefs } from '../lib/prefs';
 import { routes } from '../lib/routes';
@@ -116,16 +116,23 @@ function DeleteDataSheet({ open, onClose }: { open: boolean; onClose: () => void
     setBusy(true);
     setError(null);
     try {
-      await api.deleteMyData();
+      const report = await api.deleteMyData();
       qc.clear();
-      toast('All your data was deleted.', 'success');
+      if (!deleteComplete(report)) {
+        // say exactly what is left; the user can try again from here
+        setError(describeDeleteReport(report));
+        return;
+      }
+      toast(describeDeleteReport(report), 'success');
       onClose();
       if (!auth.mock) {
         await auth.signOut();
         navigate(routes.login);
       } else navigate(routes.home);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Deletion failed. Nothing more was removed.');
+      setError(
+        `Deletion couldn’t start (${err instanceof Error ? err.message : 'unknown error'}). Nothing was deleted.`,
+      );
     } finally {
       setBusy(false);
     }

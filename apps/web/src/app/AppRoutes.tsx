@@ -1,6 +1,8 @@
 import { Link, Outlet, Route, Routes } from 'react-router';
+import { FavoritesScreen } from '../features/library/FavoritesScreen';
 import { LiveRoute } from '../features/live';
 import { RequireAuth } from '../lib/auth';
+import { ConversationScreen } from './ConversationScreen';
 import { HomeScreen } from './HomeScreen';
 import { LoginScreen } from './LoginScreen';
 import { SettingsScreen } from './SettingsScreen';
@@ -11,7 +13,7 @@ import { SettingsScreen } from './SettingsScreen';
  *   /login        A4  email + password
  *   /             A4  Home: starfield, Welcome, mic orb, library drawer, Generate Brain
  *   /live/:id     A6  live screen (map from A3), captions, Flag / Park a thought / Stop
- *                     `/live/new` starts a recording; `/live/new?replay=<fixture>` a transcript replay
+ *                     `/live/new` records; `/live/demo?fixture=<id>` replays a transcript fixture
  *   /c/:id        A3  saved map, playback, toolbar · A4 Diary sheet
  *   /brain        A4  galaxy view + concept sheet
  *   /favorites    A4  highlights and flagged moments
@@ -30,9 +32,9 @@ export function AppRoutes() {
       >
         <Route path="/" element={<HomeScreen />} />
         <Route path="/live/:id" element={<LiveRoute />} />
-        <Route path="/c/:id" element={<Placeholder title="Conversation" owner="A3 + A4" />} />
+        <Route path="/c/:id" element={<ConversationScreen />} />
         <Route path="/brain" element={<Placeholder title="Brain" owner="A4" />} />
-        <Route path="/favorites" element={<Placeholder title="Favourites" owner="A4" />} />
+        <Route path="/favorites" element={<FavoritesScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
       </Route>
       <Route path="*" element={<NotFound />} />

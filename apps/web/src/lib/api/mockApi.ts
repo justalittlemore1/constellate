@@ -11,11 +11,11 @@ const clone = <T>(v: T): T => structuredClone(v);
  * In-memory API over the contract fixtures, for VITE_USE_MOCKS=1 and unit tests. Every call returns
  * copies so callers cannot mutate the store by accident. State lives until the page reloads.
  */
-export function createMockApi(seed: GraphState[] = [loadDemoGraph()]): Api {
+export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { recallCards?: RecallCard[] } = {}): Api {
   const graphs = new Map(seed.map((g) => [g.conversation.id, clone(g)]));
   let folders: Folder[] = [];
   let participants: Participant[] = [];
-  let recall: RecallCard[] = [];
+  let recall: RecallCard[] = clone(extra.recallCards ?? []);
   let brain: BrainPayload = { concepts: [], links: [], occurrences: {} };
   let built = false;
 
@@ -157,13 +157,22 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()]): Api {
     },
 
     async deleteMyData() {
+      const conversationsTotal = graphs.size;
       graphs.clear();
       folders = [];
       participants = [];
       recall = [];
       brain = { concepts: [], links: [], occurrences: {} };
       built = false;
+      return {
+        conversationsTotal,
+        conversationsDeleted: conversationsTotal,
+        foldersDeleted: true,
+        conceptsDeleted: true,
+      };
     },
+
+    capabilities: { editCommitments: true },
   };
   return api;
 }
