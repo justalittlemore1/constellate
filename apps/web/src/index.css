@@ -119,6 +119,30 @@ body {
   box-shadow: 0 0 48px rgba(111, 227, 255, calc(0.3 * var(--glow)));
   animation: orb-pulse 2.8s ease-in-out infinite;
 }
+/* wave 2 record button (app/RecordStar): filaments turn once per ~26 s, the core shifts slowly
+   between two close warm whites; the reduced-motion rules below stop both */
+@keyframes record-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes record-core-shift {
+  from {
+    fill: #fff3d6;
+  }
+  to {
+    fill: #ffebc7;
+  }
+}
+.record-star-spin {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  animation: record-spin 26s linear infinite;
+}
+.record-star-core {
+  animation: record-core-shift 10s ease-in-out infinite alternate;
+}
+
 /* the redesign has no pulsing glows (uiFlags.homeOrbPulse): a steady, soft halo */
 .orb-still {
   box-shadow: 0 0 40px rgba(111, 227, 255, calc(0.22 * var(--glow)));

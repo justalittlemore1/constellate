@@ -6,9 +6,9 @@ import { loadDemoGraph } from '../../lib/fixtures';
 import { usePrefs } from '../../lib/prefs';
 import { renderApp } from '../../test/render';
 import { BrainCanvas } from './BrainCanvas';
-import { defaultRenderers, type BrainRenderers } from './brainRenderers';
+import { dotRenderers, type BrainRenderers } from './brainRenderers';
 import { BrainScreen } from './BrainScreen';
-import { REVEAL_PER_STEP, REVEAL_STEP_MS, revealOrder, STAR_FADE_MS, starOpacity, useStarReveal } from './starReveal';
+import { LINK_DRAW_MS, revealOrder, revealPlan, STAR_FADE_MS, starOpacity, useStarReveal } from './starReveal';
 
 /** A canvas context that ignores every call (enough for the renderers to run). */
 function fakeCtx() {
@@ -132,32 +132,43 @@ describe('Brain page (wave 1)', () => {
 });
 
 describe('star reveal timing', () => {
-  it('reveals brightest first, a few per step, then settles to "all visible"', () => {
+  it('spreads the stars over ~2.4 s, brightest first, then draws the links, then settles', () => {
     vi.useFakeTimers();
     const order = revealOrder(payload.concepts);
     expect(payload.concepts.find((c) => c.id === order[0])!.mentionCount).toBe(2);
+    const plan = revealPlan(order.length);
+    expect(plan.steps * plan.stepMs).toBeGreaterThanOrEqual(2000);
+    expect(plan.steps * plan.stepMs).toBeLessThanOrEqual(3000);
 
     const { result } = renderHook(() => useStarReveal(false));
     act(() => result.current.start(order));
-    expect(result.current.revealedAt!.size).toBe(REVEAL_PER_STEP);
-    expect([...result.current.revealedAt!.keys()]).toEqual(order.slice(0, REVEAL_PER_STEP));
-    act(() => vi.advanceTimersByTime(REVEAL_STEP_MS));
-    expect(result.current.revealedAt!.size).toBe(Math.min(order.length, 2 * REVEAL_PER_STEP));
-    // one step at a time until every star is out (the settle timeout hasn't fired yet)
+    expect([...result.current.revealedAt!.keys()]).toEqual(order.slice(0, plan.perStep));
+    expect(result.current.linksFrom).toBeNull(); // links wait for the stars
+    act(() => vi.advanceTimersByTime(plan.stepMs));
+    expect(result.current.revealedAt!.size).toBe(Math.min(order.length, 2 * plan.perStep));
     while (result.current.revealedAt && result.current.revealedAt.size < order.length) {
-      act(() => vi.advanceTimersByTime(REVEAL_STEP_MS));
+      act(() => vi.advanceTimersByTime(plan.stepMs));
     }
     expect(result.current.revealedAt!.size).toBe(order.length);
-    act(() => vi.advanceTimersByTime(STAR_FADE_MS));
-    expect(result.current.revealedAt).toBeNull();
+    expect(result.current.linksFrom).toBeNull();
+    act(() => vi.advanceTimersByTime(STAR_FADE_MS)); // last star has faded in: links start
+    expect(result.current.linksFrom).not.toBeNull();
+    act(() => vi.advanceTimersByTime(LINK_DRAW_MS));
+    expect(result.current.revealedAt).toBeNull(); // settled: everything visible
   });
 
-  it('a short list does not leave a timer running', () => {
+  it('scales the step size with the Brain so big Brains still take ~2.4 s', () => {
+    expect(revealPlan(8)).toEqual({ perStep: 1, steps: 8, stepMs: 300 });
+    expect(revealPlan(100)).toEqual({ perStep: 9, steps: 12, stepMs: 200 });
+    expect(revealPlan(0).steps).toBe(0);
+  });
+
+  it('a single star leaves no interval running', () => {
     vi.useFakeTimers();
     const { result } = renderHook(() => useStarReveal(false));
-    act(() => result.current.start(['a', 'b']));
-    expect(vi.getTimerCount()).toBe(1); // only the settle timeout
-    act(() => vi.advanceTimersByTime(STAR_FADE_MS));
+    act(() => result.current.start(['a']));
+    expect(vi.getTimerCount()).toBe(2); // links-start and settle timeouts only
+    act(() => vi.advanceTimersByTime(STAR_FADE_MS + LINK_DRAW_MS));
     expect(vi.getTimerCount()).toBe(0);
     expect(result.current.revealedAt).toBeNull();
   });
@@ -184,12 +195,12 @@ describe('swappable drawing (wave 2 star art and comet trails)', () => {
     expect(vi.mocked(renderers.drawNode).mock.calls[0]![0]).toMatchObject({ opacity: 1, dimmed: false });
   });
 
-  it('the default link renderer shows the relation by dash pattern, not colour alone', () => {
+  it('the wave-1 dot renderer (kept) shows the relation by dash pattern, not colour alone', () => {
     const { ctx, calls } = fakeCtx();
     const base = { ctx, from: { x: 0, y: 0 }, to: { x: 10, y: 0 }, weight: 0.5, lit: false, opacity: 1, scale: 1 };
-    defaultRenderers.drawLink({ ...base, relation: 'broader' });
-    defaultRenderers.drawLink({ ...base, relation: 'related' });
-    defaultRenderers.drawLink({ ...base, relation: 'co_discussed' });
+    dotRenderers.drawLink({ ...base, relation: 'broader' });
+    dotRenderers.drawLink({ ...base, relation: 'related' });
+    dotRenderers.drawLink({ ...base, relation: 'co_discussed' });
     const dashes = calls.filter((c) => c.name === 'setLineDash').map((c) => c.args[0]);
     expect(dashes).toEqual([[], [6, 4], [1.5, 3.5]]);
   });

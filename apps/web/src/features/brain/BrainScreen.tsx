@@ -153,6 +153,7 @@ export function BrainScreen() {
                     onSelect={setSelectedId}
                     reduced={reduced}
                     revealedAt={reveal.revealedAt}
+                    linksFrom={reveal.linksFrom}
                   />
                   <p className="pointer-events-none absolute inset-x-0 bottom-3 text-center text-xs text-ink-2">
                     {payload!.concepts.length} concepts · tap one to explore · Text view for keyboard

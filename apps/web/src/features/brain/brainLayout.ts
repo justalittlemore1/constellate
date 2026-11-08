@@ -35,7 +35,8 @@ export interface GalaxyLink {
   target: string;
   /** strongest weight between the pair, drives the link distance */
   weight: number;
-  /** strongest explicit relation: broader > related > co_discussed (drawn as solid / dashed / dotted) */
+  /** strongest explicit relation: broader > related > co_discussed (comet trail / line / stardust);
+   *  for `broader`, `source` is the broader concept */
   relation: ConceptRelation;
 }
 
@@ -51,16 +52,25 @@ export function toGalaxy(payload: BrainPayload): { nodes: GalaxyNode[]; links: G
     radius: nodeRadius(c.mentionCount),
   }));
   const pairs = new Map<string, GalaxyLink>();
+  const broaderOf = new Map<string, string>(); // pair key → the broader concept's id
   for (const l of payload.links) {
     if (!ids.has(l.sourceId) || !ids.has(l.targetId) || l.sourceId === l.targetId) continue;
     const [a, b] = [l.sourceId, l.targetId].sort() as [string, string];
     const key = `${a}|${b}`;
+    if (l.relation === 'broader') broaderOf.set(key, l.sourceId); // server/mock: source is the broader
     const prev = pairs.get(key);
     if (!prev) {
       pairs.set(key, { source: a, target: b, weight: l.weight, relation: l.relation });
     } else {
       prev.weight = Math.max(prev.weight, l.weight);
       if (RELATION_RANK[l.relation] > RELATION_RANK[prev.relation]) prev.relation = l.relation;
+    }
+  }
+  // a broader link runs from the broader concept, so its comet trail starts bright there
+  for (const [key, link] of pairs) {
+    const broader = broaderOf.get(key);
+    if (link.relation === 'broader' && broader && link.source !== broader) {
+      [link.source, link.target] = [link.target, link.source];
     }
   }
   return { nodes, links: [...pairs.values()] };

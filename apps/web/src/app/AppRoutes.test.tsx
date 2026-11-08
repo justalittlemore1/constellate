@@ -5,22 +5,22 @@ import { loadDemoGraph, loadDemoOps } from '../lib/fixtures';
 import { renderApp } from '../test/render';
 
 describe('app shell', () => {
-  it('renders Home with the user name and a labelled microphone button', () => {
+  it('renders Home with the user name and a labelled record button', () => {
     renderApp();
     expect(screen.getByRole('heading', { name: 'Welcome, Demo' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start a conversation' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start recording' })).toBeInTheDocument();
     expect(screen.getByTestId('starfield')).toBeInTheDocument();
   });
 
   it('the first Tab on Home lands on the primary action', async () => {
     renderApp();
     await userEvent.tab();
-    expect(screen.getByRole('button', { name: 'Start a conversation' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Start recording' })).toHaveFocus();
   });
 
-  it('mic orb opens a new live conversation (consent is asked on the live screen)', async () => {
+  it('the record button opens a new live conversation (consent is asked on the live screen)', async () => {
     renderApp();
-    await userEvent.click(screen.getByRole('button', { name: 'Start a conversation' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start recording' }));
     expect(screen.getByTestId('location')).toHaveTextContent('/live/new');
   });
 
