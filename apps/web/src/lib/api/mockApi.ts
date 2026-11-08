@@ -112,6 +112,7 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
               label: n.label,
               summary: n.summary,
               atMs: n.startMs,
+              endMs: n.endMs,
             });
         }
         for (const f of g.flags) {

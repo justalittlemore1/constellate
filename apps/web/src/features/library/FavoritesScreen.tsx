@@ -128,7 +128,14 @@ function MomentRow({ moment: m }: { moment: FavoriteMoment }) {
         {m.summary && <p className="line-clamp-2 text-sm text-ink-2">{m.summary}</p>}
         <span className="sr-only">, open in the map</span>
       </Link>
-      <PlayMomentButton momentKey={`${m.kind}-${m.id}`} audioPath={m.audioPath} atMs={m.atMs} label={m.label} />
+      <PlayMomentButton
+        momentKey={`${m.kind}-${m.id}`}
+        conversationId={m.conversationId}
+        audioPath={m.audioPath}
+        atMs={m.atMs}
+        endMs={m.endMs ?? null}
+        label={m.label}
+      />
       {uiFlag('highlightsMapIcon') && (
         <Link
           to={to}

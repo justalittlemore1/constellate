@@ -6,6 +6,7 @@ import { RequireAuth } from '../lib/auth';
 import { ConversationScreen } from './ConversationScreen';
 import { HomeScreen } from './HomeScreen';
 import { LoginScreen } from './LoginScreen';
+import { NowPlayingBar } from './NowPlayingBar';
 import { SettingsScreen } from './SettingsScreen';
 
 /**
@@ -22,24 +23,28 @@ import { SettingsScreen } from './SettingsScreen';
  */
 export function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginScreen />} />
-      <Route
-        element={
-          <RequireAuth>
-            <Outlet />
-          </RequireAuth>
-        }
-      >
-        <Route path="/" element={<HomeScreen />} />
-        <Route path="/live/:id" element={<LiveRoute />} />
-        <Route path="/c/:id" element={<ConversationScreen />} />
-        <Route path="/brain" element={<BrainScreen />} />
-        <Route path="/favorites" element={<FavoritesScreen />} />
-        <Route path="/settings" element={<SettingsScreen />} />
-      </Route>
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <>
+      {/* the one now-playing bar (transcript playback when there's no recording) */}
+      <NowPlayingBar />
+      <Routes>
+        <Route path="/login" element={<LoginScreen />} />
+        <Route
+          element={
+            <RequireAuth>
+              <Outlet />
+            </RequireAuth>
+          }
+        >
+          <Route path="/" element={<HomeScreen />} />
+          <Route path="/live/:id" element={<LiveRoute />} />
+          <Route path="/c/:id" element={<ConversationScreen />} />
+          <Route path="/brain" element={<BrainScreen />} />
+          <Route path="/favorites" element={<FavoritesScreen />} />
+          <Route path="/settings" element={<SettingsScreen />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </>
   );
 }
 

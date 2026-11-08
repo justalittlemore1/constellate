@@ -18,6 +18,9 @@ import {
   useUpdateConversation,
 } from './queries';
 
+/** the promise paragraph's line-height (the checkbox centres on the first line from it) */
+export const PROMISE_LINE = '1.6em';
+
 export const REFLECTION_PROMPT = 'What do you want to remember from this?';
 
 /**
@@ -255,10 +258,7 @@ function ReadOnlyPromise({ promise }: { promise: Commitment }) {
   return (
     <li className="py-3">
       <p className={promise.done ? 'text-ink-2 line-through' : ''}>
-        <span className="text-ink-2">When </span>
-        <span className="text-thread">{parsed.cue ?? '___'}</span>
-        <span className="text-ink-2">, I will </span>
-        {parsed.action}
+        When <span className="text-thread">{parsed.cue ?? '___'}</span>, I will {parsed.action}
       </p>
       <p className="mt-1 text-xs text-ink-2">
         {promise.done ? 'Done' : 'Not done yet'} · said at {formatClock(promise.atMs)}
@@ -282,11 +282,13 @@ function EditablePromise({ promise }: { promise: Commitment }) {
   return (
     <li className="py-3">
       <div className="flex items-start gap-1">
-        {/* the whole 44 × 44 px label is the tap target; the box itself stays 24 px */}
+        {/* the whole 44 × 44 px label is the tap target (the box stays 24 px); its negative margins,
+            computed from the paragraph's line-height, centre it on the first line of text */}
         <label
           htmlFor={doneId}
           data-testid="promise-done-target"
-          className="hover-wash -my-2 -ml-2.5 flex size-11 shrink-0 cursor-pointer items-center justify-center"
+          className="hover-wash -ml-2.5 my-[calc((var(--promise-line)-2.75rem)/2)] flex size-11 shrink-0 cursor-pointer items-center justify-center"
+          style={{ ['--promise-line' as string]: PROMISE_LINE }}
         >
           <input
             id={doneId}
@@ -299,14 +301,20 @@ function EditablePromise({ promise }: { promise: Commitment }) {
           <span className="sr-only">Done</span>
         </label>
         <div className="min-w-0 flex-1">
-          <p id={`${doneId}-text`} className={promise.done ? 'text-ink-2 line-through' : ''}>
-            <span className="text-ink-2">When </span>
-            {/* the label is the 44 px touch target; the input itself is one text line with a single
-                solid underline across its width, sitting on the baseline */}
+          {/* one evenly spaced paragraph in the body text colour; the cue is an inline blank */}
+          <p
+            id={`${doneId}-text`}
+            data-testid="promise-text"
+            className={promise.done ? 'text-ink-2 line-through' : 'text-ink'}
+            style={{ lineHeight: PROMISE_LINE }}
+          >
+            When{' '}
+            {/* the input sits inline below the line height (so the line box doesn't grow); the label's
+                ::before stretches its tap target to 44 px without taking up any layout space */}
             <label
               htmlFor={cueId}
               data-testid="promise-cue-target"
-              className="inline-block cursor-text py-3 align-baseline"
+              className="relative inline-block cursor-text align-baseline before:absolute before:inset-x-0 before:top-1/2 before:h-11 before:-translate-y-1/2 before:content-['']"
             >
               <span className="sr-only">When should you do this?</span>
               <input
@@ -318,11 +326,10 @@ function EditablePromise({ promise }: { promise: Commitment }) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') e.currentTarget.blur();
                 }}
-                className="inline-block h-[1.35em] w-40 border-0 border-b border-solid border-thread/70 bg-transparent px-1 align-baseline leading-none text-thread"
+                className="relative inline-block h-[1.25em] w-40 border-0 border-b border-solid border-thread/70 bg-transparent px-1 py-0 align-baseline leading-[1.25em] text-thread"
               />
             </label>
-            <span className="text-ink-2">, I will </span>
-            {parsed.action}
+            , I will {parsed.action}
           </p>
           <p className="mt-1 text-xs text-ink-2">Said at {formatClock(promise.atMs)}</p>
         </div>
@@ -388,8 +395,10 @@ function RecallCardItem({ card, graph }: { card: RecallCard; graph: GraphState }
               </div>
               <PlayMomentButton
                 momentKey={`recall-${card.id}`}
+                conversationId={graph.conversation.id}
                 audioPath={graph.conversation.audioPath}
                 atMs={node.startMs}
+                endMs={node.endMs}
                 label={node.label}
               />
             </div>

@@ -177,7 +177,7 @@ export function createRealApi({ supabase, serverHttpUrl, userId, accessToken, fe
       const [nodeRows, flagRows] = await Promise.all([
         supabase
           .from(TABLES.nodes)
-          .select('id, conversation_id, label, summary, start_ms, seq')
+          .select('id, conversation_id, label, summary, start_ms, end_ms, seq')
           .eq('highlighted', true)
           .order('seq'),
         supabase.from(TABLES.flags).select('id, conversation_id, node_id, at_ms, note').order('at_ms'),
@@ -205,6 +205,7 @@ export function createRealApi({ supabase, serverHttpUrl, userId, accessToken, fe
           label: String(r.label),
           summary: String(r.summary ?? ''),
           atMs: Number(r.start_ms),
+          endMs: r.end_ms == null ? null : Number(r.end_ms),
         });
       }
       for (const r of flags) {

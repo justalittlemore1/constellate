@@ -30,12 +30,16 @@ describe('favourites', () => {
     ).toHaveAttribute('href', `/c/${demo.conversation.id}?node=${first.id}&t=${first.startMs}`);
   });
 
-  it('says so when there is no recording to play (mock mode)', async () => {
+  it('with no recording (mock mode), plays the moment as its transcript in the now-playing bar', async () => {
     renderApp({ route: '/favorites' });
     const highlights = await screen.findByRole('region', { name: 'Highlighted topics' });
     const [play] = await within(highlights).findAllByRole('button', { name: /^Play / });
     await userEvent.click(play!);
-    expect(await screen.findByText('No recording is available for this conversation.')).toBeInTheDocument();
+    const bar = await screen.findByRole('region', { name: 'Now playing' });
+    expect(bar).toHaveTextContent('Transcript · no audio recorded');
+    expect(play).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(within(bar).getByRole('button', { name: 'Stop' }));
+    expect(screen.queryByRole('region', { name: 'Now playing' })).not.toBeInTheDocument();
   });
 
   it('shows helpful empty states', async () => {
