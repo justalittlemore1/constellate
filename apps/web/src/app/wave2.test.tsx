@@ -10,12 +10,11 @@ import { FILAMENTS } from './RecordStar';
 afterEach(() => usePrefs.getState().reset());
 
 describe('Home record button — "F4: filaments ending in stars"', () => {
-  it('is a large button named "Start recording" that replaces the mic orb', async () => {
+  it('is a large button named "Start a conversation" (the name the e2e specs use) that replaces the mic orb', async () => {
     renderApp();
-    const button = screen.getByRole('button', { name: 'Start recording' });
+    const button = screen.getByRole('button', { name: 'Start a conversation' });
     expect(button).toHaveClass('size-36'); // 144 px target
     expect(button).not.toHaveAttribute('aria-describedby'); // the hint text is hidden
-    expect(screen.queryByRole('button', { name: 'Start a conversation' })).not.toBeInTheDocument();
     expect(button.querySelector('.orb, .orb-still')).toBeNull(); // no circle, no glow
     await userEvent.click(button);
     expect(screen.getByTestId('location')).toHaveTextContent('/live/new');
@@ -23,7 +22,7 @@ describe('Home record button — "F4: filaments ending in stars"', () => {
 
   it('draws six fine filaments, each ending in a small star, around a two-part core', () => {
     renderApp();
-    const svg = within(screen.getByRole('button', { name: 'Start recording' })).getByTestId('record-star');
+    const svg = within(screen.getByRole('button', { name: 'Start a conversation' })).getByTestId('record-star');
     expect(svg).toHaveAttribute('viewBox', '-60 -60 120 120');
     expect(svg).toHaveAttribute('aria-hidden', 'true');
 
@@ -91,6 +90,6 @@ describe('Home record button — "F4: filaments ending in stars"', () => {
   it('the first Tab lands on it, so it is reachable without a pointer', async () => {
     renderApp();
     await userEvent.tab();
-    expect(screen.getByRole('button', { name: 'Start recording' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Start a conversation' })).toHaveFocus();
   });
 });

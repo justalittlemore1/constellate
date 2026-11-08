@@ -47,7 +47,7 @@ export function HomeScreen() {
           ) : (
             <button
               type="button"
-              aria-label="Start recording"
+              aria-label="Start a conversation"
               aria-describedby={showHint ? 'orb-hint' : undefined}
               onClick={() => navigate(routes.newLive())}
               className="flex size-36 items-center justify-center rounded-full"

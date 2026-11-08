@@ -8,19 +8,19 @@ describe('app shell', () => {
   it('renders Home with the user name and a labelled record button', () => {
     renderApp();
     expect(screen.getByRole('heading', { name: 'Welcome, Demo' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start recording' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Start a conversation' })).toBeInTheDocument();
     expect(screen.getByTestId('starfield')).toBeInTheDocument();
   });
 
   it('the first Tab on Home lands on the primary action', async () => {
     renderApp();
     await userEvent.tab();
-    expect(screen.getByRole('button', { name: 'Start recording' })).toHaveFocus();
+    expect(screen.getByRole('button', { name: 'Start a conversation' })).toHaveFocus();
   });
 
   it('the record button opens a new live conversation (consent is asked on the live screen)', async () => {
     renderApp();
-    await userEvent.click(screen.getByRole('button', { name: 'Start recording' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Start a conversation' }));
     expect(screen.getByTestId('location')).toHaveTextContent('/live/new');
   });
 
