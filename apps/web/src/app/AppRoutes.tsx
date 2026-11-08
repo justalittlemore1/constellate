@@ -1,4 +1,5 @@
 import { Link, Outlet, Route, Routes } from 'react-router';
+import { BrainScreen } from '../features/brain/BrainScreen';
 import { FavoritesScreen } from '../features/library/FavoritesScreen';
 import { LiveRoute } from '../features/live';
 import { RequireAuth } from '../lib/auth';
@@ -33,7 +34,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomeScreen />} />
         <Route path="/live/:id" element={<LiveRoute />} />
         <Route path="/c/:id" element={<ConversationScreen />} />
-        <Route path="/brain" element={<Placeholder title="Brain" owner="A4" />} />
+        <Route path="/brain" element={<BrainScreen />} />
         <Route path="/favorites" element={<FavoritesScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
       </Route>
