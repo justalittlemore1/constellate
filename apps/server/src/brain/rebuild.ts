@@ -49,6 +49,9 @@ export interface BrainResponse {
 
 const running = new Map<string, Promise<RebuildResult>>();
 
+/** concepts offered by name to nodes that have no embedding */
+const NAME_CANDIDATES = 40;
+
 /** Incremental build (PLAN → The Brain). One run per user at a time. */
 export function rebuildBrain(deps: BrainDeps, userId: string): Promise<RebuildResult> {
   let p = running.get(userId);
@@ -82,22 +85,28 @@ async function doRebuild(deps: BrainDeps, userId: string): Promise<RebuildResult
       conversationSummary: conv.conversation.summary,
       nodes: [],
     };
+    // without an embedding (daily cap reached, or the provider failed) a node is matched by name:
+    // Claude sees the user's most-mentioned concepts as candidates, with no similarity score
+    const byName = [...concepts]
+      .sort((a, b) => b.mentionCount - a.mentionCount)
+      .slice(0, NAME_CANDIDATES)
+      .map((c) => ({ id: c.id, name: c.name, description: c.description, similarity: null }));
     for (const n of nodes) {
-      const matches = n.embedding ? await store.matchConcepts(userId, n.embedding, BRAIN.conceptCandidateK) : [];
-      req.nodes.push({
-        id: n.id,
-        level: n.level,
-        label: n.label,
-        summary: n.summary,
-        candidates: matches
+      let candidates;
+      if (n.embedding) {
+        const matches = await store.matchConcepts(userId, n.embedding, BRAIN.conceptCandidateK);
+        candidates = matches
           .filter((m) => m.similarity >= BRAIN.conceptCandidateMin && byId.has(m.id))
           .map((m) => ({
             id: m.id,
             name: byId.get(m.id)!.name,
             description: byId.get(m.id)!.description,
             similarity: m.similarity,
-          })),
-      });
+          }));
+      } else {
+        candidates = byName;
+      }
+      req.nodes.push({ id: n.id, level: n.level, label: n.label, summary: n.summary, candidates });
     }
 
     let decisions;
@@ -156,6 +165,10 @@ async function ensureEmbeddings(deps: BrainDeps, nodes: BrainNodeRow[]): Promise
   if (!missing.length) return;
   try {
     const vectors = await deps.embed(missing.map((n) => `${n.label}. ${n.summary}`));
+    if (vectors.length === 0) {
+      deps.log('brain.embeddings_unavailable', { nodes: missing.length, fallback: 'merge by name' });
+      return;
+    }
     for (let i = 0; i < missing.length; i++) {
       missing[i]!.embedding = vectors[i]!;
       await deps.store.saveEmbedding(missing[i]!.id, vectors[i]!);

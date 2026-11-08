@@ -12,7 +12,8 @@ export interface CandidateConcept {
   id: string;
   name: string;
   description: string | null;
-  similarity: number;
+  /** null when the node had no embedding and the candidate is offered by name only */
+  similarity: number | null;
 }
 
 export interface MergeNode {
@@ -87,7 +88,7 @@ export function buildMergeUserMessage(req: MergeRequest): string {
     if (!n.candidates.length) lines.push('  (no candidates: must be a new concept)');
     for (const c of n.candidates) {
       lines.push(
-        `  ${aliasOfConcept.get(c.id)} | ${oneLine(c.name)} | ${oneLine(c.description) || 'no description'} | similarity ${c.similarity.toFixed(2)}`,
+        `  ${aliasOfConcept.get(c.id)} | ${oneLine(c.name)} | ${oneLine(c.description) || 'no description'} | ${c.similarity === null ? 'by name' : `similarity ${c.similarity.toFixed(2)}`}`,
       );
     }
   }
@@ -200,7 +201,13 @@ export function normalizeDecisions(raw: MergeResponse, req: MergeRequest): Merge
  */
 export function heuristicDecisions(req: MergeRequest, sameMin = 0.92): MergeDecision[] {
   return req.nodes.map((n) => {
-    const best = [...n.candidates].sort((a, b) => b.similarity - a.similarity)[0];
+    // name-only candidates (no embedding): merge an exact name match, never a guess
+    const sameName = n.candidates.find(
+      (c) => c.similarity === null && c.name.trim().toLowerCase() === n.label.trim().toLowerCase(),
+    );
+    if (sameName) return { nodeId: n.id, sameAs: sameName.id };
+    const scored = n.candidates.filter((c): c is CandidateConcept & { similarity: number } => c.similarity !== null);
+    const best = scored.sort((a, b) => b.similarity - a.similarity)[0];
     return best && best.similarity >= sameMin ? { nodeId: n.id, sameAs: best.id } : fallbackDecision(n);
   });
 }

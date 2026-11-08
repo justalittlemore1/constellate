@@ -29,6 +29,14 @@ const EnvSchema = z.object({
    * finalisation keeps the live transcript (speakers stay empty) and the Claude refine still runs.
    */
   STT_FILE: z.enum(['auto', 'on', 'off']).default('auto'),
+  /**
+   * `gemini` = real embeddings through the capped, cached shared client; `local` = offline
+   * stand-in. Defaults to `local` unless NODE_ENV=production, so dev loops never spend quota.
+   */
+  EMBEDDINGS: z.enum(['gemini', 'local']).optional(),
+  NODE_ENV: z.string().optional(),
+  /** per-day Gemini request counts (JSON); "off" keeps them in memory only */
+  GEMINI_USAGE_FILE: z.string().optional(),
   /** embeddings disk cache (JSON lines); "off" keeps it in memory only */
   EMBED_CACHE_FILE: z.string().optional(),
   /** transcript replay speed; 1 = original timing */
@@ -57,4 +65,8 @@ export function forceClaudeReasoning(env: Env, warn: (msg: string) => void = () 
     );
   }
   process.env.INTERPRETER_PROVIDER = 'anthropic';
+}
+
+export function embeddingsMode(env: Env): 'gemini' | 'local' {
+  return env.EMBEDDINGS ?? (env.NODE_ENV === 'production' ? 'gemini' : 'local');
 }

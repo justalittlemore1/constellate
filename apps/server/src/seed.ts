@@ -4,14 +4,14 @@
  * with no sockets or tokens involved. Import with a relative path from the script:
  *
  *   import { createRuntime, seedFixtureConversation, rebuildBrainFor } from '../apps/server/src/seed';
- *   const rt = createRuntime();                       // reads .env like the server
+ *   const rt = createRuntime();   // reads .env like the server; needs EMBEDDINGS=gemini for Supabase
  *   const id = await seedFixtureConversation(rt, demoUserId, '01-simple-shift');
  *   await rebuildBrainFor(rt, demoUserId);
  */
 import type { ServerMsg } from '@constellate/shared';
 import { rebuildBrain, type RebuildResult } from './brain/rebuild';
-import { createDefaultDeps, type ServerDeps } from './deps';
-import { forceClaudeReasoning, loadEnv, type Env } from './env';
+import { createDefaultDeps, isPersistent, type ServerDeps } from './deps';
+import { embeddingsMode, forceClaudeReasoning, loadEnv, type Env } from './env';
 import { Finalizer, type FinalizeOutcome } from './finalize/finalizer';
 import { LiveSession, type LiveDeps, type Log } from './live/session';
 
@@ -29,6 +29,16 @@ export function createRuntime(
   const log: Log = (event, data) => {
     if (env.LOG_LEVEL !== 'silent') console.log(event, data ?? {});
   };
+  // demo data must come from the real pipeline (AGENTS.md hard rule 3): never seed a shared
+  // database with stand-in vectors
+  const persistent = overrides.store
+    ? isPersistent(overrides.store)
+    : Boolean(env.SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
+  if (persistent && embeddingsMode(env) !== 'gemini') {
+    throw new Error(
+      'seeding a persistent store needs real embeddings: set EMBEDDINGS=gemini (counts toward the 500/day cap)',
+    );
+  }
   forceClaudeReasoning(env, (msg) => console.warn(msg));
   const deps = createDefaultDeps(env, log, overrides);
   return { deps, finalizer: new Finalizer({ ...deps, log }), log };
