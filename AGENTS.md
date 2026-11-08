@@ -61,6 +61,7 @@ Real limits on our keys, checked in AI Studio on 2026-11-07:
 - **The eval defaults to `--cached`**: it reuses recorded embeddings and only re-embeds text that changed. A full re-record needs an explicit `--record` and the humans' OK.
 - **Unit tests and CI never call any real API.** Use fakes or recorded responses (`eval:replay`).
 - **Cache every Gemini response** by a hash of its input (`eval/recordings` for the eval; memory + disk on the server), so repeat runs cost nothing.
+- **Interrupting a command does not stop the process it started** (only the shell wrapper dies). Run anything that calls an API with a timeout, write a PID file and refuse to start if one is already running, and after any interrupt check for and kill leftover `node`/`tsx` processes before continuing.
 - **Develop with transcript replay.** Use the microphone or WAV replay for deliberate speech tests only.
 - **On HTTP 429 or quota errors, back off and degrade, never crash**: keep captions flowing, skip revisit candidates for that window, and log it.
 - Every Gemini call goes through one shared client that counts requests per model and logs running totals, so the humans can see usage.
