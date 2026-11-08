@@ -87,6 +87,12 @@ export interface RunOptions {
    */
   flushEmbeddings?: () => Promise<number>;
   maxPasses?: number;
+  /**
+   * The LLM client for pass n (from 1). --resample uses a fresh-sampling client for pass 1 only and
+   * reuses those answers afterwards, so extra passes do not re-sample Claude (which would invent
+   * new node labels and spend more embeddings).
+   */
+  llmForPass?: (pass: number) => LlmClient;
 }
 
 export async function runFixture(
@@ -96,8 +102,9 @@ export async function runFixture(
   model: string,
   opts: RunOptions = {},
 ): Promise<RunResult> {
-  const maxPasses = opts.flushEmbeddings ? (opts.maxPasses ?? 3) : 1;
-  let result = await runOnce(fixture, llm, embed, model, opts);
+  const maxPasses = opts.flushEmbeddings ? (opts.maxPasses ?? 5) : 1;
+  const pick = (pass: number) => opts.llmForPass?.(pass) ?? llm;
+  let result = await runOnce(fixture, pick(1), embed, model, opts);
   for (let pass = 2; pass <= maxPasses; pass++) {
     let embedded = 0;
     try {
@@ -108,7 +115,7 @@ export async function runFixture(
       break;
     }
     if (embedded === 0) break;
-    result = await runOnce(fixture, llm, embed, model, opts);
+    result = await runOnce(fixture, pick(pass), embed, model, opts);
   }
   if (opts.flushEmbeddings) {
     try {

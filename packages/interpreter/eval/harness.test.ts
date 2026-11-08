@@ -202,3 +202,21 @@ describe('eval scoring: proximity and one-to-one matching', () => {
     expect(score(twice).checks.find((x) => x.name === 'commitments')!.pass).toBe(false);
   });
 });
+
+describe('batched passes', () => {
+  it('re-runs a fixture after embedding its misses, with the pass-specific LLM client', async () => {
+    const [f01] = loadFixtures(['01']);
+    const passes: number[] = [];
+    const flushes = [1, 0];
+    const llm = oracle({ u1: topic('Canucks Game', 'u1'), u6: topic('Friday Concert', 'u6') });
+    const run = await runFixture(f01!, llm, embed, 'test', {
+      flushEmbeddings: async () => flushes.shift() ?? 0,
+      llmForPass: (pass) => {
+        passes.push(pass);
+        return llm;
+      },
+    });
+    expect(passes).toEqual([1, 2]);
+    expect(score(run).pass).toBe(true);
+  });
+});

@@ -82,10 +82,15 @@ async function main() {
 
   for (const model of models) {
     const llm = createReplayClient(claude, RECORDINGS, llmMode, store, tuning);
+    // later passes of --resample reuse the answers pass 1 just recorded
+    const reuse = createReplayClient(claude, RECORDINGS, 'auto', store, tuning);
     const runs: RunResult[] = [];
     for (const f of fixtures) {
       process.stdout.write(`[eval] ${model} ${f.id} … `);
-      const run = await runFixture(f, llm, embed, model, { flushEmbeddings });
+      const run = await runFixture(f, llm, embed, model, {
+        flushEmbeddings,
+        llmForPass: flag('resample') ? (pass) => (pass === 1 ? llm : reuse) : undefined,
+      });
       const sc = score(run);
       console.log(
         `${sc.pass ? 'pass' : 'FAIL'} (${sc.topics} topics, ${run.records.length} calls${run.error ? `, error: ${run.error}` : ''})`,
