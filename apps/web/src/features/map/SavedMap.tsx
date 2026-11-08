@@ -60,6 +60,14 @@ export function SavedMap({ graph }: { graph: GraphState }) {
   const target = useMemo(() => deepLinkTarget(graph, link), [graph, link]);
   const utterances = useQuery({ queryKey: ['utterances', id], queryFn: () => api.listUtterances(id) });
   const audioPath = graph.conversation.audioPath;
+  // offer Play only when a recording can actually be fetched (none in mock mode or before upload)
+  const recording = useQuery({
+    queryKey: ['audio-url', audioPath],
+    queryFn: () => api.audioUrl(audioPath),
+    enabled: Boolean(audioPath),
+    staleTime: 30 * 60_000,
+  });
+  const canPlay = Boolean(audioPath && recording.data);
   const { current } = usePlayback();
   const submit = useUserOps(id);
 
@@ -96,7 +104,7 @@ export function SavedMap({ graph }: { graph: GraphState }) {
       activeNodeId={null}
       utterances={utterances.data}
       playingNodeId={current && graph.nodes[current] ? current : null}
-      onPlaySegment={audioPath ? (n) => void onPlay(n) : undefined}
+      onPlaySegment={canPlay ? (n) => void onPlay(n) : undefined}
       onEdit={onEdit}
       focusNodeId={target?.id ?? null}
     />

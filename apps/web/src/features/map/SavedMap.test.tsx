@@ -91,7 +91,8 @@ describe('playback through the shared player', () => {
     renderSaved(`/c/${id}`, api);
     const n = byLabel('Gospel Sources');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    await user.click(screen.getByRole('button', { name: `Play ${n.label}` }));
+    // Play appears once the recording URL has resolved
+    await user.click(await screen.findByRole('button', { name: `Play ${n.label}` }));
     await waitFor(() => expect(play).toHaveBeenCalled());
     const audio = play.mock.contexts[0] as HTMLAudioElement;
     expect(audio.src).toBe('https://example.test/rec.webm');
@@ -99,13 +100,19 @@ describe('playback through the shared player', () => {
     await waitFor(() => expect(within(tile(n.id)).getByText('playing')).toBeInTheDocument());
   });
 
-  it('says so when there is no recording', async () => {
+  it('offers no Play at all when there is no recording (mock mode)', async () => {
     const user = userEvent.setup();
-    renderSaved();
+    const api = createMockApi();
+    const audioUrl = vi.fn(async () => null);
+    api.audioUrl = audioUrl;
+    renderSaved(`/c/${id}`, api);
     const n = byLabel('Gospel Sources');
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
-    await user.click(screen.getByRole('button', { name: `Play ${n.label}` }));
-    expect(await screen.findByText('No recording is available for this conversation.')).toBeInTheDocument();
+    await waitFor(() => expect(audioUrl).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: `Play ${n.label}` })).toBeNull();
+    await user.click(screen.getByRole('button', { name: `Open details for ${n.label}` }));
+    const sheet = screen.getByRole('dialog', { name: n.label });
+    expect(within(sheet).queryByRole('button', { name: /play/i })).toBeNull();
   });
 });
 
@@ -117,6 +124,8 @@ describe('edits on the saved map', () => {
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
     await user.click(screen.getByRole('button', { name: `Open details for ${n.label}` }));
     const sheet = screen.getByRole('dialog', { name: n.label });
+    // the sheet's button is the only control whose name starts with "Highlight" (voice control, e2e)
+    expect(screen.getAllByRole('button', { name: /^highlight/i, hidden: true })).toHaveLength(1);
     await user.click(within(sheet).getByRole('button', { name: 'Highlight' }));
     expect(tile(n.id)).toHaveAttribute('data-highlighted', 'true');
     expect(within(sheet).getByRole('button', { name: 'Remove highlight' })).toHaveAttribute('aria-pressed', 'true');
@@ -128,7 +137,7 @@ describe('edits on the saved map', () => {
     renderSaved();
     const a = byLabel('Historical Jesus');
     await screen.findByTestId(`map-node-${a.id}`);
-    const toggle = screen.getByRole('button', { name: /Highlighter/ });
+    const toggle = screen.getByRole('button', { name: 'Paint topics gold (highlighter)' });
     await user.click(toggle);
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByTestId('highlighter-banner')).toHaveTextContent('Highlighter on.');
