@@ -4,9 +4,10 @@ import { GoogleGenAI } from '@google/genai';
 import { loadMergeSystemPrompt } from '@constellate/brain';
 import { createLiveInterpreter, finalizeConversation } from '@constellate/interpreter';
 import type { CreateLiveInterpreter, FinalizeConversation } from '@constellate/shared';
-import { geminiEmbedder, noEmbedder, type Embedder } from './ai/embed';
+import { cachedEmbedder, EmbeddingCache, embedCacheFile, noEmbedder, type Embedder } from './ai/embed';
+import { assertRealApisAllowed, GeminiGateway } from './ai/gemini';
 import { anthropicMergeDecider, type MergeDecider } from './brain/merge-llm';
-import type { Env } from './env';
+import { forceClaudeReasoning, type Env } from './env';
 import { geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
 import { GraphHub } from './graph/hub';
 import { LiveRegistry, SpeechUnavailableError, type LiveDeps, type Log, type SpeechRequest } from './live/session';
@@ -28,7 +29,8 @@ export interface ServerDeps extends Omit<LiveDeps, 'log'> {
   waitForRecordingMs: number;
   /** Brain concept merge (`MODELS.brain`); null → conservative heuristic */
   decideMerge: MergeDecider | null;
-  ai: GoogleGenAI | null;
+  /** the one shared Gemini client (null without a key); usage is on GET /health */
+  gemini: GeminiGateway | null;
 }
 
 export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerDeps> = {}): ServerDeps {
@@ -37,9 +39,17 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
     log('config.no_supabase', { note: 'using the in-memory store; every token is rejected' });
   const store: Store = overrides.store ?? (db ? new SupabaseStore(db) : new MemoryStore());
   const auth: Auth = overrides.auth ?? (db ? supabaseAuth(db) : rejectAllAuth);
-  const ai = env.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }) : null;
-  const embed: Embedder = ai ? geminiEmbedder(ai) : noEmbedder;
+  const gemini = overrides.gemini !== undefined ? overrides.gemini : realGemini(env, log);
+  const embed: Embedder = gemini
+    ? cachedEmbedder({
+        fetch: (texts) => gemini.embed(texts),
+        cache: new EmbeddingCache(embedCacheFile(env.EMBED_CACHE_FILE)),
+        log,
+      })
+    : noEmbedder;
   const replaySpeed = env.REPLAY_SPEED;
+  // pin reasoning to Claude for the interpreter package (it reads process.env), whoever builds deps
+  forceClaudeReasoning(env, (msg) => log('config.interpreter_provider_overridden', { message: msg }));
 
   const createSpeech = (req: SpeechRequest): SpeechAdapter => {
     if (req.source === 'replay-transcript') {
@@ -47,9 +57,9 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
       return new TranscriptReplayAdapter(req.fixture, { speed: replaySpeed, fromMs: req.fromMs });
     }
     if (env.STT_PROVIDER !== 'gemini-live') throw new SpeechUnavailableError(`${env.STT_PROVIDER} is not implemented`);
-    if (!ai) throw new SpeechUnavailableError('GEMINI_API_KEY is not set on the server');
+    if (!gemini) throw new SpeechUnavailableError('GEMINI_API_KEY is not set on the server');
     return new RotatingSpeechAdapter({
-      factory: () => new GeminiLiveUpstream({ ai, nowMs: req.nowMs, log: req.events.log }),
+      factory: () => new GeminiLiveUpstream({ gateway: gemini, nowMs: req.nowMs, log: req.events.log }),
       nowMs: req.nowMs,
       ...req.events,
     });
@@ -68,12 +78,26 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
     newId: randomUUID,
     replaySpeed,
     abandonAfterMs: env.ABANDON_AFTER_MS,
-    transcribeFile: ai ? geminiFileTranscriber(ai) : null,
+    transcribeFile: gemini && env.STT_FILE === 'on' ? geminiFileTranscriber(gemini) : null,
     waitForRecordingMs: 45_000,
-    decideMerge: env.ANTHROPIC_API_KEY ? lazyMergeDecider(new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })) : null,
-    ai,
+    decideMerge:
+      overrides.decideMerge !== undefined || !env.ANTHROPIC_API_KEY
+        ? null
+        : lazyMergeDecider(realAnthropic(env.ANTHROPIC_API_KEY)),
+    gemini,
     ...overrides,
   };
+}
+
+function realGemini(env: Env, log: Log): GeminiGateway | null {
+  if (!env.GEMINI_API_KEY) return null;
+  assertRealApisAllowed('GeminiGateway');
+  return new GeminiGateway(new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }), { log });
+}
+
+function realAnthropic(apiKey: string): Anthropic {
+  assertRealApisAllowed('Anthropic client');
+  return new Anthropic({ apiKey });
 }
 
 /** The merge prompt file (A2's) is read on first use. */

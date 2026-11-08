@@ -1,7 +1,8 @@
 import { buildApp } from './app';
-import { loadEnv } from './env';
+import { forceClaudeReasoning, loadEnv } from './env';
 
 const env = loadEnv();
+forceClaudeReasoning(env, (msg) => console.warn(msg));
 const app = await buildApp(env);
 
 try {

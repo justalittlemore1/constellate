@@ -14,7 +14,23 @@ const EnvSchema = z.object({
   SUPABASE_URL: z.string().url().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   STT_PROVIDER: z.enum(['gemini-live', 'deepgram']).default('gemini-live'),
-  INTERPRETER_PROVIDER: z.enum(['gemini', 'anthropic']).default('gemini'),
+  /**
+   * All reasoning runs on Claude (AGENTS.md → API budget: the Gemini key is free-tier and has no
+   * room for text models). 'gemini' is still accepted from old .env files but resolves to
+   * 'anthropic'; `requestedInterpreterProvider` keeps what was asked for so startup can warn.
+   */
+  INTERPRETER_PROVIDER: z
+    .enum(['gemini', 'anthropic'])
+    .default('anthropic')
+    .transform(() => 'anthropic' as const),
+  /**
+   * Post-recording diarized re-transcription with MODELS.sttFile. Off by default: that model is not
+   * available to our key, so finalisation keeps the live transcript (speakers stay empty) and the
+   * Claude refine still runs. Set to `on` once the key lists the model.
+   */
+  STT_FILE: z.enum(['on', 'off']).default('off'),
+  /** embeddings disk cache (JSON lines); "off" keeps it in memory only */
+  EMBED_CACHE_FILE: z.string().optional(),
   /** transcript replay speed; 1 = original timing */
   REPLAY_SPEED: z.coerce.number().positive().default(1),
   /** a live session whose socket dropped without `stop` is stopped after this long */
@@ -22,10 +38,23 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
-export type Env = z.infer<typeof EnvSchema>;
+export type Env = z.infer<typeof EnvSchema> & { requestedInterpreterProvider: string | undefined };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   // Treat empty strings from .env files as unset.
   const cleaned = Object.fromEntries(Object.entries(source).filter(([, v]) => v !== undefined && v !== ''));
-  return EnvSchema.parse(cleaned);
+  return { ...EnvSchema.parse(cleaned), requestedInterpreterProvider: cleaned.INTERPRETER_PROVIDER };
+}
+
+/**
+ * The interpreter package reads INTERPRETER_PROVIDER from process.env (and falls back to Gemini
+ * when it is unset), so the server pins it to Claude before any interpreter is created.
+ */
+export function forceClaudeReasoning(env: Env, warn: (msg: string) => void = () => {}): void {
+  if (env.requestedInterpreterProvider && env.requestedInterpreterProvider !== 'anthropic') {
+    warn(
+      `INTERPRETER_PROVIDER=${env.requestedInterpreterProvider} ignored: all reasoning runs on Claude (the Gemini key is free-tier)`,
+    );
+  }
+  process.env.INTERPRETER_PROVIDER = 'anthropic';
 }

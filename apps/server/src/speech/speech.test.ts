@@ -278,7 +278,7 @@ describe('LiveUtteranceTimer', () => {
 describe('GeminiLiveUpstream message handling', () => {
   it('maps interim and final transcriptions to timed segments', () => {
     let now = 5_000;
-    const up = new GeminiLiveUpstream({ ai: {} as never, nowMs: () => now });
+    const up = new GeminiLiveUpstream({ gateway: {} as never, nowMs: () => now });
     const out: SpeechSegment[] = [];
     (up as unknown as { onSegment: (s: SpeechSegment) => void }).onSegment = (s) => out.push(s);
     up.handle({ serverContent: { interimInputTranscription: { text: 'so the' } } } as never);

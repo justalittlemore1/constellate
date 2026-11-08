@@ -243,16 +243,14 @@ export class SupabaseStore implements Store {
     if (cards.length) {
       check(
         'recall_cards.insert',
-        await this.db
-          .from(TABLES.recallCards)
-          .insert(
-            cards.map((c) => ({
-              user_id: userId,
-              conversation_id: conversationId,
-              node_id: c.nodeId,
-              prompt: c.prompt,
-            })),
-          ),
+        await this.db.from(TABLES.recallCards).insert(
+          cards.map((c) => ({
+            user_id: userId,
+            conversation_id: conversationId,
+            node_id: c.nodeId,
+            prompt: c.prompt,
+          })),
+        ),
       );
     }
     const old = (existing ?? []).map((r) => r.id);
