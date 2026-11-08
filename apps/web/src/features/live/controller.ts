@@ -267,10 +267,7 @@ export class LiveController {
         return this.onBatch(msg.batch);
       case 'caption':
         if (msg.final) {
-          const captions = [
-            ...this.snap.captions,
-            { text: msg.text, startMs: msg.startMs, utteranceId: msg.utteranceId },
-          ];
+          const captions = [...this.snap.captions, { text: msg.text, startMs: msg.startMs, utteranceId: msg.utteranceId }];
           this.set({ captions: captions.slice(-MAX_CAPTIONS), interim: null });
         } else {
           this.set({ interim: msg.text });
