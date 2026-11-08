@@ -1,0 +1,108 @@
+/*
+ * Conversation map styles (owner: A3). Colour always comes with a second cue (shape, dash,
+ * glyph or words). All motion here stops under prefers-reduced-motion / the Reduce motion setting
+ * (the global rule in index.css removes animations; particles are not rendered at all).
+ */
+
+.cmap .react-flow {
+  --xy-background-color: var(--bg);
+  background: var(--bg);
+}
+.cmap .react-flow__node {
+  /* our nodes draw their own visuals; React Flow's default chrome would add white boxes */
+  background: transparent;
+  border: 0;
+  padding: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+.cmap .react-flow__node:focus-visible {
+  outline: none;
+}
+.cmap .react-flow__node:focus-visible .cmap-focus {
+  opacity: 1;
+}
+.cmap .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+}
+.cmap .react-flow__edge {
+  pointer-events: none;
+}
+.cmap .react-flow__attribution {
+  background: transparent;
+  color: var(--text-2);
+  font-size: 9px;
+  opacity: 0.6;
+}
+.cmap .react-flow__attribution a {
+  color: var(--text-2);
+}
+
+.cmap-focus {
+  opacity: 0;
+}
+
+.cmap-label {
+  font-size: calc(14px * var(--text-size));
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
+  text-shadow:
+    0 0 6px var(--bg),
+    0 0 2px var(--bg),
+    0 1px 2px var(--bg);
+}
+.cmap-sub {
+  font-size: calc(11.5px * var(--text-size));
+  color: var(--text-2);
+  text-shadow: 0 0 4px var(--bg);
+}
+
+.cmap-dim {
+  opacity: 0.22;
+  transition: opacity 200ms ease;
+}
+
+@keyframes cmap-pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.9);
+    opacity: 0;
+  }
+}
+.cmap-pulse {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: cmap-pulse 2.4s ease-out infinite;
+}
+
+@keyframes cmap-appear {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+.cmap-appear {
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: cmap-appear 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes cmap-preview-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+.cmap-preview {
+  animation: cmap-preview-in 160ms ease-out;
+}
