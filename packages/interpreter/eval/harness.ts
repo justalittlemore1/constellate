@@ -43,7 +43,8 @@ export interface Expect {
 
 export function loadFixtures(only?: string[]): TranscriptFixture[] {
   return readdirSync(FIXTURE_DIR)
-    .filter((f) => f.endsWith('.json'))
+    // demo-*.json are demo-account conversations (scripts/seed-demo.ts), not scored scenarios
+    .filter((f) => f.endsWith('.json') && !f.startsWith('demo-'))
     .sort()
     .map((f) => JSON.parse(readFileSync(join(FIXTURE_DIR, f), 'utf8')) as TranscriptFixture)
     .filter((f) => !only || only.length === 0 || only.some((o) => f.id.startsWith(o)));
