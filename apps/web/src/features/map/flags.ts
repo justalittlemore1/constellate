@@ -19,6 +19,10 @@ export interface MapFlags {
   particles: boolean;
   /** parked-thought nodes (off: the humans are replacing Park with flag notes) */
   parkedThoughts: boolean;
+  /** wave-1 comet trails instead of the classic constellation lines */
+  cometTrails: boolean;
+  /** wave-2 Y4 faceted stars instead of the Y3 eight-point compass */
+  facetedStars: boolean;
 }
 
 export const MAP_FLAGS: MapFlags = {
@@ -30,6 +34,8 @@ export const MAP_FLAGS: MapFlags = {
   revisitArcs: false,
   particles: false,
   parkedThoughts: false,
+  cometTrails: false,
+  facetedStars: false,
 };
 
 export function resolveFlags(over?: Partial<MapFlags>): MapFlags {

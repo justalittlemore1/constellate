@@ -139,9 +139,9 @@ describe('returns as loops: one star per thread', () => {
   });
 });
 
-describe('comet trails', () => {
+describe('comet trails (flag cometTrails)', () => {
   it('flow edges fade from the source to the target and have no arrowhead; tethers stay dotted', () => {
-    const { container } = render(<ConversationMap state={demo} />);
+    const { container } = render(<ConversationMap state={demo} flags={{ cometTrails: true }} />);
     const flow = container.querySelector('g[data-kind="flow"]')!;
     const trail = flow.querySelector('[data-testid="comet-trail"]')!;
     expect(trail.getAttribute('marker-end')).toBeNull();
@@ -248,7 +248,7 @@ describe('appearance', () => {
     const camus = tile(byLabel('Camus and Absurdism'));
     expect(camus).toHaveClass('cmap-appear');
     expect(document.querySelector('.cmap-pulse')).toBeNull();
-    expect(within(camus).getByTestId('y4-light')).toHaveClass('cmap-shift-fill');
+    expect(within(camus).getByTestId('y3-main')).toHaveClass('cmap-shift-fill');
     expect(within(camus).getByTestId('active-core')).toBeInTheDocument();
     expect(within(camus).getByText('now')).toBeInTheDocument();
   });

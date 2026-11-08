@@ -1,6 +1,9 @@
 /**
  * Edge components. Types differ by line shape, not only hue:
- *  flow    — comet trail: a solid curve, bright and thicker at the source, fading toward the target,
+ *  flow    — classic constellation line (default): thin, even, straight where it can be, with a tiny
+ *            chevron at the midpoint pointing source → target (no end arrowheads). Returns to an
+ *            earlier star and long jumps keep their side-channel curve, plus the chevron.
+ *            (flag `cometTrails`: the earlier comet trail — a solid curve, bright and thicker at the source, fading toward the target,
  *            so direction reads without an arrowhead. A return to an earlier topic (merged stars)
  *            loops out to the side and back into the star; a long forward jump runs down a side
  *            channel instead of cutting through the topics in between.
@@ -109,6 +112,54 @@ export function cometPath(s: Pt, t: Pt, sr: number, tr: number, gap: number, ret
   return flowPath(s, t, sr, tr, gap);
 }
 
+/** Estimated half-width of a node label's text (14 px semibold, at most 136 px wide). */
+export function labelHalfWidth(chars: number): number {
+  return Math.min(68, Math.max(18, chars * 3.9));
+}
+
+/**
+ * Constellation route: a straight rim-to-rim line when it doesn't cross the source's label;
+ * otherwise the curved forward route; returns and long jumps keep their side channel.
+ */
+export function linePath(
+  s: Pt,
+  t: Pt,
+  sr: number,
+  tr: number,
+  gap: number,
+  returning: boolean,
+  labelChars = 12,
+): string {
+  const route = flowRoute(s, t, returning);
+  if (route !== 'direct') return cometPath(s, t, sr, tr, gap, returning);
+  const dy = t.y - s.y;
+  if (dy > 0 && gap > 0) {
+    // where the straight line passes the middle of the label block, how far is it from the centre?
+    const yMid = sr + gap / 2;
+    const xOff = Math.abs(((t.x - s.x) * yMid) / dy);
+    if (xOff < labelHalfWidth(labelChars) && yMid < dy) return flowPath(s, t, sr, tr, gap);
+  }
+  return rimToRim(s, t, sr, tr + 2);
+}
+
+/** Point and direction (degrees) halfway along a line (`M a L b`) or cubic (`M a C c1, c2, b`). */
+export function pathMidpoint(d: string): { x: number; y: number; angle: number } {
+  const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
+  if (n.length >= 8) {
+    const [ax, ay, c1x, c1y, c2x, c2y, bx, by] = n as [number, number, number, number, number, number, number, number];
+    const x = (ax + 3 * c1x + 3 * c2x + bx) / 8;
+    const y = (ay + 3 * c1y + 3 * c2y + by) / 8;
+    // B'(0.5) ∝ (b − a) + (c2 − c1)
+    const angle = (Math.atan2(by - ay + c2y - c1y, bx - ax + c2x - c1x) * 180) / Math.PI;
+    return { x, y, angle };
+  }
+  const [ax = 0, ay = 0, bx = 0, by = 0] = n;
+  return { x: (ax + bx) / 2, y: (ay + by) / 2, angle: (Math.atan2(by - ay, bx - ax) * 180) / Math.PI };
+}
+
+/** Constellation line colour (pale gold at ~80 %). */
+export const LINE_COLOUR = '#FFE0A8';
+
 /** First and last points of a path made of numbers (start of the comet head, end of its tail). */
 export function pathEnds(d: string): [Pt, Pt] {
   const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
@@ -214,12 +265,71 @@ function Comet({ props, kind, colour, dash }: { props: P; kind: 'flow' | 'user';
   );
 }
 
+/**
+ * Classic constellation line: thin and even, with a 5–6 px chevron at the midpoint showing the
+ * direction. `dash` makes the user-drawn variant.
+ */
+function Constellation({ props, kind, dash }: { props: P; kind: 'flow' | 'user'; dash?: string }) {
+  const [s, t] = pts(props);
+  const data = props.data;
+  const returning = Boolean(data?.returning);
+  const d = linePath(
+    s,
+    t,
+    data?.sourceRadius ?? 0,
+    data?.targetRadius ?? 0,
+    data?.labelGap ?? 0,
+    returning,
+    data?.labelChars ?? 12,
+  );
+  const mid = pathMidpoint(d);
+  const bright = data?.highlighted || data?.onPath;
+  const width = bright ? 1.6 : 0.9;
+  return (
+    <g
+      data-testid={`map-edge-${props.id}`}
+      data-kind={kind}
+      data-route={flowRoute(s, t, returning)}
+      data-style="line"
+      opacity={data?.dimmed ? 0.15 : bright ? 1 : 0.8}
+    >
+      <path
+        d={d}
+        fill="none"
+        stroke={LINE_COLOUR}
+        strokeWidth={width}
+        strokeLinecap="round"
+        strokeDasharray={dash}
+        data-testid="constellation-line"
+      />
+      <path
+        d="M -2.6 -2.8 L 1.6 0 L -2.6 2.8"
+        fill="none"
+        stroke={LINE_COLOUR}
+        strokeWidth={width}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        transform={`translate(${mid.x} ${mid.y}) rotate(${mid.angle})`}
+        data-testid="chevron"
+      />
+    </g>
+  );
+}
+
 export function FlowEdge(props: P) {
-  return <Comet props={props} kind="flow" colour={EDGE_COLOR.flow} />;
+  return props.data?.comet ? (
+    <Comet props={props} kind="flow" colour={EDGE_COLOR.flow} />
+  ) : (
+    <Constellation props={props} kind="flow" />
+  );
 }
 
 export function UserEdge(props: P) {
-  return <Comet props={props} kind="user" colour={EDGE_COLOR.user} dash="10 4" />;
+  return props.data?.comet ? (
+    <Comet props={props} kind="user" colour={EDGE_COLOR.user} dash="10 4" />
+  ) : (
+    <Constellation props={props} kind="user" dash="6 3" />
+  );
 }
 
 export function RevisitEdge(props: P) {

@@ -1,5 +1,5 @@
 /**
- * Wave 2 star art: node kind / status → art, reduced motion = static, accessible names unchanged.
+ * Wave 2 star art (Y4, now behind the facetedStars flag): node kind / status → art, reduced motion = static, accessible names unchanged.
  */
 import type { GraphState, TopicNode } from '@constellate/shared';
 import { makeEdge, makeGraph, makeNode } from '@constellate/shared/testing';
@@ -13,6 +13,9 @@ import { THREAD_RADIUS, topicRadius, visibleGraph } from './model';
 import { installFlowDomStubs } from './testing';
 
 beforeAll(() => installFlowDomStubs());
+
+/** wave-2 faceted stars sit behind the facetedStars flag since wave 3 */
+const Y4 = { facetedStars: true };
 
 const demo = loadDemoGraph();
 const byLabel = (label: string, kind: TopicNode['kind'] = 'topic'): TopicNode =>
@@ -45,7 +48,7 @@ function states(): GraphState {
 
 describe('topic = Y4 faceted star', () => {
   it("draws the light and dark facets from the humans' geometry, scaled to the radius", () => {
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={Y4} />);
     const n = byLabel('Sunday Service');
     const star = within(tile(n)).getByTestId('y4-star');
     expect(star).toHaveAttribute('data-palette', 'young');
@@ -58,7 +61,7 @@ describe('topic = Y4 faceted star', () => {
 
   it('states: active = white core; provisional = 40 %; highlighted = gold hairline; selected = hairline', () => {
     const g = states();
-    render(<ConversationMap state={g} focusNodeId="h" />);
+    render(<ConversationMap state={g} focusNodeId="h" flags={Y4} />);
     const a = screen.getByTestId('map-node-a');
     expect(within(a).getByTestId('active-core')).toHaveAttribute('fill', '#FFFFFF');
     expect(within(screen.getByTestId('map-node-h')).queryByTestId('active-core')).toBeNull();
@@ -75,7 +78,7 @@ describe('topic = Y4 faceted star', () => {
   it('the merged-thread star still sizes by the summed duration', () => {
     const vg = visibleGraph(demo, 'balanced', { mergeReturns: true });
     const res = vg.nodes.find((v) => v.node.label === 'Resurrection Accounts')!;
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={Y4} />);
     expect(within(tile(res.node)).getByTestId('y4-star').getAttribute('transform')).toContain(
       `scale(${res.radius / 24})`,
     );
@@ -84,7 +87,7 @@ describe('topic = Y4 faceted star', () => {
 
 describe('deferred threads', () => {
   it('unexplored = E2 ember: dashed shell r10 + small core, a different shape from a star', () => {
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={Y4} />);
     const soccer = tile(byLabel('Intramural Soccer', 'pending'));
     expect(soccer).toHaveAttribute('data-art', 'ember');
     const shell = within(soccer).getByTestId('ember-shell');
@@ -99,7 +102,7 @@ describe('deferred threads', () => {
   });
 
   it('picked up = rekindled Y4 star in orange, sized like other stars, with its tether and "picked up"', () => {
-    const { container } = render(<ConversationMap state={demo} />);
+    const { container } = render(<ConversationMap state={demo} flags={Y4} />);
     const trip = byLabel('Summer Road Trip', 'pending');
     const t = tile(trip);
     expect(t).toHaveAttribute('data-art', 'rekindled');
@@ -114,17 +117,17 @@ describe('deferred threads', () => {
 
   it('parked thoughts are hidden by default (flag), and come back with the flag', () => {
     const parked = byLabel('Ask About Internship', 'parked');
-    const { unmount } = render(<ConversationMap state={demo} />);
+    const { unmount } = render(<ConversationMap state={demo} flags={Y4} />);
     expect(screen.queryByTestId(`map-node-${parked.id}`)).toBeNull();
     unmount();
-    render(<ConversationMap state={demo} flags={{ parkedThoughts: true }} />);
+    render(<ConversationMap state={demo} flags={{ ...Y4, parkedThoughts: true }} />);
     expect(tile(parked)).toHaveAttribute('data-art', 'ember');
   });
 });
 
 describe('motion and names', () => {
   it('colour shifts only, between two close colours; nothing animates under reduced motion', () => {
-    const { unmount } = render(<ConversationMap state={demo} />);
+    const { unmount } = render(<ConversationMap state={demo} flags={Y4} />);
     const light = within(tile(byLabel('Sunday Service'))).getByTestId('y4-light');
     expect(light).toHaveClass('cmap-shift-fill');
     expect(light.style.getPropertyValue('--shift-from')).toBe(PALETTES.young.light);
@@ -134,13 +137,13 @@ describe('motion and names', () => {
     );
     unmount();
     usePrefs.getState().set({ reduceMotion: true });
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={Y4} />);
     expect(document.querySelector('.cmap-shift-fill')).toBeNull();
     usePrefs.getState().reset();
   });
 
   it('accessible names are unchanged and still start with the visible label', () => {
-    render(<ConversationMap state={demo} />);
+    render(<ConversationMap state={demo} flags={Y4} />);
     expect(wrapper(byLabel('Sunday Service')).getAttribute('aria-label')!.startsWith('Sunday Service,')).toBe(true);
     const trip = byLabel('Summer Road Trip', 'pending');
     expect(wrapper(trip).getAttribute('aria-label')!.startsWith('Summer Road Trip picked up,')).toBe(true);
@@ -151,7 +154,7 @@ describe('motion and names', () => {
 
 describe('banners use the star-chart frame', () => {
   it('path banner has no rounded corners or shadow', async () => {
-    const { container } = render(<ConversationMap state={demo} />);
+    const { container } = render(<ConversationMap state={demo} flags={Y4} />);
     void container;
     const { fireEvent } = await import('@testing-library/react');
     fireEvent.click(tile(byLabel('Gospel Sources')));

@@ -15,7 +15,7 @@ import { Flag, Pencil, StickyNote } from 'lucide-react';
 import { createContext, useContext, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { cx } from '../../ui';
 import type { NoteFlowNode, TopicFlowNode } from './flow';
-import { EmberArt, StateRings, Y4Star, type StarPalette } from './art';
+import { EmberArt, StateRings, Y3Star, Y4Star, type StarPalette } from './art';
 import { nodeSubLabel } from './model';
 
 export interface MapNodeActions {
@@ -144,6 +144,7 @@ export function TopicArt({
   highlighted,
   motion,
   palette = 'young',
+  art = 'y3',
 }: {
   box: number;
   r: number;
@@ -153,12 +154,15 @@ export function TopicArt({
   highlighted: boolean;
   motion: boolean;
   palette?: StarPalette;
+  /** 'y3' eight-point compass (default) or 'y4' faceted (flag `facetedStars`) */
+  art?: 'y3' | 'y4';
 }) {
   const side = box * 2;
+  const Star = art === 'y4' ? Y4Star : Y3Star;
   return (
     <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
       <StateRings cx={box} cy={box} r={r} selected={selected} highlighted={highlighted} />
-      <Y4Star cx={box} cy={box} r={r} palette={palette} motion={motion} />
+      <Star cx={box} cy={box} r={r} palette={palette} motion={motion} />
       {/* being discussed now (or being heard): a small white core, never a pulse */}
       {(active || playing) && <circle cx={box} cy={box} r={2.5} fill="#FFFFFF" data-testid="active-core" />}
     </svg>
@@ -195,6 +199,7 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
         selected={selected}
         highlighted={n.highlighted}
         motion={motion}
+        art={data.art}
       />
       {view.isRevisit && (
         <Badge box={box} r={r} angle={-135} className="border-revisit text-revisit" testId="revisit-badge" glyph="↺" />
@@ -257,6 +262,7 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
           highlighted={n.highlighted}
           motion={motion}
           palette="rekindled"
+          art={data.art}
         />
       ) : (
         <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
@@ -288,7 +294,7 @@ export function NoteNodeView({ data }: NodeProps<NoteFlowNode>) {
     <div
       data-testid={`map-note-${data.annotation.id}`}
       className={cx(
-        'pointer-events-none flex w-[148px] gap-1.5 rounded-lg border border-highlight/40 bg-[#2a2614]/90 px-2 py-1.5 text-[11.5px] leading-snug text-ink shadow-lg',
+        'pointer-events-none flex w-[148px] gap-1.5 border border-highlight/40 bg-[#2a2614]/90 px-2 py-1.5 text-[11.5px] leading-snug text-ink shadow-lg',
         data.dimmed && 'cmap-dim',
       )}
       style={{ fontSize: 'calc(11.5px * var(--text-size))' }}

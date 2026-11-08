@@ -40,12 +40,12 @@ export function PreviewCard({
     <section
       aria-label={`Preview: ${node.label}`}
       data-testid="preview-card"
-      className="cmap-preview cmap-chart surface pointer-events-auto flex items-start gap-1 border border-line p-1.5 shadow-xl"
+      className="cmap-preview cmap-chart star-frame surface pointer-events-auto flex items-start gap-1 border border-line p-1.5 shadow-xl"
     >
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-h-11 min-w-0 flex-1 items-start gap-2 px-2.5 py-1.5 text-left hover:bg-white/5"
+        className="cmap-control flex min-h-11 min-w-0 flex-1 items-start gap-2 px-2.5 py-1.5 text-left"
         aria-label={`Open details for ${node.label}`}
       >
         <span className="min-w-0 flex-1">
@@ -61,11 +61,11 @@ export function PreviewCard({
         <ChevronRight aria-hidden size={18} className="mt-0.5 shrink-0 text-ink-2" />
       </button>
       <div className="flex flex-col">
-        <IconButton label="Close preview" onClick={onClose}>
+        <IconButton className="cmap-control" label="Close preview" onClick={onClose}>
           <X aria-hidden size={18} />
         </IconButton>
         {onPlay && (
-          <IconButton label={`Play ${node.label}`} onClick={onPlay}>
+          <IconButton className="cmap-control" label={`Play ${node.label}`} onClick={onPlay}>
             <Play aria-hidden size={18} />
           </IconButton>
         )}
@@ -210,6 +210,7 @@ export function NodeDetailSheet({
                       </span>
                       {onPlay && (
                         <IconButton
+                          className="cmap-control"
                           label={`${playingThis ? 'Pause' : 'Play'} ${m.label} at ${timeRange(m)}`}
                           aria-pressed={playingThis}
                           onClick={() => onPlay(m)}
@@ -315,11 +316,15 @@ export function NodeDetailSheet({
                   ) : (
                     <li
                       key={a.id}
-                      className="flex items-start gap-1 rounded-lg border border-highlight/40 bg-[#2a2614]/80 py-1 pl-3 pr-1 text-[0.9375rem]"
+                      className="flex items-start gap-1 border border-highlight/40 bg-[#2a2614]/80 py-1 pl-3 pr-1 text-[0.9375rem]"
                     >
                       <span className="flex-1 py-1.5">{a.text}</span>
                       {edit && (
-                        <IconButton label={`Edit note: ${a.text}`} onClick={() => setEditing(a.id)}>
+                        <IconButton
+                          className="cmap-control"
+                          label={`Edit note: ${a.text}`}
+                          onClick={() => setEditing(a.id)}
+                        >
                           <Pencil aria-hidden size={16} />
                         </IconButton>
                       )}
@@ -570,14 +575,14 @@ export function PathBanner({ labels, onClear }: { labels: string[]; onClear(): v
     <div
       role="status"
       data-testid="path-banner"
-      className="cmap-chart surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
+      className="cmap-chart star-frame surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
     >
       <Route aria-hidden size={16} className="shrink-0 text-topic" />
       <p className="min-w-0 flex-1 text-[13px] leading-snug">
         <span className="font-semibold">How we got here: </span>
         {labels.join(' → ')}
       </p>
-      <IconButton label="Clear path" onClick={onClear}>
+      <IconButton className="cmap-control" label="Clear path" onClick={onClear}>
         <X aria-hidden size={18} />
       </IconButton>
     </div>

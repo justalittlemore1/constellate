@@ -114,47 +114,8 @@
   margin-right: 2px;
 }
 
-/* ── star-chart frame (humans' redesign): preview strip + map sheets ──────────────────────────
-   square corners, a 1px amber hairline on top, 10px corner ticks top-left / top-right, serif
-   titles (A4's app-wide display font token; Cormorant Garamond / serif fallback). */
-.cmap-chart,
-[data-testid='node-detail-sheet'],
-[data-testid='quick-actions-sheet'],
-[data-testid='legend-sheet'] {
-  position: relative;
-  border-radius: 0 !important;
-  border-top: 1px solid rgb(255 196 107 / 0.6) !important;
-}
-.cmap-chart::before,
-.cmap-chart::after,
-[data-testid='node-detail-sheet']::before,
-[data-testid='node-detail-sheet']::after,
-[data-testid='quick-actions-sheet']::before,
-[data-testid='quick-actions-sheet']::after,
-[data-testid='legend-sheet']::before,
-[data-testid='legend-sheet']::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  width: 10px;
-  height: 10px;
-  border-top: 1px solid rgb(255 196 107 / 0.6);
-  pointer-events: none;
-}
-.cmap-chart::before,
-[data-testid='node-detail-sheet']::before,
-[data-testid='quick-actions-sheet']::before,
-[data-testid='legend-sheet']::before {
-  left: 3px;
-  border-left: 1px solid rgb(255 196 107 / 0.6);
-}
-.cmap-chart::after,
-[data-testid='node-detail-sheet']::after,
-[data-testid='quick-actions-sheet']::after,
-[data-testid='legend-sheet']::after {
-  right: 3px;
-  border-right: 1px solid rgb(255 196 107 / 0.6);
-}
+/* ── star-chart frame: A4's shared `.star-frame` (index.css) draws the hairline and corner ticks on
+   ui/Sheet and on the map's own strip and banners (they carry the class too). The map only adds: */
 /* no rounded rectangles or pills inside the frame (round icon buttons stay circles) */
 :is(.cmap-chart, [data-testid='node-detail-sheet'], [data-testid='quick-actions-sheet'], [data-testid='legend-sheet'])
   :is(button, .rounded-full, .rounded-lg, .rounded-xl, textarea):not(.size-11) {
@@ -164,4 +125,24 @@
 .cmap-chart-title {
   font-family: var(--font-display, 'Cormorant Garamond', Georgia, 'Times New Roman', serif);
   letter-spacing: 0.01em;
+}
+
+/* ── the detail sheet sits at the bottom and leaves the map above it visible ─────────────────────
+   at most ~58 % of the screen; its body scrolls inside; a tap on the uncovered map closes it
+   (A4's scrim stays as the tap target, just lighter, so the selected star shows through) */
+[data-testid='node-detail-sheet'] {
+  max-height: 58% !important;
+}
+.sheet-scrim:has(+ [data-testid='node-detail-sheet']) {
+  background: rgb(0 0 0 / 0.18);
+}
+
+/* ── hover / press wash on map controls (A4's shared grey wash when it lands; ~7.5 % white until) */
+.cmap .cmap-control:hover,
+.cmap-control:hover,
+.cmap-control:focus-visible {
+  background-color: var(--hover-wash, rgb(255 255 255 / 0.075));
+}
+.cmap-control:active {
+  background-color: var(--press-wash, rgb(255 255 255 / 0.12));
 }
