@@ -1,6 +1,7 @@
 /**
  * Node components. Every meaning has a non-colour cue:
- *  topic   — filled glowing circle; active = static outer ring + pulse + "now"; provisional = 40 %
+ *  topic   — filled glowing circle; active = static outer ring + "now" (+ a very slow, subtle colour
+ *            shift, never a pulse; none under reduced motion); provisional = 40 %
  *            opacity + "tentative"; revisit = ↺ badge; highlighted = gold ring + ★; flag = pin badge
  *  thread  — hollow dashed ring; clock glyph (mentioned for later), pencil (parked), check (picked up)
  *  note    — small sticky card
@@ -126,6 +127,86 @@ function Badge({
   );
 }
 
+/**
+ * The star itself. Kept apart from the node's behaviour (badges, label, long-press) so the
+ * wave-2 star shapes can replace just this. Everything here is decoration (aria-hidden).
+ */
+export function TopicArt({
+  box,
+  r,
+  gradId,
+  active,
+  playing,
+  selected,
+  highlighted,
+  motion,
+}: {
+  box: number;
+  r: number;
+  gradId: string;
+  active: boolean;
+  playing: boolean;
+  selected: boolean;
+  highlighted: boolean;
+  motion: boolean;
+}) {
+  const side = box * 2;
+  return (
+    <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
+      <defs>
+        <radialGradient id={gradId}>
+          <stop offset="0%" stopColor="#F2FDFF" stopOpacity="1" />
+          <stop offset="38%" stopColor="#9DEEFF" stopOpacity="1" />
+          <stop offset="100%" stopColor="#3CC9EE" stopOpacity="0.95" />
+        </radialGradient>
+      </defs>
+      {/* keyboard focus ring (shown via .react-flow__node:focus-visible) */}
+      <circle className="cmap-focus" cx={box} cy={box} r={r + 9} fill="none" stroke="var(--text)" strokeWidth={2} />
+      {highlighted && (
+        <circle
+          cx={box}
+          cy={box}
+          r={r + 5}
+          fill="none"
+          stroke="var(--highlight)"
+          strokeWidth={2.5}
+          data-testid="highlight-ring"
+        />
+      )}
+      {(active || playing) && (
+        <circle
+          cx={box}
+          cy={box}
+          r={r + 4}
+          fill="none"
+          stroke={playing ? 'var(--text)' : 'var(--topic)'}
+          strokeWidth={1.5}
+          data-testid="active-ring"
+        />
+      )}
+      {selected && (
+        <circle cx={box} cy={box} r={r + 4} fill="none" stroke="var(--text)" strokeWidth={1.5} strokeDasharray="3 3" />
+      )}
+      {/* the only motion on an active star: a very slow, subtle colour shift (never a pulse) */}
+      <g
+        className={active && motion ? 'cmap-shift' : undefined}
+        data-testid={active && motion ? 'colour-shift' : undefined}
+      >
+        <circle
+          cx={box}
+          cy={box}
+          r={r}
+          fill={`url(#${gradId})`}
+          data-testid="star"
+          style={{
+            filter: `drop-shadow(0 0 calc(${playing ? 18 : 10}px * var(--glow)) rgba(111,227,255,${playing ? 0.95 : 0.7}))`,
+          }}
+        />
+      </g>
+    </svg>
+  );
+}
+
 export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
   const { view, box, active, playing, selected, dimmed, showTime, motion } = data;
   const n = view.node;
@@ -144,78 +225,21 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
       data-status={n.status}
       data-active={active || undefined}
       data-highlighted={n.highlighted || undefined}
-      className={cx('relative', dimmed && 'cmap-dim')}
+      data-occurrences={view.occurrences.length > 1 ? view.occurrences.length : undefined}
+      className={cx('cmap-appear relative', dimmed && 'cmap-dim')}
       style={{ width: side, height: side, opacity: dimmed ? 0.22 : provisional ? 0.4 : undefined }}
     >
       <CentreHandles />
-      <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
-        <defs>
-          <radialGradient id={gradId}>
-            <stop offset="0%" stopColor="#F2FDFF" stopOpacity="1" />
-            <stop offset="38%" stopColor="#9DEEFF" stopOpacity="1" />
-            <stop offset="100%" stopColor="#3CC9EE" stopOpacity="0.95" />
-          </radialGradient>
-        </defs>
-        {/* keyboard focus ring (shown via .react-flow__node:focus-visible) */}
-        <circle className="cmap-focus" cx={box} cy={box} r={r + 9} fill="none" stroke="var(--text)" strokeWidth={2} />
-        {n.highlighted && (
-          <circle
-            cx={box}
-            cy={box}
-            r={r + 5}
-            fill="none"
-            stroke="var(--highlight)"
-            strokeWidth={2.5}
-            data-testid="highlight-ring"
-          />
-        )}
-        {(active || playing) && (
-          <>
-            <circle
-              cx={box}
-              cy={box}
-              r={r + 4}
-              fill="none"
-              stroke={playing ? 'var(--text)' : 'var(--topic)'}
-              strokeWidth={1.5}
-            />
-            {motion && (
-              <circle
-                className="cmap-pulse"
-                cx={box}
-                cy={box}
-                r={r}
-                fill="none"
-                stroke="var(--topic)"
-                strokeWidth={2}
-                data-testid="pulse"
-              />
-            )}
-          </>
-        )}
-        {selected && (
-          <circle
-            cx={box}
-            cy={box}
-            r={r + 4}
-            fill="none"
-            stroke="var(--text)"
-            strokeWidth={1.5}
-            strokeDasharray="3 3"
-          />
-        )}
-        <g className="cmap-appear">
-          <circle
-            cx={box}
-            cy={box}
-            r={r}
-            fill={`url(#${gradId})`}
-            style={{
-              filter: `drop-shadow(0 0 calc(${playing ? 18 : 10}px * var(--glow)) rgba(111,227,255,${playing ? 0.95 : 0.7}))`,
-            }}
-          />
-        </g>
-      </svg>
+      <TopicArt
+        box={box}
+        r={r}
+        gradId={gradId}
+        active={active}
+        playing={playing}
+        selected={selected}
+        highlighted={n.highlighted}
+        motion={motion}
+      />
       {view.isRevisit && (
         <Badge box={box} r={r} angle={-135} className="border-revisit text-revisit" testId="revisit-badge" glyph="↺" />
       )}
@@ -263,7 +287,7 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
       data-testid={`map-node-${id}`}
       data-kind={n.kind}
       data-status={n.status}
-      className={cx('relative', dimmed && 'cmap-dim')}
+      className={cx('cmap-appear relative', dimmed && 'cmap-dim')}
       style={{ width: side, height: side, opacity: dimmed ? 0.22 : resolved ? 0.7 : undefined }}
     >
       <CentreHandles />
@@ -283,7 +307,7 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
             strokeDasharray="3 3"
           />
         )}
-        <g className="cmap-appear">
+        <g>
           <circle
             data-testid="thread-ring"
             cx={box}

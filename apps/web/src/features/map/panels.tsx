@@ -1,6 +1,7 @@
 /**
- * Map overlays: preview card (tap a node), detail sheet (tap the card), quick actions
- * (long-press) and the legend sheet. Built on A4's `Sheet` primitive.
+ * Map overlays: preview strip (hover / keyboard focus), detail sheet (click, tap or Enter), quick
+ * actions (long-press) and the legend sheet. Built on A4's `Sheet` primitive, dressed as a
+ * "star-chart frame" (square corners, amber hairline, corner ticks, serif title; see map.css).
  */
 import type { Annotation, GraphState, TopicNode, Utterance } from '@constellate/shared';
 import { ChevronRight, Highlighter, Pause, Pencil, Play, Route, StickyNote, X } from 'lucide-react';
@@ -10,9 +11,15 @@ import { Button, Chip, IconButton, Sheet, TextArea } from '../../ui';
 import { NOTE_MAX_CHARS } from './edits';
 import { relationWords, statusWords, timeRange, isThread, revisitTarget } from './model';
 
+/** "03:50–05:10" or, for a merged star, "03:50–05:10 · 07:00–07:50". */
+function rangesOf(node: TopicNode, occurrences?: readonly TopicNode[]): string {
+  return occurrences && occurrences.length > 1 ? occurrences.map(timeRange).join(' · ') : timeRange(node);
+}
+
 export function PreviewCard({
   state,
   node,
+  occurrences,
   activeNodeId,
   onOpen,
   onClose,
@@ -20,28 +27,31 @@ export function PreviewCard({
 }: {
   state: GraphState;
   node: TopicNode;
+  occurrences?: readonly TopicNode[] | undefined;
   activeNodeId: string | null;
   onOpen(): void;
   onClose(): void;
   onPlay?: (() => void) | undefined;
 }) {
-  const relations = relationWords(state, node);
+  const many = occurrences && occurrences.length > 1;
+  const relations = relationWords(state, node).filter((w) => !many || !w.startsWith('picked up again'));
+  if (many) relations.unshift(`came up ${occurrences.length} times`);
   return (
     <section
       aria-label={`Preview: ${node.label}`}
       data-testid="preview-card"
-      className="cmap-preview surface pointer-events-auto flex items-start gap-1 rounded-[var(--radius)] border border-line p-1.5 shadow-xl"
+      className="cmap-preview cmap-chart surface pointer-events-auto flex items-start gap-1 border border-line p-1.5 shadow-xl"
     >
       <button
         type="button"
         onClick={onOpen}
-        className="flex min-h-11 min-w-0 flex-1 items-start gap-2 rounded-xl px-2.5 py-1.5 text-left hover:bg-white/5"
+        className="flex min-h-11 min-w-0 flex-1 items-start gap-2 px-2.5 py-1.5 text-left hover:bg-white/5"
         aria-label={`Open details for ${node.label}`}
       >
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className="truncate font-semibold">{node.label}</span>
-            <span className="shrink-0 text-[11.5px] tabular-nums text-ink-2">{timeRange(node)}</span>
+            <span className="cmap-chart-title truncate text-[1.05rem] font-semibold">{node.label}</span>
+            <span className="shrink-0 text-[11.5px] tabular-nums text-ink-2">{rangesOf(node, occurrences)}</span>
           </span>
           <span className="mt-0.5 block text-[13px] leading-snug text-ink-2">{node.summary}</span>
           <span className="mt-1 block text-[11.5px] text-ink-2">
@@ -126,37 +136,52 @@ function NoteEditor({
 export function NodeDetailSheet({
   state,
   node,
+  occurrences,
   activeNodeId,
   utterances,
   onClose,
   onPlay,
-  isPlaying,
+  playingNodeId = null,
   onTrace,
   edit,
 }: {
   state: GraphState;
   node: TopicNode | null;
+  /** every moment this star stands for (merged returns); defaults to just the node */
+  occurrences?: readonly TopicNode[] | undefined;
   activeNodeId: string | null;
   utterances?: Utterance[] | undefined;
   onClose(): void;
   onPlay?: ((n: TopicNode) => void) | undefined;
-  isPlaying?: boolean;
+  playingNodeId?: string | null;
   onTrace(n: TopicNode): void;
   edit?: NodeEditActions | undefined;
 }) {
   const open = Boolean(node);
+  const moments = node ? (occurrences && occurrences.length ? [...occurrences] : [node]) : [];
+  const many = moments.length > 1;
+  const isPlaying = moments.some((m) => m.id === playingNodeId);
+  // a merged star lists its moments above, so its "picked up again" line would only repeat them
+  const whereItSits = node ? relationWords(state, node).filter((w) => !many || !w.startsWith('picked up again')) : [];
   // which note is being edited: 'new', an annotation id, or nothing
   const [editing, setEditing] = useState<string | null>(null);
-  const evidence = node && utterances ? utterances.filter((u) => node.utteranceIds.includes(u.id)) : [];
-  const flags = node ? state.flags.filter((f) => f.nodeId === node.id) : [];
-  const notes = node ? state.annotations.filter((a) => a.nodeId === node.id) : [];
+  const ids = new Set(moments.map((m) => m.id));
+  const evidence =
+    node && utterances ? utterances.filter((u) => moments.some((m) => m.utteranceIds.includes(u.id))) : [];
+  const flags = node ? state.flags.filter((f) => f.nodeId !== null && ids.has(f.nodeId)) : [];
+  const notes = node ? state.annotations.filter((a) => a.nodeId !== null && ids.has(a.nodeId)) : [];
   const back = node ? revisitTarget(state, node.id) : null;
   const close = () => {
     setEditing(null);
     onClose();
   };
   return (
-    <Sheet open={open} onClose={close} title={node?.label ?? ''} testId="node-detail-sheet">
+    <Sheet
+      open={open}
+      onClose={close}
+      title={<span className="cmap-chart-title">{node?.label ?? ''}</span>}
+      testId="node-detail-sheet"
+    >
       {node && (
         <div className="flex flex-col gap-4 pt-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -164,13 +189,43 @@ export function NodeDetailSheet({
             {back && <Chip tone="revisit">↺ return</Chip>}
             {node.highlighted && <Chip tone="highlight">★ highlighted</Chip>}
             {flags.length > 0 && <Chip tone="flag">⚑ flagged{flags.length > 1 ? ` ×${flags.length}` : ''}</Chip>}
-            <span className="text-[13px] tabular-nums text-ink-2">{timeRange(node)}</span>
+            <span className="text-[13px] tabular-nums text-ink-2">{rangesOf(node, moments)}</span>
           </div>
 
           <p className="text-[0.9375rem] leading-relaxed">{node.summary}</p>
 
+          {many && (
+            <section aria-labelledby="cmap-moments-h">
+              <h3 id="cmap-moments-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+                Came up {moments.length} times
+              </h3>
+              <ol className="flex flex-col gap-1" data-testid="moments">
+                {moments.map((m, i) => {
+                  const playingThis = m.id === playingNodeId;
+                  return (
+                    <li key={m.id} className="flex items-center gap-2 border-l border-thread/50 py-0.5 pl-3">
+                      <span className="min-w-0 flex-1 text-[0.9375rem]">
+                        <span className="tabular-nums">{timeRange(m)}</span>
+                        <span className="text-ink-2">{i === 0 ? ' · first' : ' · came back'}</span>
+                      </span>
+                      {onPlay && (
+                        <IconButton
+                          label={`${playingThis ? 'Pause' : 'Play'} ${m.label} at ${timeRange(m)}`}
+                          aria-pressed={playingThis}
+                          onClick={() => onPlay(m)}
+                        >
+                          {playingThis ? <Pause aria-hidden size={18} /> : <Play aria-hidden size={18} />}
+                        </IconButton>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
+
           <div className="flex flex-wrap gap-2">
-            {onPlay && (
+            {onPlay && !many && (
               <Button
                 variant="primary"
                 aria-pressed={Boolean(isPlaying)}
@@ -231,10 +286,10 @@ export function NodeDetailSheet({
               Where it sits
             </h3>
             <ul className="list-disc pl-5 text-[0.9375rem] leading-relaxed">
-              {relationWords(state, node).map((r) => (
+              {whereItSits.map((r) => (
                 <li key={r}>{r}</li>
               ))}
-              {relationWords(state, node).length === 0 && <li>Level {node.level} topic</li>}
+              {whereItSits.length === 0 && <li>Level {node.level} topic</li>}
             </ul>
           </section>
 
