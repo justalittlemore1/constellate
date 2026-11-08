@@ -204,7 +204,12 @@ export const ClientMsgSchema: z.ZodType<ClientMsg> = z.discriminatedUnion('t', [
     resumeAtMs: ms.optional(),
     consent: z.literal(true),
   }),
-  z.object({ t: z.literal('flag'), atMs: ms, source: FlagSourceSchema }),
+  z.object({
+    t: z.literal('flag'),
+    atMs: ms,
+    source: FlagSourceSchema,
+    note: z.string().trim().min(1).max(140).optional(),
+  }),
   z.object({ t: z.literal('park'), text: z.string().min(1).max(80), atMs: ms }),
   z.object({ t: z.literal('stop') }),
   z.object({ t: z.literal('ping') }),
