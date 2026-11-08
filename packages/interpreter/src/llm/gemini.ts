@@ -1,10 +1,10 @@
 /**
- * LlmClient and embeddings on the Gemini API (`@google/genai`), JSON schema via `responseJsonSchema`.
+ * Gemini embeddings (`MODELS.embed`). This package has NO Gemini text-model client on purpose:
+ * all reasoning runs on Claude because the Gemini key is free-tier (AGENTS.md › API budget).
  */
-import { GoogleGenAI, ThinkingLevel } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { MODELS } from '@constellate/shared';
-import type { LlmClient, LlmJsonArgs } from './types';
-import { LlmError } from './errors';
+import { countGemini, countGeminiThrottle, isThrottle } from './usage';
 
 export interface GeminiClientOptions {
   apiKey?: string;
@@ -18,68 +18,25 @@ function makeAi(opts: GeminiClientOptions): GoogleGenAI {
   return new GoogleGenAI({ apiKey });
 }
 
-function thinkingLevel(model: string): ThinkingLevel {
-  return model === MODELS.interpreter.gemini || model === MODELS.interpreter.fast
-    ? ThinkingLevel.LOW
-    : ThinkingLevel.MEDIUM;
-}
-
-export function createGeminiClient(opts: GeminiClientOptions = {}): LlmClient {
-  const ai = makeAi(opts);
-  return {
-    async json<T>({ system, user, schema, model, timeoutMs }: LlmJsonArgs) {
-      const t0 = performance.now();
-      const abort = new AbortController();
-      const timer = setTimeout(() => abort.abort(), timeoutMs);
-      try {
-        const res = await ai.models.generateContent({
-          model,
-          contents: user,
-          config: {
-            systemInstruction: system,
-            responseMimeType: 'application/json',
-            responseJsonSchema: schema,
-            thinkingConfig: { thinkingLevel: thinkingLevel(model) },
-            abortSignal: abort.signal,
-          },
-        });
-        const ms = performance.now() - t0;
-        const text = res.text;
-        if (!text)
-          throw new LlmError('empty', `empty response (${res.candidates?.[0]?.finishReason ?? 'no candidate'})`);
-        let data: T;
-        try {
-          data = JSON.parse(text) as T;
-        } catch {
-          throw new LlmError('invalid_json', `response was not JSON: ${text.slice(0, 200)}`);
-        }
-        const u = res.usageMetadata;
-        return {
-          data,
-          ms,
-          inTok: u?.promptTokenCount ?? 0,
-          outTok: (u?.candidatesTokenCount ?? 0) + (u?.thoughtsTokenCount ?? 0),
-        };
-      } catch (e) {
-        if (abort.signal.aborted) throw new LlmError('timeout', `no response within ${timeoutMs} ms`);
-        throw e;
-      } finally {
-        clearTimeout(timer);
-      }
-    },
-  };
-}
-
 /** Unit-normalised `MODELS.embed` embeddings, `MODELS.embedDims` long. */
 export function createGeminiEmbedder(opts: GeminiClientOptions = {}): (texts: string[]) => Promise<number[][]> {
   const ai = makeAi(opts);
   return async (texts) => {
     if (texts.length === 0) return [];
-    const res = await ai.models.embedContent({
-      model: MODELS.embed,
-      contents: texts,
-      config: { outputDimensionality: MODELS.embedDims },
-    });
+    countGemini(MODELS.embed, texts.length);
+    let res;
+    try {
+      res = await ai.models.embedContent({
+        model: MODELS.embed,
+        // one Content per text: a bare string array is read as ONE input with several parts
+        // (one vector back), which silently broke every batched request
+        contents: texts.map((text) => ({ role: 'user', parts: [{ text }] })),
+        config: { outputDimensionality: MODELS.embedDims },
+      });
+    } catch (e) {
+      if (isThrottle(e)) countGeminiThrottle(MODELS.embed);
+      throw e;
+    }
     const out = (res.embeddings ?? []).map((e) => normalise(e.values ?? []));
     if (out.length !== texts.length)
       throw new Error(`embedContent returned ${out.length} vectors for ${texts.length} texts`);

@@ -63,7 +63,7 @@ export interface TranslateResult {
   state: GraphState;
   /** nodes created as new topics this decision (for the granularity burst rule) */
   created: { nodeId: string; explicit: boolean }[];
-  /** nodes whose label/summary changed (re-embed) */
+  /** nodes created this decision: embed them. Summary refinements are not re-embedded (AGENTS.md › API budget) */
   touched: string[];
   /** non-fatal problems, for logs */
   warnings: string[];
@@ -389,7 +389,6 @@ export function translate(input: TranslateInput): TranslateResult {
       const upd = d.continue?.summary_update;
       if (upd && d.action === 'continue') {
         b.push({ op: 'node.update', id: current, patch: { summary: cleanSummary(upd) } });
-        b.touched.add(current);
       }
     }
   } else if (action === 'new_topic') {

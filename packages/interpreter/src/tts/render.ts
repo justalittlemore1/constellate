@@ -7,6 +7,7 @@
  */
 import { GoogleGenAI } from '@google/genai';
 import { MODELS, type TranscriptFixture } from '@constellate/shared';
+import { countGemini } from '../llm/usage';
 import { addNoise, concat, decodePcm16, rateFromMime, resample, rng, TARGET_RATE, wav, type Clip } from './audio';
 
 /** The six scenarios rendered by default: short, two speakers, covering shifts, returns and threads. */
@@ -28,6 +29,7 @@ export function geminiSynthesizer(apiKey = process.env.GEMINI_API_KEY): Synthesi
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
   const ai = new GoogleGenAI({ apiKey });
   return async (text, voice) => {
+    countGemini(MODELS.tts, 1);
     const res = await ai.models.generateContent({
       model: MODELS.tts,
       contents: text,

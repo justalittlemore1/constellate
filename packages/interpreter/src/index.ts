@@ -17,7 +17,7 @@ import type { CreateLiveInterpreter, FinalizeConversation } from '@constellate/s
 import { createFinalizer } from './finalize';
 import { createInterpreter } from './live';
 
-/** Provider from INTERPRETER_PROVIDER (gemini | anthropic), model from MODELS.interpreter. */
+/** Reasoning on Claude (MODELS.interpreter.anthropic) whatever INTERPRETER_PROVIDER says (AGENTS.md › API budget). */
 export const createLiveInterpreter: CreateLiveInterpreter = (deps) => createInterpreter(deps);
 
 /** One MODELS.refine call after stop; on failure returns no ops so the live graph stands. */
@@ -25,5 +25,5 @@ export const finalizeConversation: FinalizeConversation = (input) => createFinal
 
 export { createInterpreter, type DecisionRecord, type InterpreterOptions, type Scheduler } from './live';
 export type { LlmClient, LlmJsonArgs, LlmJsonResult } from './llm/types';
-export { createAnthropicClient, createGeminiClient, createGeminiEmbedder } from './llm';
+export { createAnthropicClient, createGeminiEmbedder, geminiUsage } from './llm';
 export { createFinalizer, type FinalizerOptions } from './finalize';
