@@ -84,7 +84,13 @@ export function cosine(a: readonly number[], b: readonly number[]): number {
 
 export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOptions = {}): TestableInterpreter {
   const provider = opts.provider ?? providerFromEnv();
+  if (provider === 'gemini') {
+    deps.log?.('interpreter.provider.ignored', { requested: 'gemini', using: 'anthropic' });
+  }
   const model = opts.model ?? interpreterModel(provider);
+  if (model.startsWith('gemini')) {
+    throw new Error(`refusing Gemini text model ${model}: reasoning runs on Claude (AGENTS.md › API budget)`);
+  }
   let llm = opts.llm ?? null;
   const getLlm = () => (llm ??= createLlmClient(provider));
   const scheduler = opts.scheduler ?? realScheduler;

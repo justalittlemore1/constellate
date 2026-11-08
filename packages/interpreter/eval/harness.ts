@@ -464,6 +464,7 @@ export function summarise(runs: RunResult[], scores: Score[]): Summary {
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
 export function renderReport(opts: {
+  extra?: string[];
   provider: string;
   model: string;
   mode: string;
@@ -477,6 +478,7 @@ export function renderReport(opts: {
   out.push(`# Interpreter eval — ${opts.provider} (${opts.model})`, '');
   out.push(`- When: ${new Date().toISOString()}  ·  mode: ${opts.mode}`);
   if (opts.note) out.push(`- Change under test: ${opts.note}`);
+  for (const line of opts.extra ?? []) out.push(`- ${line}`);
   out.push(
     `- **Scenarios passed: ${s.passed}/${s.total}**  ·  release gate (≥ 8/10, median < 3 s): **${s.gate ? 'PASS' : 'FAIL'}**`,
     `- Decision latency p50 ${(s.p50 / 1000).toFixed(2)} s · p95 ${(s.p95 / 1000).toFixed(2)} s · ${s.calls} calls (${s.retries} retried, ${s.failedCalls} skipped)`,

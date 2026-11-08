@@ -135,7 +135,7 @@ describe('eval harness scoring', () => {
 
 // Deterministic replay of the committed recordings (no API keys). Runs in CI via `pnpm test`.
 describe('eval replay', () => {
-  const models = [MODELS.interpreter.gemini, MODELS.interpreter.anthropic].filter((m) =>
+  const models = [MODELS.interpreter.anthropic].filter((m) =>
     existsSync(join(RECORDINGS, m.replace(/[^a-zA-Z0-9._-]/g, '_'))),
   );
   // Visible as "todo" in the test output until the first live `pnpm eval` commits recordings.
