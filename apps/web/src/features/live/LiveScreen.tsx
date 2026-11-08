@@ -156,12 +156,15 @@ function LiveSessionView({
     else onCancel();
   }, [conversationId, onDone, onCancel]);
 
-  // nothing left open: go straight to the saved map once everything is stored
+  // once everything is stored (server `stopped` + upload, or the stop timeout): straight to the saved
+  // map and its diary; with the "Before you go" sheet on, only when no thread is left open
+  const showBeforeYouGo = features.beforeYouGo;
   useEffect(() => {
-    if (phase !== 'stopped' || threads.length > 0) return;
-    const t = setTimeout(leave, conversationId ? AUTO_LEAVE_MS : 0);
+    if (phase !== 'stopped') return;
+    if (showBeforeYouGo && threads.length > 0) return;
+    const t = setTimeout(leave, showBeforeYouGo && conversationId ? AUTO_LEAVE_MS : 0);
     return () => clearTimeout(t);
-  }, [phase, threads.length, conversationId, leave]);
+  }, [phase, threads.length, conversationId, leave, showBeforeYouGo]);
 
   const pocketPanel = useRef<HTMLDivElement>(null);
   useFocusTrap(pocketPanel, trigger.pocket, () => trigger.setPocket(false));
@@ -234,12 +237,17 @@ function LiveSessionView({
   // the PhoneFrame's #overlay-root does not exist yet, and a sheet portalled then would move containers
   // on the next render and lose its initial focus
   const consenting = phase === 'consenting';
-  const overlayOpen = consenting || phase === 'idle' || parking || noting !== null || ending || trigger.pocket;
+  const overlayOpen =
+    consenting || phase === 'idle' || parking || noting !== null || (ending && showBeforeYouGo) || trigger.pocket;
 
   return (
     <div className="relative h-full" data-testid="live-screen">
       <p className="sr-only" role="status">
-        {s.reconnecting ? 'Connection lost. Reconnecting…' : ''}
+        {s.reconnecting
+          ? 'Connection lost. Reconnecting…'
+          : ending && !showBeforeYouGo
+            ? 'Recording stopped. Saving the conversation…'
+            : ''}
       </p>
       <main
         aria-label="Live conversation"
@@ -366,7 +374,7 @@ function LiveSessionView({
         }}
       />
 
-      <BeforeYouGo open={ending} snapshot={s} threads={threads} onOpenMap={leave} onLeave={leave} />
+      <BeforeYouGo open={ending && showBeforeYouGo} snapshot={s} threads={threads} onOpenMap={leave} onLeave={leave} />
 
       {trigger.pocket && (
         <div

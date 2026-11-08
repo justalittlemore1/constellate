@@ -87,6 +87,7 @@ describe('LiveScreen on the mock server', () => {
     usePrefs.getState().set({ lowStimulation: true });
     const { onDone } = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, undefined, {
       parkThought: true,
+      beforeYouGo: true,
     });
     await advance(0);
     fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
@@ -159,9 +160,9 @@ describe('LiveScreen with fake deps', () => {
     expect(screen.getByRole('dialog', { name: 'Play the demo conversation' })).toBeInTheDocument();
   });
 
-  it('goes straight to the saved map when no thread is left open', async () => {
+  it('with Before you go on: goes straight to the saved map when no thread is left open', async () => {
     const f = fakeDeps({ graph: () => emptyGraph(makeConversation()) });
-    const { onDone } = renderScreen(f.deps);
+    const { onDone } = renderScreen(f.deps, { kind: 'mic' }, undefined, { beforeYouGo: true });
     await advance(0);
     fireEvent.click(screen.getByRole('button', { name: 'Everyone agrees — start' }));
     await advance(0);
@@ -291,8 +292,8 @@ describe('LiveScreen accessibility', () => {
     expect(opener).toHaveFocus();
   });
 
-  it('Before you go takes focus and Escape leaves for the saved map', async () => {
-    const { onDone } = await startDemo();
+  it('Before you go (flag on) takes focus and Escape leaves for the saved map', async () => {
+    const { onDone } = await startDemo({ beforeYouGo: true });
     fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
     await advance(0);
     const dialog = screen.getByRole('dialog', { name: 'Before you go' });
@@ -559,8 +560,8 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     expect(server.state.flags.filter((f) => f.source === 'key')).toHaveLength(1);
   });
 
-  it("consent and Before you go are A4's BottomSheet (star-chart frame); the recording dot is steady", async () => {
-    renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
+  it("consent and Before you go (flag on) are A4's BottomSheet (star-chart frame); the recording dot is steady", async () => {
+    renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, undefined, { beforeYouGo: true });
     await advance(0);
     const consent = screen.getByRole('dialog', { name: 'Play the demo conversation' });
     expectBottomSheet(consent);
