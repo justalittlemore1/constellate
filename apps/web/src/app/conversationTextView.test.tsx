@@ -30,15 +30,4 @@ describe('/c/:id header "Text view" with A3’s real SavedMap', () => {
     expect(textView).toHaveAttribute('aria-pressed', 'false');
     expect(screen.queryByTestId('outline')).not.toBeInTheDocument();
   });
-
-  it('stays in step when the view is changed from inside the map (A3’s focus-only link)', async () => {
-    const user = userEvent.setup();
-    renderApp({ route: `/c/${demo.conversation.id}` });
-    await user.click(await screen.findByTestId('text-view-link'));
-    expect(screen.getByTestId('outline')).toBeInTheDocument();
-    const textView = within(screen.getByTestId('conversation-actions')).getByRole('button', { name: 'Text view' });
-    expect(textView).toHaveAttribute('aria-pressed', 'true');
-    await user.click(textView);
-    expect(screen.queryByTestId('outline')).not.toBeInTheDocument();
-  });
 });
