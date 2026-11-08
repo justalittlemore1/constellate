@@ -1,115 +1,204 @@
 /**
- * Record/replay wrappers so the eval runs deterministically in CI with no API keys.
- * Each request is keyed by a SHA-256 of everything that determines its answer; one JSON file per
- * key under `<dir>/<model>/<key>.json`.
+ * Record/replay wrappers so the eval is free to repeat and deterministic in CI with no API keys
+ * (AGENTS.md › API budget). Responses are keyed by a SHA-256 of everything that determines them and
+ * kept in one JSONL file per kind under the recordings directory:
  *
- *   mode 'replay'  read only; a miss throws LlmError('replay_miss')
- *   mode 'record'  always call the inner client and (over)write the file
- *   mode 'auto'    read if present, otherwise call and write
+ *   llm-<model>.jsonl   {"key", "data", "ms", "inTok", "outTok"}
+ *   embeddings.jsonl    {"key", "q", "s"}  — int8-quantised vector (base64) and its scale
+ *
+ * Embeddings are quantised BEFORE they are returned in the recording run too, so a replay sees
+ * exactly the vectors the recording run saw (same similarities, same prompts, same cache keys).
+ *
+ *   mode 'replay'  read only; a miss throws LlmError('replay_miss') and is counted
+ *   mode 'record'  always call the inner client and overwrite
+ *   mode 'auto'    read if present, otherwise call and append
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { LlmClient, LlmJsonArgs } from './types';
 import { LlmError } from './errors';
+import type { LlmClient, LlmJsonArgs } from './types';
 
 export type ReplayMode = 'replay' | 'record' | 'auto';
-
-export interface Recording {
-  key: string;
-  model: string;
-  data: unknown;
-  ms: number;
-  inTok: number;
-  outTok: number;
-}
 
 export function requestKey(parts: unknown): string {
   return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 32);
 }
 
-function safe(s: string): string {
-  return s.replace(/[^a-zA-Z0-9._-]/g, '_');
+const safe = (s: string) => s.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+interface Entry {
+  key: string;
+}
+
+/** One JSONL file: loaded once, appended on write, rewritable to drop unused keys. */
+class JsonlStore<T extends Entry> {
+  private map: Map<string, T> | null = null;
+  constructor(readonly file: string) {}
+  private load(): Map<string, T> {
+    if (this.map) return this.map;
+    this.map = new Map();
+    if (existsSync(this.file)) {
+      for (const line of readFileSync(this.file, 'utf8').split('\n')) {
+        if (!line.trim()) continue;
+        const e = JSON.parse(line) as T;
+        this.map.set(e.key, e);
+      }
+    }
+    return this.map;
+  }
+  get(key: string): T | undefined {
+    return this.load().get(key);
+  }
+  put(e: T): void {
+    const m = this.load();
+    const existed = m.has(e.key);
+    m.set(e.key, e);
+    mkdirSync(join(this.file, '..'), { recursive: true });
+    if (existed) this.rewrite([...m.keys()]);
+    else appendFileSync(this.file, `${JSON.stringify(e)}\n`);
+  }
+  /** keep only `keys`, in their first-use order */
+  rewrite(keys: string[]): void {
+    const m = this.load();
+    const kept = keys.filter((k) => m.has(k)).map((k) => m.get(k)!);
+    this.map = new Map(kept.map((e) => [e.key, e]));
+    mkdirSync(join(this.file, '..'), { recursive: true });
+    writeFileSync(this.file, kept.map((e) => `${JSON.stringify(e)}\n`).join(''));
+  }
+  size(): number {
+    return this.load().size;
+  }
+}
+
+interface LlmEntry extends Entry {
+  data: unknown;
+  ms: number;
+  inTok: number;
+  outTok: number;
+}
+interface EmbedEntry extends Entry {
+  q: string;
+  s: number;
 }
 
 export interface ReplayStore {
-  /** every file path read or written in this process (lets the eval prune stale recordings) */
-  used: Set<string>;
-  /** replay-mode lookups that found no recording (the interpreter swallows embedding failures) */
+  /** keys used this run, per JSONL file (lets a full eval drop stale entries) */
+  used: Map<string, string[]>;
+  /** replay-mode lookups that found no recording */
   misses: number;
+  /** requests that went to the real API (cache misses outside replay mode) */
+  calls: number;
+  stores: Map<string, JsonlStore<Entry>>;
 }
 
-export const newReplayStore = (): ReplayStore => ({ used: new Set(), misses: 0 });
+export const newReplayStore = (): ReplayStore => ({ used: new Map(), misses: 0, calls: 0, stores: new Map() });
+
+function storeFor<T extends Entry>(rs: ReplayStore, file: string): JsonlStore<T> {
+  let s = rs.stores.get(file);
+  if (!s) {
+    s = new JsonlStore<Entry>(file);
+    rs.stores.set(file, s);
+  }
+  return s as unknown as JsonlStore<T>;
+}
+
+function markUsed(rs: ReplayStore, file: string, key: string) {
+  const keys = rs.used.get(file) ?? [];
+  if (!keys.includes(key)) keys.push(key);
+  rs.used.set(file, keys);
+}
+
+/** Drop every entry not used this run, for the files this run touched. */
+export function pruneUnused(rs: ReplayStore): void {
+  for (const [file, keys] of rs.used) storeFor(rs, file).rewrite(keys);
+}
+
+export function llmFile(dir: string, model: string): string {
+  return join(dir, `llm-${safe(model)}.jsonl`);
+}
+export function embeddingsFile(dir: string): string {
+  return join(dir, 'embeddings.jsonl');
+}
 
 export function createReplayClient(
   inner: LlmClient | null,
   dir: string,
   mode: ReplayMode,
-  store: ReplayStore = newReplayStore(),
+  rs: ReplayStore = newReplayStore(),
 ): LlmClient {
   return {
     async json<T>(args: LlmJsonArgs) {
       const key = requestKey({ system: args.system, user: args.user, schema: args.schema, model: args.model });
-      const folder = join(dir, safe(args.model));
-      const file = join(folder, `${key}.json`);
-      if (mode !== 'record' && existsSync(file)) {
-        store.used.add(file);
-        const r = JSON.parse(readFileSync(file, 'utf8')) as Recording;
-        return { data: r.data as T, ms: r.ms, inTok: r.inTok, outTok: r.outTok };
+      const file = llmFile(dir, args.model);
+      const store = storeFor<LlmEntry>(rs, file);
+      const hit = mode !== 'record' ? store.get(key) : undefined;
+      if (hit) {
+        markUsed(rs, file, key);
+        return { data: hit.data as T, ms: hit.ms, inTok: hit.inTok, outTok: hit.outTok };
       }
       if (mode === 'replay' || !inner) {
-        store.misses++;
+        rs.misses++;
         throw new LlmError('replay_miss', `no recording for ${args.model} ${key}`);
       }
+      rs.calls++;
       const res = await inner.json<T>(args);
-      mkdirSync(folder, { recursive: true });
-      const rec: Recording = {
-        key,
-        model: args.model,
-        data: res.data,
-        ms: Math.round(res.ms),
-        inTok: res.inTok,
-        outTok: res.outTok,
-      };
-      writeFileSync(file, `${JSON.stringify(rec)}\n`);
-      store.used.add(file);
+      store.put({ key, data: res.data, ms: Math.round(res.ms), inTok: res.inTok, outTok: res.outTok });
+      markUsed(rs, file, key);
       return res;
     },
   };
 }
 
-/** Same idea for embeddings: one file per text. Vectors are stored rounded to 6 decimals. */
+/** int8 quantisation with a per-vector scale; cosine error is ~1e-3 at 768 dimensions. */
+export function quantise(v: readonly number[]): { q: string; s: number } {
+  const s = Math.max(1e-12, ...v.map(Math.abs));
+  const bytes = Int8Array.from(v, (x) => Math.round((x / s) * 127));
+  return { q: Buffer.from(bytes.buffer).toString('base64'), s: Number(s.toPrecision(9)) };
+}
+
+export function dequantise(e: { q: string; s: number }): number[] {
+  const buf = Buffer.from(e.q, 'base64');
+  const bytes = new Int8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+  const v = Array.from(bytes, (b) => (b / 127) * e.s);
+  const n = Math.hypot(...v);
+  return n === 0 ? v : v.map((x) => x / n);
+}
+
+/** Embeddings with the same modes; misses go to `inner` as ONE batched request. */
 export function createReplayEmbedder(
   inner: ((texts: string[]) => Promise<number[][]>) | null,
   dir: string,
   mode: ReplayMode,
-  store: ReplayStore = newReplayStore(),
+  rs: ReplayStore = newReplayStore(),
 ): (texts: string[]) => Promise<number[][]> {
-  const folder = join(dir, 'embeddings');
+  const file = embeddingsFile(dir);
+  const store = storeFor<EmbedEntry>(rs, file);
   return async (texts) => {
     const out: (number[] | null)[] = texts.map(() => null);
     const missing: number[] = [];
     texts.forEach((t, i) => {
-      const file = join(folder, `${requestKey({ embed: t })}.json`);
-      if (mode !== 'record' && existsSync(file)) {
-        store.used.add(file);
-        out[i] = JSON.parse(readFileSync(file, 'utf8')) as number[];
+      const key = requestKey({ embed: t });
+      const hit = mode !== 'record' ? store.get(key) : undefined;
+      if (hit) {
+        markUsed(rs, file, key);
+        out[i] = dequantise(hit);
       } else missing.push(i);
     });
     if (missing.length > 0) {
+      const uniq = [...new Set(missing.map((i) => texts[i]!))];
       if (mode === 'replay' || !inner) {
-        store.misses += missing.length;
-        throw new LlmError('replay_miss', `no embedding recording for ${missing.length} text(s)`);
+        rs.misses += uniq.length;
+        throw new LlmError('replay_miss', `no embedding recording for ${uniq.length} text(s)`);
       }
-      const got = await inner(missing.map((i) => texts[i]!));
-      mkdirSync(folder, { recursive: true });
-      missing.forEach((i, j) => {
-        const v = got[j]!.map((x) => Math.round(x * 1e6) / 1e6);
-        const file = join(folder, `${requestKey({ embed: texts[i] })}.json`);
-        writeFileSync(file, JSON.stringify(v));
-        store.used.add(file);
-        out[i] = v;
+      rs.calls++;
+      const got = await inner(uniq);
+      uniq.forEach((t, j) => {
+        const key = requestKey({ embed: t });
+        store.put({ key, ...quantise(got[j]!) });
+        markUsed(rs, file, key);
       });
+      for (const i of missing) out[i] = dequantise(store.get(requestKey({ embed: texts[i] }))!);
     }
     return out as number[][];
   };

@@ -8,7 +8,12 @@ export { createGeminiEmbedder, normalise } from './gemini';
 export {
   createReplayClient,
   createReplayEmbedder,
+  dequantise,
+  embeddingsFile,
+  llmFile,
   newReplayStore,
+  pruneUnused,
+  quantise,
   requestKey,
   type ReplayMode,
   type ReplayStore,
@@ -16,14 +21,15 @@ export {
 export { LlmError, withTimeout } from './errors';
 export { geminiUsage, resetGeminiUsage, setGeminiUsageLogger, type ModelUsage } from './usage';
 
-/** Claude by default: reasoning never runs on the free-tier Gemini key (AGENTS.md › API budget, #12). */
+/** Claude by default: reasoning never runs on the free-tier Gemini key (AGENTS.md › API budget). */
 export function providerFromEnv(): InterpreterProvider {
-  return process.env.INTERPRETER_PROVIDER === 'gemini' ? 'gemini' : 'anthropic';
+  const p = process.env.INTERPRETER_PROVIDER;
+  return p === 'gemini' ? 'gemini' : 'anthropic';
 }
 
 /**
  * The reasoning client. Always Claude: Gemini text models are off-budget (AGENTS.md › API budget),
- * so a `gemini` setting is ignored rather than spending the 20/day free-tier quota.
+ * so a `gemini` provider setting is ignored rather than spending the free-tier key.
  */
 export function createLlmClient(_provider?: InterpreterProvider): LlmClient {
   return createAnthropicClient();

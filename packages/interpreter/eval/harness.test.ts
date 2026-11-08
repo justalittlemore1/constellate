@@ -1,8 +1,7 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MODELS } from '@constellate/shared';
-import { createReplayClient, createReplayEmbedder, newReplayStore } from '../src/llm';
+import { createReplayClient, createReplayEmbedder, llmFile, newReplayStore } from '../src/llm';
 import { bagEmbed, dec, scriptedLlm, windowIdsOf } from '../src/test-utils';
 import type { Decision } from '../src/decision';
 import { loadFixtures, outline, renderReport, runFixture, score } from './harness';
@@ -133,13 +132,10 @@ describe('eval harness scoring', () => {
   });
 });
 
-// Deterministic replay of the committed recordings (no API keys). Runs in CI via `pnpm test`.
+// Replays the committed recordings with no network (AGENTS.md: CI never calls a real API).
 describe('eval replay', () => {
-  const models = [MODELS.interpreter.anthropic].filter((m) =>
-    existsSync(join(RECORDINGS, m.replace(/[^a-zA-Z0-9._-]/g, '_'))),
-  );
-  // Visible as "todo" in the test output until the first live `pnpm eval` commits recordings.
-  if (models.length === 0) it.todo('replays committed recordings (none yet: run `pnpm eval` with API keys)');
+  const models = [MODELS.interpreter.anthropic].filter((m) => existsSync(llmFile(RECORDINGS, m)));
+  if (models.length === 0) it.todo('replays committed recordings (none yet: run `pnpm eval`)');
   for (const model of models) {
     it(`replays every fixture for ${model} with no LLM or embedding cache miss`, async () => {
       const store = newReplayStore();

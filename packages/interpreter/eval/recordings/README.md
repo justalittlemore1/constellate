@@ -1,11 +1,8 @@
 # Eval recordings
 
-Recorded LLM responses and embeddings, one JSON file per request keyed by a SHA-256 of the request
-(`src/llm/replay.ts`). They make `pnpm eval:replay` and the `eval replay` unit test deterministic
-with no API keys.
+Every LLM answer and embedding the eval used, keyed by a SHA-256 of the request (`src/llm/replay.ts`). Committed, so repeat `pnpm eval` runs cost nothing and `pnpm eval:replay` (and the `eval replay` test in CI) need no API keys (AGENTS.md › API budget).
 
-- `pnpm eval` (both providers, all fixtures) re-records and prunes files the run no longer used, so
-  this folder always matches the committed prompt and code. Commit it together with the report.
-- Any change to the prompt, context packing or schema changes the keys: re-run `pnpm eval` before
-  committing such a change, or the replay test will report cache misses.
-- Lives here rather than in `eval/.cache/` (git-ignored by the root config) because CI needs it.
+- `llm-<model>.jsonl`: one line per Claude answer: `{key, data, ms, inTok, outTok}`.
+- `embeddings.jsonl`: one line per embedded text: `{key, q, s}`, the vector quantised to int8 (base64) with its scale, about 1 KB per text. The recording run uses the same quantised vectors, so replay is exact.
+- A full `pnpm eval` (no `--only`) drops lines it no longer used, so the files match the committed prompt. Commit them together with the report.
+- A prompt or context change changes the LLM keys (Claude, cheap). Embedding keys only change when the texts do (window text, node `label. summary`), so re-runs make few Gemini requests; each report states how many.

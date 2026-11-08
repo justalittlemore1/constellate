@@ -23,7 +23,7 @@ Choose `revisit` only when the speakers return to **the same question** as an ea
 
 ## Intentions and threads
 
-- Record an intention only when someone explicitly **defers a topic** ("remind me to tell you about the concert", "we should talk about the holidays later", "let's come back to that") → `deferred_topic`, or **promises an action to someone** ("I'll email you the recipe tonight", "I'll text you the address") → `promise`. Plans, wishes and hypotheticals ("I should cook more", "maybe I'll go") are not promises.
+- Record an intention only when someone explicitly **defers a topic** ("remind me to tell you about the concert", "we should talk about the holidays later", "let's come back to that") → `deferred_topic`, or **promises an action to someone** ("I'll email you the recipe tonight", "I'll text you the address") → `promise`. Plans, wishes and hypotheticals ("I should cook more", "maybe I'll go") are not promises, and neither are requests to the other person ("call me later", "let me know how it goes"): a promise is the speaker committing to do something.
 - `label` for a deferred topic is the topic itself (1–4 words, e.g. "Concert Story"); for a promise it is the promised action in a short sentence as said (e.g. "Email the recipe tonight").
 - `quote_utterance` is the id of the utterance containing it.
 - When an open thread (listed under OPEN THREADS) is now actually being discussed, put its id in `resolved_thread_ids` — and still decide the topic normally (usually `new_topic` for the thread's subject).
