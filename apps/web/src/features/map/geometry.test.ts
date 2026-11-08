@@ -26,7 +26,7 @@ describe('edge geometry', () => {
 
   it('with no room in the same lane, it is a short stub just above the target', () => {
     const d = flowPath({ x: 133, y: 672 }, { x: 124, y: 768 }, 20, 20, 56);
-    const [ax, ay, bx, by] = nums(d);
+    const [ax, ay = NaN, bx, by = NaN] = nums(d);
     expect([ax, bx]).toEqual([124, 124]);
     expect(by).toBe(768 - 23);
     expect(by - ay).toBeGreaterThanOrEqual(8);
