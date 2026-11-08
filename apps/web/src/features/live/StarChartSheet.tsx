@@ -9,6 +9,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } f
 import { createPortal } from 'react-dom';
 import { overlayRoot } from '../../ui/Sheet';
 import { useFocusTrap } from '../../ui';
+import { WASH } from './styles';
 
 export interface StarChartSheetProps {
   open: boolean;
@@ -74,7 +75,7 @@ export function StarChartSheet({ open, onClose, title, children, testId }: StarC
             aria-label="Close"
             title="Close"
             onClick={onClose}
-            className="inline-flex size-11 shrink-0 items-center justify-center rounded-none text-ink hover:bg-white/10"
+            className={`${WASH} inline-flex size-11 shrink-0 items-center justify-center rounded-none text-ink`}
           >
             <X aria-hidden size={20} />
           </button>

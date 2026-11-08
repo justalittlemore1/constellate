@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { usePrefs } from '../../lib/prefs';
 import { installFlowDomStubs } from '../map/testing';
 import { MapBoundary } from './LiveMap';
+import { WASH } from './styles';
 import type { LiveDeps } from './controller';
 import { FLAG_HOLD_MS, type LiveFeatures } from './flags';
 import { mockDeps } from './deps';
@@ -565,5 +566,80 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     const bye = screen.getByRole('dialog', { name: 'Before you go' });
     expect(bye).toHaveAttribute('data-frame', 'star-chart');
     expect(bye.querySelector('[class*="rounded-xl"], [class*="rounded-full"]')).toBeNull();
+  });
+});
+
+describe('bottom bar and pocket mode polish', () => {
+  let server: MockLiveServer;
+  let deps: LiveDeps;
+  beforeEach(() => {
+    ({ server, deps } = mockDeps({ speed: 4 }));
+  });
+  afterEach(() => server.dispose());
+
+  async function live() {
+    renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, 4);
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
+    await advance(5_000);
+  }
+
+  it('Flag and Stop are ~48 px, 16 px text, one line with the icon after the text, named "Flag" / "Stop"', async () => {
+    await live();
+    const bar = screen.getByRole('navigation', { name: 'Recording controls' });
+    for (const name of ['Flag', 'Stop']) {
+      const b = within(bar).getByRole('button', { name });
+      expect(b).toHaveAccessibleName(name);
+      expect(b.className).toMatch(/\bmin-h-12\b/); // 48 px (never below the 44 px target)
+      expect(b.className).not.toMatch(/min-h-\[56px\]/);
+      expect(b.className).toContain('text-[16px]');
+      expect(b.className).not.toContain('flex-col'); // one line
+      const svg = b.querySelector('svg')!;
+      expect(svg).toHaveAttribute('aria-hidden', 'true');
+      // the icon comes after the label text
+      const label = [...b.childNodes].find((n) => n.textContent?.trim() === name)!;
+      expect(label.compareDocumentPosition(svg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+
+  it('the Flag name stays "Flag" while the label says "Keep holding…", above a thin progress line', async () => {
+    await live();
+    const b = screen.getByRole('button', { name: 'Flag' });
+    fireEvent.pointerDown(b);
+    expect(b).toHaveTextContent('Keep holding…');
+    expect(b).toHaveAccessibleName('Flag');
+    expect(screen.getByTestId('flag-hold-progress').className).toContain('h-[2px]');
+    fireEvent.pointerLeave(b);
+  });
+
+  it('the bottom bar has no grey top border', async () => {
+    await live();
+    const bar = screen.getByRole('navigation', { name: 'Recording controls' });
+    expect(bar.className).not.toMatch(/\bborder-t\b|border-white/);
+  });
+
+  it('pocket mode shows only its one sentence and an "Exit" button (named "Exit pocket mode"); Escape still exits', async () => {
+    await live();
+    fireEvent.click(screen.getByRole('button', { name: /Pocket mode/ }));
+    const pocket = screen.getByRole('dialog', { name: 'Pocket mode' });
+    const exit = within(pocket).getByRole('button', { name: 'Exit pocket mode' });
+    expect(exit).toHaveTextContent(/^Exit$/);
+    expect(pocket.textContent).toBe('Pocket mode. Double-tap anywhere to flag a moment.Exit');
+    act(() => {
+      fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
+    });
+    expect(screen.queryByRole('dialog', { name: 'Pocket mode' })).not.toBeInTheDocument();
+  });
+
+  it('hover / press use the shared grey wash (~7.5 % white) on enabled controls', async () => {
+    await live();
+    const wash = 'enabled:hover:before:bg-white/[0.075]';
+    expect(WASH).toContain(wash);
+    expect(WASH).toContain('enabled:active:before:bg-white/[0.075]');
+    for (const name of ['Flag', 'Stop', /Pocket mode/]) {
+      expect(screen.getByRole('button', { name }).className).toContain(wash);
+    }
+    fireEvent.click(screen.getByRole('button', { name: /Pocket mode/ }));
+    expect(screen.getByRole('button', { name: 'Exit pocket mode' }).className).toContain(wash);
   });
 });
