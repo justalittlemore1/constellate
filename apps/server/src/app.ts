@@ -3,17 +3,22 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { MODELS } from '@constellate/shared';
 import type { Env } from './env';
-import { parseClientFrame, send } from './live/protocol';
+import { createDefaultDeps, type ServerDeps } from './deps';
+import { send } from './live/protocol';
+import { LiveConnection, type LiveDeps, type Log } from './live/session';
 
 /**
  * Builds the Fastify app. A1 owns everything here; this is the H1 skeleton:
  *   GET  /health   liveness + configured providers (no secrets)
- *   WS   /live     validates the first frame; the live pipeline is not implemented yet
+ *   WS   /live     live pipeline (see live/session.ts)
  * Planned (see docs/briefs/a1-server.md): GET /conversations/:id, POST /conversations/:id/ops,
  * POST /conversations/:id/finalize, DELETE /conversations/:id, POST /brain/rebuild, GET /brain.
  */
-export async function buildApp(env: Env): Promise<FastifyInstance> {
+export async function buildApp(env: Env, overrides: Partial<ServerDeps> = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: { level: env.LOG_LEVEL } });
+  const log: Log = (event, data) => app.log.info({ event, ...data }, event);
+  const deps = createDefaultDeps(env, log, overrides);
+  const liveDeps: LiveDeps = { ...deps, log };
 
   await app.register(cors, {
     origin: env.CORS_ORIGIN === '*' ? true : env.CORS_ORIGIN.split(',').map((s) => s.trim()),
@@ -34,30 +39,21 @@ export async function buildApp(env: Env): Promise<FastifyInstance> {
 
   app.register(async (scope) => {
     scope.get('/live', { websocket: true }, (socket) => {
-      let greeted = false;
+      const conn = new LiveConnection(
+        {
+          send: (msg) => {
+            if (socket.readyState === socket.OPEN) send(socket, msg);
+          },
+          close: (code, reason) => socket.close(code, reason),
+        },
+        liveDeps,
+      );
       socket.on('message', (data: Buffer, isBinary: boolean) => {
-        if (isBinary) {
-          if (!greeted) send(socket, { t: 'error', code: 'protocol', message: 'send hello before audio', fatal: true });
-          return; // A1: forward PCM to the speech adapter
-        }
-        const parsed = parseClientFrame(data.toString('utf8'));
-        if (!parsed.ok) {
-          send(socket, parsed.error);
-          if (parsed.error.t === 'error' && parsed.error.fatal) socket.close();
-          return;
-        }
-        const msg = parsed.msg;
-        if (msg.t === 'ping') return send(socket, { t: 'pong' });
-        if (!greeted && msg.t !== 'hello') {
-          send(socket, { t: 'error', code: 'protocol', message: 'first message must be hello', fatal: true });
-          socket.close();
-          return;
-        }
-        greeted = true;
-        // A1 replaces this with LiveSession (auth, conversation row, speech adapter, interpreter).
-        send(socket, { t: 'error', code: 'protocol', message: 'live pipeline not implemented yet', fatal: true });
-        socket.close();
+        if (isBinary) conn.onBinary(data);
+        else conn.onText(data.toString('utf8'));
       });
+      socket.on('close', () => conn.onClose());
+      socket.on('error', (err) => app.log.warn({ err }, 'live socket error'));
     });
   });
 

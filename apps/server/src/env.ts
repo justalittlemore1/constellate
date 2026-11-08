@@ -15,6 +15,10 @@ const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   STT_PROVIDER: z.enum(['gemini-live', 'deepgram']).default('gemini-live'),
   INTERPRETER_PROVIDER: z.enum(['gemini', 'anthropic']).default('gemini'),
+  /** transcript replay speed; 1 = original timing */
+  REPLAY_SPEED: z.coerce.number().positive().default(1),
+  /** a live session whose socket dropped without `stop` is stopped after this long */
+  ABANDON_AFTER_MS: z.coerce.number().int().positive().default(120_000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
