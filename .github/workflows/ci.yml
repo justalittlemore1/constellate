@@ -24,6 +24,16 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+        env:
+          # apps/server/src/rls.test.ts: RLS isolation against the hosted Supabase project with two
+          # test users (anon key only, never the service role). It skips when these are absent,
+          # e.g. on pull requests from forks, which get no secrets.
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          TEST_USER_A_EMAIL: ${{ secrets.TEST_USER_A_EMAIL }}
+          TEST_USER_A_PASSWORD: ${{ secrets.TEST_USER_A_PASSWORD }}
+          TEST_USER_B_EMAIL: ${{ secrets.TEST_USER_B_EMAIL }}
+          TEST_USER_B_PASSWORD: ${{ secrets.TEST_USER_B_PASSWORD }}
 
   e2e:
     name: e2e (mock mode, Pixel 7 + iPhone 14)
