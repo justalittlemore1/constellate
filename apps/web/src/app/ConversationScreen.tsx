@@ -1,11 +1,27 @@
-import { BookOpen } from 'lucide-react';
-import { useState } from 'react';
+import type { GraphState } from '@constellate/shared';
+import { BookOpen, List } from 'lucide-react';
+import { useState, type ComponentType } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { DiarySheet } from '../features/library/DiarySheet';
 import { useGraph } from '../features/library/queries';
-import { SavedMap } from '../features/map';
+import { SavedMap, type MapView } from '../features/map';
 import { formatDate, formatDuration } from '../lib/format';
+import { uiFlag } from '../lib/uiFlags';
 import { IconButton, ScreenHeader } from '../ui';
+
+/**
+ * Local adapter for A3's controlled `SavedMap` props (being added in A3's PR): `view` /
+ * `onViewChange` (map ↔ outline, the names `ConversationMap` already uses) and `revealHold` (an
+ * empty sky until it flips to false, then the one-by-one reveal). Until A3's PR lands, the
+ * current `SavedMap` ignores them; once it does they take effect with no change here.
+ */
+type SavedMapControls = {
+  graph: GraphState;
+  view?: MapView;
+  onViewChange?: (view: MapView) => void;
+  revealHold?: boolean;
+};
+const ControlledSavedMap = SavedMap as ComponentType<SavedMapControls>;
 
 /**
  * `/c/:id` — the saved conversation: A4's header and Diary around A3's `<SavedMap>` (map,
@@ -16,7 +32,16 @@ export function ConversationScreen() {
   const { id = '' } = useParams();
   const [params] = useSearchParams();
   const graph = useGraph(id);
-  const [diaryOpen, setDiaryOpen] = useState(params.get('diary') === '1');
+  const arrivedWithDiary = params.get('diary') === '1';
+  const [diaryOpen, setDiaryOpen] = useState(arrivedWithDiary);
+  // after a recording (A6 sends you to ?diary=1) the constellation waits until the diary is closed
+  // the first time; arriving without the diary reveals at once; reopening it never re-hides the map
+  const [revealedOnce, setRevealedOnce] = useState(!arrivedWithDiary);
+  const [view, setView] = useState<MapView>('map');
+  const closeDiary = () => {
+    setDiaryOpen(false);
+    setRevealedOnce(true);
+  };
 
   if (graph.isError) {
     return (
@@ -39,9 +64,23 @@ export function ConversationScreen() {
       <ScreenHeader
         title={c?.title ?? 'Conversation'}
         actions={
-          <IconButton label="Open diary" aria-haspopup="dialog" disabled={!g} onClick={() => setDiaryOpen(true)}>
-            <BookOpen aria-hidden size={22} />
-          </IconButton>
+          // Diary, and directly below it the Text view toggle (as on the Brain)
+          <div className="flex flex-col items-center" data-testid="conversation-actions">
+            <IconButton label="Open diary" aria-haspopup="dialog" disabled={!g} onClick={() => setDiaryOpen(true)}>
+              <BookOpen aria-hidden size={22} />
+            </IconButton>
+            {uiFlag('conversationTextView') && (
+              <IconButton
+                label="Text view"
+                aria-pressed={view === 'outline'}
+                disabled={!g}
+                onClick={() => setView(view === 'outline' ? 'map' : 'outline')}
+                className={view === 'outline' ? 'text-thread' : 'text-ink-2'}
+              >
+                <List aria-hidden size={20} />
+              </IconButton>
+            )}
+          </div>
         }
       />
       {c ? (
@@ -56,10 +95,12 @@ export function ConversationScreen() {
       )}
 
       <section aria-label="Conversation map" className="min-h-0 flex-1">
-        {g && <SavedMap graph={g} />}
+        {g && (
+          <ControlledSavedMap graph={g} view={view} onViewChange={setView} revealHold={diaryOpen && !revealedOnce} />
+        )}
       </section>
 
-      {g && <DiarySheet open={diaryOpen} onClose={() => setDiaryOpen(false)} graph={g} />}
+      {g && <DiarySheet open={diaryOpen} onClose={closeDiary} graph={g} />}
     </main>
   );
 }

@@ -2,18 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from 'react-force-graph-2d';
 import type { BrainPayload } from '../../lib/api';
 import { usePrefs } from '../../lib/prefs';
-import {
-  aspectPull,
-  footprint,
-  pullToCentreLine,
-  linkDistance,
-  separateFootprints,
-  toGalaxy,
-  topConceptIds,
-  type Footprint,
-  type GalaxyLink,
-  type GalaxyNode,
-} from './brainLayout';
+import { layoutGalaxy, toGalaxy, topConceptIds, type GalaxyLink, type GalaxyNode } from './brainLayout';
 
 import { defaultRenderers, LABEL_FONT, LABEL_PX, type BrainRenderers } from './brainRenderers';
 import { linkProgress, starOpacity } from './starReveal';
@@ -38,7 +27,7 @@ export interface BrainCanvasProps {
 /** Label width at `px` font size, measured when a canvas is available (estimated otherwise). */
 function labelWidth(name: string, px: number): number {
   const ctx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
-  if (!ctx) return name.length * px * 0.5;
+  if (!ctx) return name.length * px * 0.6; // Fraunces 600 measures ≤ 0.58 em per character
   ctx.font = LABEL_FONT(px);
   return ctx.measureText(name).width;
 }
@@ -69,8 +58,6 @@ export function BrainCanvas({
   const textSize = usePrefs((s) => s.textSize);
   const lowStim = usePrefs((s) => s.lowStimulation);
 
-  // force-graph mutates its data (x, y, vx…); give it a fresh copy per payload
-  const data = useMemo(() => toGalaxy(payload), [payload]);
   const labelled = useMemo(() => topConceptIds(payload.concepts), [payload.concepts]);
   const lit = useMemo(() => {
     if (!selectedId) return null;
@@ -92,42 +79,36 @@ export function BrainCanvas({
     return () => ro?.disconnect();
   }, []);
 
-  // Labels are drawn at a constant on-screen size; their footprints are sized for zoom 1 and
-  // the fit never zooms out below 1 for a small Brain, so separated labels stay separated.
-  const footprints = useMemo(() => {
-    const m = new Map<string, Footprint>();
-    for (const n of data.nodes) {
-      const reach = renderers.reach?.(n.radius) ?? n.radius; // spikes, rays… (label goes below)
-      m.set(n.id, footprint(reach, labelled.has(n.id) ? labelWidth(n.name, LABEL_PX * textSize) : null));
-    }
-    return m;
-  }, [data, labelled, textSize, renderers]);
+  // The galaxy is laid out once per payload and canvas size (brainLayout.layoutGalaxy): spread out,
+  // star and label boxes never overlapping, scaled to fill the canvas. Nodes are pinned there
+  // (fx / fy), so force-graph doesn't move them and every visit's reveal looks the same.
+  // A fresh copy per layout, because force-graph mutates its data.
+  const data = useMemo(() => {
+    const galaxy = toGalaxy(payload);
+    if (size.w === 0) return { ...galaxy, view: null };
+    const { positions, view } = layoutGalaxy(payload, {
+      width: size.w,
+      height: size.h,
+      reach: (r) => renderers.reach?.(r) ?? r,
+      labelWidth: (n) => (labelled.has(n.id) ? labelWidth(n.name, LABEL_PX * textSize) : null),
+    });
+    const nodes = galaxy.nodes.map((n) => {
+      const p = positions.get(n.id) ?? { x: 0, y: 0 };
+      return { ...n, x: p.x, y: p.y, fx: p.x, fy: p.y };
+    });
+    return { nodes, links: galaxy.links, view };
+  }, [payload, size.w, size.h, labelled, textSize, renderers]);
 
-  useEffect(() => {
+  // Fit to view once the (pinned) layout is in, using the star-and-label boxes (force-graph's own
+  // zoomToFit only sees star centres and cut labels off at the edges). Never below zoom 1, where the
+  // constant-size labels would start to crowd each other (a very large Brain pans instead).
+  const fit = () => {
     const g = fg.current;
-    if (!g) return;
-    const link = g.d3Force('link') as { distance?: (fn: (l: L) => number) => unknown } | undefined;
-    link?.distance?.((l) => linkDistance(l.weight ?? 0));
-    const charge = g.d3Force('charge') as { strength?: (v: number) => unknown } | undefined;
-    charge?.strength?.(-60);
-    let nodes: N[] = [];
-    const collide = Object.assign(
-      (alpha: number) =>
-        // keep a floor so labels still separate as the simulation cools
-        separateFootprints(nodes, (n) => footprints.get(String(n.id))!, Math.max(0.35, Math.min(1, alpha * 4))),
-      { initialize: (ns: N[]) => void (nodes = ns) },
-    );
-    g.d3Force('collide', collide);
-    const k = aspectPull(size.w, size.h);
-    let pulled: N[] = [];
-    g.d3Force(
-      'portrait',
-      Object.assign((alpha: number) => pullToCentreLine(pulled, k, alpha), {
-        initialize: (ns: N[]) => void (pulled = ns),
-      }),
-    );
-    g.d3ReheatSimulation();
-  }, [data, footprints, size.w, size.h]);
+    const view = data.view;
+    if (!g || !view) return;
+    g.centerAt(view.cx, view.cy, 0);
+    g.zoom(view.zoom, 0);
+  };
 
   const glow = lowStim ? 0.35 : 1;
 
@@ -149,13 +130,13 @@ export function BrainCanvas({
           nodeId="id"
           nodeLabel={(n) => n.name}
           nodeVal={(n) => n.radius}
-          warmupTicks={reduced ? 300 : 0}
-          cooldownTicks={reduced ? 0 : 200}
-          enableNodeDrag={!reduced}
+          // pinned layout: one tick is enough, then fit
+          warmupTicks={0}
+          cooldownTicks={1}
+          enableNodeDrag={false}
           minZoom={0.3}
           maxZoom={3}
-          // fill the view: padding leaves room for the labels drawn under the outermost nodes
-          onEngineStop={() => fg.current?.zoomToFit(reduced ? 0 : 400, 64)}
+          onEngineStop={fit}
           onNodeClick={(n) => onSelect(String(n.id))}
           onNodeHover={(n) => setHoverId(n ? String(n.id) : null)}
           onBackgroundClick={() => onSelect(null)}

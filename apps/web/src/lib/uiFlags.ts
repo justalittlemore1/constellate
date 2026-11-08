@@ -43,6 +43,13 @@ export const UI_FLAG_DEFAULTS = {
   /** Highlights: the separate map icon on each item (the item's text is now the map link) */
   highlightsMapIcon: false,
 
+  /**
+   * Conversation header: the "Text view" toggle under the Diary icon. Built, but off until A3's
+   * controlled `SavedMap` `view` / `onViewChange` props land; until then it couldn't switch the
+   * map to the outline, and a button that does nothing is worse than none. Flip to true then.
+   */
+  conversationTextView: false,
+
   /** Diary: recall cards */
   diaryRecallCards: false,
 } as const;
