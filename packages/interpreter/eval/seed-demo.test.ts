@@ -26,6 +26,7 @@ import {
 } from '../../../scripts/seed-demo-lib';
 import { TranscriptReplayAdapter } from '../../../apps/server/src/speech/replay';
 import { FIXTURE_DIR } from './harness';
+import { MemoryStore } from '../../../apps/server/src/store/memory';
 
 /** One conversation (or the Brain build) must finish within this; the error names the stuck step. */
 const STEP_MS = 20_000;
@@ -214,6 +215,25 @@ describe('seed-demo dates (daysAgo)', () => {
     const ds = days as number[];
     expect([...ds].sort((a, b) => b - a)).toEqual(ds);
     expect(Math.max(...ds) - Math.min(...ds)).toBeGreaterThanOrEqual(14);
+  });
+
+  it('the date/duration correction is recorded as a finalize batch, not a user edit', async () => {
+    const store = new MemoryStore();
+    const sources: { source: string; patch: unknown }[] = [];
+    const append = store.appendBatch.bind(store);
+    store.appendBatch = async (userId, batch, prev, next) => {
+      for (const op of batch.ops)
+        if (op.op === 'conversation.update' && 'startedAt' in op.patch)
+          sources.push({ source: batch.source, patch: op.patch });
+      return append(userId, batch, prev, next);
+    };
+    await seedDemo(dryRunRuntime({ store }), DRY_RUN_USER, {
+      fixtures: ['demo-journal'],
+      log: () => {},
+      stepTimeoutMs: STEP_MS,
+    });
+    expect(sources).toHaveLength(1);
+    expect(sources[0]!.source).toBe('finalize');
   });
 
   it('a seeded conversation is dated daysAgo before the run, with its real length', async () => {

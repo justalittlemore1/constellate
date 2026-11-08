@@ -482,7 +482,7 @@ async function correctTimes(rt: SeedRuntime, conversationId: string, fixtureId: 
   const cell = await rt.deps.hub.acquire(conversationId);
   if (!cell) return;
   try {
-    await cell.commit([{ op: 'conversation.update', patch }], 'user').persisted;
+    await cell.commit([{ op: 'conversation.update', patch }], 'finalize').persisted; // server-side correction by the seeder (not a user edit)
     await cell.flush();
   } finally {
     rt.deps.hub.release(cell);
