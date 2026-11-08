@@ -89,3 +89,79 @@ export const RELATION_DASH: Record<ConceptRelation, number[] | null> = {
   related: [6, 4],
   co_discussed: [1.5, 3.5],
 };
+
+/** Space a concept takes on the canvas: the node plus (if labelled) its label underneath. */
+export interface Footprint {
+  /** half the width */
+  hw: number;
+  /** extent above / below the node centre */
+  up: number;
+  down: number;
+}
+
+export const LABEL_GAP = 3;
+export const LABEL_LINE = 14;
+
+export function footprint(radius: number, labelWidth: number | null, pad = 4): Footprint {
+  if (labelWidth === null) return { hw: radius + pad, up: radius + pad, down: radius + pad };
+  return {
+    hw: Math.max(radius, labelWidth / 2) + pad,
+    up: radius + pad,
+    down: radius + LABEL_GAP + LABEL_LINE + pad,
+  };
+}
+
+export interface Body {
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+}
+
+/**
+ * One step of box collision: every overlapping pair is nudged apart along the axis of least
+ * overlap (by velocity, like d3's forceCollide), so labels stop sitting on nodes and on each other.
+ * O(n²) — fine for a personal Brain of a few hundred concepts.
+ */
+export function separateFootprints<T extends Body>(nodes: T[], fp: (n: T) => Footprint, strength: number): void {
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i]!;
+    const fa = fp(a);
+    for (let j = i + 1; j < nodes.length; j++) {
+      const b = nodes[j]!;
+      const fb = fp(b);
+      const ax = a.x ?? 0;
+      const ay = a.y ?? 0;
+      const bx = b.x ?? 0;
+      const by = b.y ?? 0;
+      const overlapX = Math.min(ax + fa.hw, bx + fb.hw) - Math.max(ax - fa.hw, bx - fb.hw);
+      const overlapY = Math.min(ay + fa.down, by + fb.down) - Math.max(ay - fa.up, by - fb.up);
+      if (overlapX <= 0 || overlapY <= 0) continue;
+      if (overlapX < overlapY) {
+        const s = (bx > ax || (bx === ax && j % 2 === 0) ? 1 : -1) * (overlapX / 2) * strength;
+        a.vx = (a.vx ?? 0) - s;
+        b.vx = (b.vx ?? 0) + s;
+      } else {
+        const ca = ay + (fa.down - fa.up) / 2;
+        const cb = by + (fb.down - fb.up) / 2;
+        const s = (cb > ca || (cb === ca && j % 2 === 0) ? 1 : -1) * (overlapY / 2) * strength;
+        a.vy = (a.vy ?? 0) - s;
+        b.vy = (b.vy ?? 0) + s;
+      }
+    }
+  }
+}
+
+/**
+ * Pull towards the vertical centre line, stronger the taller the canvas is than wide, so the
+ * galaxy takes the shape of a portrait phone screen and the fit can zoom in instead of leaving
+ * a wide, short strip in the middle.
+ */
+export function aspectPull(width: number, height: number): number {
+  if (width <= 0 || height <= 0) return 0;
+  return Math.min(0.12, Math.max(0, 0.06 * (height / width - 1)));
+}
+
+export function pullToCentreLine<T extends Body>(nodes: T[], k: number, alpha: number): void {
+  for (const n of nodes) n.vx = (n.vx ?? 0) - (n.x ?? 0) * k * alpha;
+}

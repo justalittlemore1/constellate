@@ -280,19 +280,24 @@ function EditablePromise({ promise }: { promise: Commitment }) {
 
   return (
     <li className="rounded-xl border border-line p-3">
-      <div className="flex items-start gap-3">
-        <input
-          id={doneId}
-          type="checkbox"
-          checked={promise.done}
-          onChange={(e) => update.mutate({ id: promise.id, patch: { done: e.target.checked } })}
-          className="mt-0.5 size-6 shrink-0 accent-[var(--topic)]"
-          aria-describedby={`${doneId}-text`}
-        />
+      <div className="flex items-start gap-1">
+        {/* the whole 44 × 44 px label is the tap target; the box itself stays 24 px */}
+        <label
+          htmlFor={doneId}
+          data-testid="promise-done-target"
+          className="-my-2 -ml-2.5 flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-white/5"
+        >
+          <input
+            id={doneId}
+            type="checkbox"
+            checked={promise.done}
+            onChange={(e) => update.mutate({ id: promise.id, patch: { done: e.target.checked } })}
+            className="size-6 accent-[var(--topic)]"
+            aria-describedby={`${doneId}-text`}
+          />
+          <span className="sr-only">Done</span>
+        </label>
         <div className="min-w-0 flex-1">
-          <label htmlFor={doneId} className="sr-only">
-            Done
-          </label>
           <p id={`${doneId}-text`} className={promise.done ? 'text-ink-2 line-through' : ''}>
             <span className="text-ink-2">When </span>
             <label htmlFor={cueId} className="sr-only">

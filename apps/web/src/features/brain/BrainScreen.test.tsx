@@ -4,7 +4,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { createMockApi, mockBrainFromGraphs, type BrainPayload } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
-import { linkDistance, neighbours, nodeRadius, toGalaxy, topConceptIds } from './brainLayout';
+import {
+  footprint,
+  linkDistance,
+  neighbours,
+  nodeRadius,
+  aspectPull,
+  pullToCentreLine,
+  separateFootprints,
+  toGalaxy,
+  topConceptIds,
+  type Body,
+} from './brainLayout';
 import { BrainScreen } from './BrainScreen';
 
 // The canvas needs a real browser; stand in with one button per node so selection can be tested.
@@ -181,5 +192,81 @@ describe('Brain layout maths', () => {
       { source: 'c1', target: 'c2', weight: 0.5, relation: 'broader' },
     ]);
     expect([...neighbours(payload, 'c1')].sort()).toEqual(['c0', 'c2', 'gone']);
+  });
+});
+
+describe('label collision', () => {
+  const settle = (nodes: Body[], fp: Parameters<typeof separateFootprints>[1]) => {
+    for (let i = 0; i < 200; i++) {
+      for (const n of nodes) n.vx = n.vy = 0;
+      separateFootprints(nodes, fp, 0.5);
+      for (const n of nodes) {
+        n.x = (n.x ?? 0) + (n.vx ?? 0);
+        n.y = (n.y ?? 0) + (n.vy ?? 0);
+      }
+    }
+  };
+
+  it('a labelled footprint covers the node and the label below it', () => {
+    expect(footprint(10, null, 4)).toEqual({ hw: 14, up: 14, down: 14 });
+    const f = footprint(10, 80, 4);
+    expect(f.hw).toBe(44); // half the label, wider than the node
+    expect(f.down).toBeGreaterThan(f.up); // room for the label underneath
+  });
+
+  it('pushes overlapping labels apart until their boxes no longer overlap', () => {
+    const fp = () => footprint(8, 90);
+    // two labelled concepts side by side, labels overlapping
+    const nodes: Body[] = [
+      { x: 0, y: 0 },
+      { x: 30, y: 2 },
+    ];
+    settle(nodes, fp);
+    const f = fp();
+    const [a, b] = nodes as [Required<Body>, Required<Body>];
+    const overlapX = 2 * f.hw - Math.abs(b.x - a.x);
+    const overlapY = f.up + f.down - Math.abs(b.y - a.y);
+    expect(overlapX <= 0.5 || overlapY <= 0.5).toBe(true);
+  });
+
+  it('a label below one node does not sit on the node underneath it', () => {
+    const fp = () => footprint(8, 60);
+    const nodes: Body[] = [
+      { x: 0, y: 0 },
+      { x: 0, y: 20 }, // inside the first node's label area
+    ];
+    settle(nodes, fp);
+    const f = fp();
+    expect(Math.abs((nodes[1]!.y ?? 0) - (nodes[0]!.y ?? 0))).toBeGreaterThanOrEqual(f.up + f.down - 0.5);
+  });
+
+  it('leaves concepts that do not overlap alone', () => {
+    const nodes: Body[] = [
+      { x: 0, y: 0, vx: 0, vy: 0 },
+      { x: 500, y: 500, vx: 0, vy: 0 },
+    ];
+    separateFootprints(nodes, () => footprint(8, 60), 1);
+    expect(nodes.map((n) => [n.vx, n.vy])).toEqual([
+      [0, 0],
+      [0, 0],
+    ]);
+  });
+});
+
+describe('portrait shaping', () => {
+  it('pulls towards the centre line only on tall canvases, more the taller they are', () => {
+    expect(aspectPull(400, 300)).toBe(0); // landscape: no pull
+    expect(aspectPull(390, 640)).toBeGreaterThan(0);
+    expect(aspectPull(390, 800)).toBeGreaterThan(aspectPull(390, 640));
+    expect(aspectPull(100, 2000)).toBe(0.12); // capped
+    const nodes: Body[] = [
+      { x: 100, y: 5, vx: 0, vy: 0 },
+      { x: -50, y: 5, vx: 0, vy: 0 },
+    ];
+    pullToCentreLine(nodes, 0.1, 1);
+    expect(nodes.map((n) => [n.vx, n.vy])).toEqual([
+      [-10, 0],
+      [5, 0],
+    ]);
   });
 });

@@ -1,11 +1,15 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { createMockApi } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
+import { installFlowDomStubs } from '../map/testing';
 import { REFLECTION_PROMPT } from './DiarySheet';
 import { composePromise, parsePromise } from './promises';
+
+// /c/:id renders A3's React Flow map, which needs these jsdom stubs
+beforeAll(() => installFlowDomStubs());
 
 const demo = loadDemoGraph();
 const id = demo.conversation.id;
@@ -14,7 +18,9 @@ const resurrection = Object.values(demo.nodes).find((n) => n.label === 'Resurrec
 async function openDiary(api = createMockApi()) {
   const user = userEvent.setup();
   renderApp({ route: `/c/${id}`, api });
-  await user.click(await screen.findByRole('button', { name: 'Open diary' }));
+  const button = await screen.findByRole('button', { name: 'Open diary' });
+  await waitFor(() => expect(button).toBeEnabled()); // enabled once the graph has loaded
+  await user.click(button);
   return { api, user, diary: screen.getByRole('dialog', { name: 'Diary' }) };
 }
 
@@ -115,7 +121,11 @@ describe('diary sheet', () => {
       ),
     );
 
-    await user.click(within(section).getByRole('checkbox', { name: 'Done' }));
+    // the tap target is the 44 px label around the 24 px box: tapping its edge toggles it too
+    const target = within(section).getByTestId('promise-done-target');
+    expect(target.className).toContain('size-11');
+    expect(target).toContainElement(within(section).getByRole('checkbox', { name: 'Done' }));
+    await user.click(target);
     await waitFor(async () => expect((await api.getGraph(id)).commitments[0]!.done).toBe(true));
   });
 
@@ -147,11 +157,10 @@ describe('diary sheet', () => {
     await waitFor(async () => expect((await api.listRecallCards(id))[0]!.lastResult).toBe('remembered'));
   });
 
-  it('renders the screen layout (map area included) while the graph is still loading', () => {
+  it('renders the header while the graph is still loading', () => {
     const api = createMockApi();
     api.getGraph = () => new Promise(() => {});
     renderApp({ route: `/c/${id}`, api });
-    expect(screen.getByRole('region', { name: 'Conversation map' })).toBeInTheDocument();
     expect(screen.getByText('Loading conversation…')).toHaveAttribute('role', 'status');
     expect(screen.getByRole('button', { name: 'Open diary' })).toBeDisabled();
   });
