@@ -19,9 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          # TODO(A0): add `cache: pnpm` once pnpm-lock.yaml is committed
-      # TODO(A0): switch to --frozen-lockfile once pnpm-lock.yaml is committed
-      - run: pnpm install --no-frozen-lockfile
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
@@ -36,7 +35,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install --no-frozen-lockfile
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install --with-deps chromium webkit
       - run: pnpm e2e
       - uses: actions/upload-artifact@v4
