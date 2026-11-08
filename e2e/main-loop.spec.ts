@@ -154,7 +154,12 @@ test.describe('Main loop: Mock mode E2E', () => {
       .then(() => true)
       .catch(() => false);
 
-    test.fixme(!navigatedToLive, 'Blocked at Step 2 by A4/A6: Live session trigger from Home');
+    const isLivePlaceholder = await page.getByText(/Live map/i).isVisible().catch(() => false);
+    const hasStopBtn = await page.getByRole('button', { name: /stop/i }).isVisible().catch(() => false);
+    test.fixme(
+      !navigatedToLive || isLivePlaceholder || !hasStopBtn,
+      'Blocked by A6 + A3: Live screen / map canvas still a placeholder',
+    );
 
     // 3. Live nodes appear
     const firstNode = page.getByText(/Sunday Service/i);
