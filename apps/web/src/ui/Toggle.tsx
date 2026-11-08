@@ -31,7 +31,7 @@ export function Toggle({ label, description, checked, onChange }: ToggleProps) {
         aria-describedby={description ? `${id}-d` : undefined}
         onClick={() => onChange(!checked)}
         className={cx(
-          'relative inline-flex h-11 w-16 shrink-0 items-center border transition-colors',
+          'hover-wash relative inline-flex h-11 w-16 shrink-0 items-center border transition-colors',
           checked ? 'border-topic bg-topic/25' : 'border-line bg-white/5',
         )}
       >

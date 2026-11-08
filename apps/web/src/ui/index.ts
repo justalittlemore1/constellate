@@ -3,7 +3,7 @@ export { Chip, type ChipTone } from './Chip';
 export { cx } from './cx';
 export { IconButton, type IconButtonProps } from './IconButton';
 export { ScreenHeader } from './ScreenHeader';
-export { Sheet, type SheetProps } from './Sheet';
+export { BOTTOM_SHEET_MAX_HEIGHT, BottomSheet, Sheet, type SheetProps } from './Sheet';
 export { STAR_FRAME_CLASS, StarFrame } from './StarFrame';
 export { TextArea, TextField } from './TextField';
 export { ToastProvider, useToast, type ToastTone } from './Toast';

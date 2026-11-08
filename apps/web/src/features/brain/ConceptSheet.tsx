@@ -80,7 +80,7 @@ function ConceptBody({
                 <button
                   type="button"
                   onClick={() => onSelect(c.id)}
-                  className="min-h-11 border border-line px-3 text-left text-sm hover:border-topic/60"
+                  className="hover-wash min-h-11 border border-line px-3 text-left text-sm"
                 >
                   <span className="font-semibold">{c.name}</span>
                   <span className="text-ink-2"> · {RELATION_WORDS[relation]}</span>
@@ -123,7 +123,7 @@ function ConceptBody({
                   <Link
                     to={routes.conversation(o.conversationId, { node: o.nodeId, at: o.startMs })}
                     aria-label={`Open ${o.label} in the map of ${o.conversationTitle}`}
-                    className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-white/10"
+                    className="hover-wash inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink"
                   >
                     <MapIcon aria-hidden size={18} />
                   </Link>

@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setUiFlags } from '../../lib/uiFlags';
 import { mockBrainFromGraphs, type BrainPayload } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { BrainCanvas } from './BrainCanvas';
@@ -155,15 +156,17 @@ describe('Brain concept art — "O1: six diffraction spikes"', () => {
     expect(starRenderers.reach!(9)).toBe(9 * STAR_ART.spikeRatio);
   });
 
-  it('labels in Cormorant Garamond', () => {
+  it('labels in the app serif (Fraunces)', () => {
     const rec = node({ showLabel: true });
-    expect(String(rec.sets('font')[0])).toContain('Cormorant Garamond');
+    expect(String(rec.sets('font')[0])).toContain('Fraunces Variable');
     expect(rec.calls('fillText')[0]!.args[0]).toBe('Faith vs Evidence');
     expect(node({ showLabel: false }).calls('fillText')).toHaveLength(0);
   });
 });
 
-describe('Brain links: each relation keeps its own non-colour cue', () => {
+describe('wave-2 comet links (behind uiFlags.brainCometLinks): each relation keeps its own non-colour cue', () => {
+  beforeEach(() => setUiFlags({ brainCometLinks: true }));
+
   it('broader = a comet trail, bright at the broader concept and fading toward the narrower one', () => {
     const rec = link({ relation: 'broader' });
     expect(rec.calls('createLinearGradient')[0]!.args).toEqual([0, 0, 100, 0]); // from the broader end

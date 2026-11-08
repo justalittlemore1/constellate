@@ -48,7 +48,7 @@ function NotFound() {
     <main className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <h1 className="text-2xl font-semibold">Page not found</h1>
       <p className="text-ink-2">That page drifted out of the constellation.</p>
-      <Link to="/" className="inline-flex min-h-11 items-center text-topic underline">
+      <Link to="/" className="hover-wash inline-flex min-h-11 items-center px-2 text-topic underline">
         Go home
       </Link>
     </main>
