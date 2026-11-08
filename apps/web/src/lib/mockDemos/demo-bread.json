@@ -1,0 +1,484 @@
+{
+  "graph": {
+    "conversation": {
+      "id": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "userId": "e5a1691e-fff3-4f34-a767-4c0738a34cd0",
+      "folderId": null,
+      "title": "Sourdough, Hydration, and Pre-Run Carbs",
+      "summary": "A sourdough starter led to a risotto comparison, dough hydration, stretch and folds, running nutrition timing, and a return to folding the dough.",
+      "macroAnchor": "Home cooking",
+      "status": "ready",
+      "isSolo": false,
+      "isFavorite": false,
+      "location": null,
+      "reflection": null,
+      "startedAt": "2026-11-03T16:13:12.374+00:00",
+      "endedAt": "2026-11-03T16:15:51.774+00:00",
+      "durationMs": 159400,
+      "audioPath": null
+    },
+    "nodes": {
+      "8847f5fe-1ee5-4c67-b64f-cecc757ba63d": {
+        "id": "8847f5fe-1ee5-4c67-b64f-cecc757ba63d",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Starter And Risotto Comparison",
+        "summary": "Contrasts sourdough starter and bread with risotto: bread is weighed and waited on, while risotto is adjusted as you go",
+        "details": "One person showed off a jar of sourdough starter, flour and water colonized by wild yeast, and it has no name yet, though the brother's starter is called Loafy McLoafface. The friend compared it to risotto night. The baker said risotto is tasted and adjusted as you go, while bread can't be tasted until the end, so baking is chemistry and risotto is jazz.\n\nEvidence: u2, u4, u6, u8",
+        "parentId": null,
+        "threadId": "5766ff95-bea2-45fa-a1fd-7ad1a23c5908",
+        "seq": 1,
+        "startMs": 0,
+        "endMs": 52800,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u1",
+          "u2",
+          "u3",
+          "u4",
+          "u5",
+          "u6",
+          "u7",
+          "u8",
+          "u9"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 138,
+        "y": 0
+      },
+      "d4c617dc-8c98-4a10-bcb9-091057616f8b": {
+        "id": "d4c617dc-8c98-4a10-bcb9-091057616f8b",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "kind": "topic",
+        "status": "closed",
+        "level": 2,
+        "label": "Dough Hydration",
+        "summary": "Hydration is water relative to flour; this dough is seventy-five percent, which is wet and sticky.",
+        "details": "The baker explained hydration as the ratio of water to flour. This dough is seventy-five percent, meaning 750 grams of water per kilo of flour. Higher hydration gives bigger holes but makes the dough sticky and harder to shape. The friend found it sticky on their hands and was told to wet them first.\n\nEvidence: u10, u12, u13, u14",
+        "parentId": "8847f5fe-1ee5-4c67-b64f-cecc757ba63d",
+        "threadId": "b4527ce1-5291-4b66-90dd-7a4bcdb23047",
+        "seq": 2,
+        "startMs": 52800,
+        "endMs": 82000,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u10",
+          "u11",
+          "u12",
+          "u13",
+          "u14"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 290,
+        "y": 96
+      },
+      "0465bcb5-1395-4480-a746-3210621bc2c5": {
+        "id": "0465bcb5-1395-4480-a746-3210621bc2c5",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "kind": "topic",
+        "status": "closed",
+        "level": 2,
+        "label": "Stretch And Fold",
+        "summary": "Stretch and folds replace kneading for wet dough, letting gluten build during rest instead of by hand.",
+        "details": "The baker explained that very wet dough gets stretch and folds instead of kneading. Every half hour you stretch one side up, fold it over and turn the bowl, four times, then leave it alone. Gluten builds on its own while resting, whereas kneading speeds it up with muscle. The friend linked this to the baker's running rest days.\n\nEvidence: u15, u16, u18, u19",
+        "parentId": "8847f5fe-1ee5-4c67-b64f-cecc757ba63d",
+        "threadId": "9b8a0bfb-a073-4b62-ac2d-a4743d2e0cbc",
+        "seq": 3,
+        "startMs": 82000,
+        "endMs": 110100,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u15",
+          "u16",
+          "u17",
+          "u18",
+          "u19"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 296,
+        "y": 192
+      },
+      "1cca5a50-b40b-418b-9961-d376b1c7f440": {
+        "id": "1cca5a50-b40b-418b-9961-d376b1c7f440",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Running Nutrition Timing",
+        "summary": "Pre-run carbs timing: toast with honey two hours before, then eggs on toast after a run",
+        "details": "The baker said the bread is partly for running and relayed Jordan's advice. Eat easily digestible carbs a couple of hours before a long run, such as toast with honey at seven for a nine o'clock run. Afterwards, have protein and more carbs, like eggs on toast. The friend asked for the first slice, and the bread bakes the next morning. The baker also mentioned the brother's pretty loaves and photos to send later.\n\nEvidence: u22, u24, u25, u26",
+        "parentId": null,
+        "threadId": "13233a4d-b709-4f80-ae07-55cd63076526",
+        "seq": 4,
+        "startMs": 110100,
+        "endMs": 149400,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u20",
+          "u21",
+          "u22",
+          "u23",
+          "u24",
+          "u25",
+          "u26"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 122,
+        "y": 288
+      },
+      "9c2976d5-3f96-4cc1-b1ac-6940aae4dc83": {
+        "id": "9c2976d5-3f96-4cc1-b1ac-6940aae4dc83",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "kind": "topic",
+        "status": "closed",
+        "level": 2,
+        "label": "Stretch And Fold",
+        "summary": "Going through the fold steps of the stretch and fold routine",
+        "details": "They returned to the dough for fold number three: grab, stretch, fold, turn. The friend found it weirdly calming, like stirring risotto but with more waiting.\n\nEvidence: u27, u28, u29",
+        "parentId": "8847f5fe-1ee5-4c67-b64f-cecc757ba63d",
+        "threadId": "9b8a0bfb-a073-4b62-ac2d-a4743d2e0cbc",
+        "seq": 5,
+        "startMs": 149400,
+        "endMs": 159400,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u27",
+          "u28",
+          "u29"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 283,
+        "y": 384
+      },
+      "f8218df1-5a33-4bb3-9c16-946b662e58d2": {
+        "id": "f8218df1-5a33-4bb3-9c16-946b662e58d2",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "kind": "pending",
+        "status": "unexplored",
+        "level": 1,
+        "label": "Brother's Sourdough Photos",
+        "summary": "Deferred: \"Obviously, it bakes tomorrow morning. Oh, and remind me to send you my brother's sourdough photos later. His loaves are absurdly…",
+        "details": null,
+        "parentId": null,
+        "threadId": "6c160622-369e-483f-92ee-8c581d508e44",
+        "seq": 6,
+        "startMs": 140100,
+        "endMs": null,
+        "mentionedAtMs": 140100,
+        "utteranceIds": [
+          "u26"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 458,
+        "y": 288
+      }
+    },
+    "edges": {
+      "264d3c47-f1e6-4593-acf7-877034816c3d": {
+        "id": "264d3c47-f1e6-4593-acf7-877034816c3d",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "sourceId": "8847f5fe-1ee5-4c67-b64f-cecc757ba63d",
+        "targetId": "d4c617dc-8c98-4a10-bcb9-091057616f8b",
+        "kind": "flow"
+      },
+      "899e2f39-014d-4410-8182-31558f002053": {
+        "id": "899e2f39-014d-4410-8182-31558f002053",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "sourceId": "d4c617dc-8c98-4a10-bcb9-091057616f8b",
+        "targetId": "0465bcb5-1395-4480-a746-3210621bc2c5",
+        "kind": "flow"
+      },
+      "48c85fbc-3dd2-4543-adb1-9d90d63f713d": {
+        "id": "48c85fbc-3dd2-4543-adb1-9d90d63f713d",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "sourceId": "0465bcb5-1395-4480-a746-3210621bc2c5",
+        "targetId": "1cca5a50-b40b-418b-9961-d376b1c7f440",
+        "kind": "flow"
+      },
+      "820e4351-2b1d-4243-9e7d-f32094c36236": {
+        "id": "820e4351-2b1d-4243-9e7d-f32094c36236",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "sourceId": "1cca5a50-b40b-418b-9961-d376b1c7f440",
+        "targetId": "9c2976d5-3f96-4cc1-b1ac-6940aae4dc83",
+        "kind": "flow"
+      },
+      "87fadad5-8496-41e1-b1cf-edff6128209d": {
+        "id": "87fadad5-8496-41e1-b1cf-edff6128209d",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "sourceId": "9c2976d5-3f96-4cc1-b1ac-6940aae4dc83",
+        "targetId": "0465bcb5-1395-4480-a746-3210621bc2c5",
+        "kind": "revisit"
+      },
+      "2e529d7a-236c-4572-b0e0-08063ba67c8f": {
+        "id": "2e529d7a-236c-4572-b0e0-08063ba67c8f",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "sourceId": "1cca5a50-b40b-418b-9961-d376b1c7f440",
+        "targetId": "f8218df1-5a33-4bb3-9c16-946b662e58d2",
+        "kind": "tether"
+      }
+    },
+    "activeNodeId": null,
+    "flags": [],
+    "commitments": [
+      {
+        "id": "0d5741b0-5403-407e-979f-a16c0ecf3bb1",
+        "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+        "nodeId": "f8218df1-5a33-4bb3-9c16-946b662e58d2",
+        "text": "Send the friend the brother's sourdough photos later",
+        "speaker": null,
+        "atMs": 140100,
+        "done": false
+      }
+    ],
+    "annotations": [],
+    "lastSeq": 11
+  },
+  "utterances": [
+    {
+      "id": "u1",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 0,
+      "endMs": 3200,
+      "text": "Okay, what is that jar? It looks alive."
+    },
+    {
+      "id": "u2",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 3600,
+      "endMs": 11500,
+      "text": "It is alive. That's my sourdough starter. Flour and water, plus wild yeast that moved in on its own."
+    },
+    {
+      "id": "u3",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 12400,
+      "endMs": 15700,
+      "text": "That's slightly horrifying. Does it have a name?"
+    },
+    {
+      "id": "u4",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 16400,
+      "endMs": 21900,
+      "text": "Not yet. My brother named his Loafy McLoafface, so the bar is low."
+    },
+    {
+      "id": "u5",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 22600,
+      "endMs": 27700,
+      "text": "Ha. Okay, how is this different from risotto night? You were very bossy about stirring."
+    },
+    {
+      "id": "u6",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 28400,
+      "endMs": 36200,
+      "text": "Totally different. With risotto you're right there the whole time, tasting and adjusting. You fix it as you go."
+    },
+    {
+      "id": "u7",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 36600,
+      "endMs": 37600,
+      "text": "And bread?"
+    },
+    {
+      "id": "u8",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 38500,
+      "endMs": 49000,
+      "text": "You can't taste bread until the end. You weigh everything, mix it, and then wait for hours. Baking is chemistry. Risotto is more like jazz."
+    },
+    {
+      "id": "u9",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 49400,
+      "endMs": 52200,
+      "text": "Okay, so why are we weighing things?"
+    },
+    {
+      "id": "u10",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 52800,
+      "endMs": 61400,
+      "text": "Hydration. It's how much water compared to flour. This one's seventy-five percent, so seven hundred fifty grams of water per kilo of flour."
+    },
+    {
+      "id": "u11",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 62300,
+      "endMs": 63900,
+      "text": "Is that a lot?"
+    },
+    {
+      "id": "u12",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 64300,
+      "endMs": 70400,
+      "text": "It's pretty wet. Higher hydration gives you those big holes inside, but it's sticky and harder to shape."
+    },
+    {
+      "id": "u13",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 70800,
+      "endMs": 74100,
+      "text": "It's definitely sticky. It's all over my hands."
+    },
+    {
+      "id": "u14",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 74500,
+      "endMs": 81400,
+      "text": "Wet your hands first. Now, normally you'd knead it, but with dough this wet we do stretch and folds instead."
+    },
+    {
+      "id": "u15",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 82000,
+      "endMs": 83300,
+      "text": "What's the difference?"
+    },
+    {
+      "id": "u16",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 83800,
+      "endMs": 95600,
+      "text": "Kneading is ten minutes of pushing it around the counter. Stretch and fold is, every half hour, grab one side, stretch it up, fold it over, turn the bowl, four times. Then leave it alone."
+    },
+    {
+      "id": "u17",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 95900,
+      "endMs": 98100,
+      "text": "So less work, more waiting."
+    },
+    {
+      "id": "u18",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 98500,
+      "endMs": 104600,
+      "text": "Exactly. The gluten builds by itself while it rests. Kneading just does it faster with muscle."
+    },
+    {
+      "id": "u19",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 105300,
+      "endMs": 109300,
+      "text": "Wait, that's your running thing. Rest days are training."
+    },
+    {
+      "id": "u20",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 110100,
+      "endMs": 114500,
+      "text": "Ha, Jordan would love that. Actually, this bread is partly for running."
+    },
+    {
+      "id": "u21",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 115200,
+      "endMs": 117000,
+      "text": "Of course it is."
+    },
+    {
+      "id": "u22",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 117300,
+      "endMs": 128100,
+      "text": "Jordan says to eat carbs a couple of hours before a long run, not right before, and something easy to digest. So toast with honey at seven for a nine o'clock run."
+    },
+    {
+      "id": "u23",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 128600,
+      "endMs": 129600,
+      "text": "And after?"
+    },
+    {
+      "id": "u24",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 130400,
+      "endMs": 135400,
+      "text": "Protein and more carbs, like eggs on toast. Timing matters more than I thought."
+    },
+    {
+      "id": "u25",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 136300,
+      "endMs": 139500,
+      "text": "Okay. Can I come back for the first slice?"
+    },
+    {
+      "id": "u26",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 140100,
+      "endMs": 148500,
+      "text": "Obviously, it bakes tomorrow morning. Oh, and remind me to send you my brother's sourdough photos later. His loaves are absurdly pretty."
+    },
+    {
+      "id": "u27",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 149400,
+      "endMs": 151300,
+      "text": "Sure. Okay, fold number three?"
+    },
+    {
+      "id": "u28",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 152100,
+      "endMs": 154700,
+      "text": "Fold number three. Grab, stretch, fold, turn."
+    },
+    {
+      "id": "u29",
+      "conversationId": "961f3e82-3536-4ca8-9fd7-b788e506d7ca",
+      "speaker": null,
+      "startMs": 155300,
+      "endMs": 159400,
+      "text": "This is weirdly calming. Like stirring risotto, but with more waiting."
+    }
+  ]
+}

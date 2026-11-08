@@ -1,0 +1,619 @@
+{
+  "graph": {
+    "conversation": {
+      "id": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "userId": "e5a1691e-fff3-4f34-a767-4c0738a34cd0",
+      "folderId": null,
+      "title": "Church, Historical Jesus, Camus, Road Trip",
+      "summary": "A friend explains why they started attending church, then the historical Jesus and gospel origins, Camus on meaning, and finally the summer coast road trip dates.",
+      "macroAnchor": "Catching up between friends",
+      "status": "ready",
+      "isSolo": false,
+      "isFavorite": false,
+      "location": null,
+      "reflection": null,
+      "startedAt": "2026-10-20T16:07:26.644+00:00",
+      "endedAt": "2026-10-20T16:12:08.644+00:00",
+      "durationMs": 282000,
+      "audioPath": null
+    },
+    "nodes": {
+      "a63777fb-345c-4bff-9b51-07e1683c3263": {
+        "id": "a63777fb-345c-4bff-9b51-07e1683c3263",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Why Church Now",
+        "summary": "Why they started attending church: a neighbor's repeated invitations, then the calm and community they found there",
+        "details": "One speaker was asked why their story showed a church bulletin, and said they had been attending for about six weeks. It began when a neighbor from the choir kept inviting them. They valued the quiet hour and the people who stayed for coffee and asked how their week was. They said they were not sure they believed all of it and were still working it out through reading.\n\nEvidence: u1, u2, u4, u6, u8",
+        "parentId": null,
+        "threadId": "40ff8559-4036-4c44-995c-116073388a18",
+        "seq": 1,
+        "startMs": 0,
+        "endMs": 53000,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u1",
+          "u2",
+          "u3",
+          "u4",
+          "u5",
+          "u6",
+          "u7",
+          "u8"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 129,
+        "y": 0
+      },
+      "7e6ca144-5631-4431-b640-94ec9d538e63": {
+        "id": "7e6ca144-5631-4431-b640-94ec9d538e63",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Historical Jesus",
+        "summary": "Whether historians can know what Jesus actually said and thought, given how far back the sources are",
+        "details": "The reader explained they had been reading history about Jesus as a person. They said almost every historian, religious or not, accepts that a Jewish preacher from Galilee was baptized by John and crucified under Pilate. The listener had assumed it was a fifty-fifty question. The real disputes are over what he said and what he thought he was doing.\n\nEvidence: u10, u11, u12, u13, u14",
+        "parentId": null,
+        "threadId": "76ac4f01-fd2e-45f5-82ea-0ebe6568508f",
+        "seq": 2,
+        "startMs": 53000,
+        "endMs": 107100,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u9",
+          "u10",
+          "u11",
+          "u12",
+          "u13",
+          "u14",
+          "u15",
+          "u16"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 151,
+        "y": 96
+      },
+      "96de2235-2018-453f-a250-ffc912a52b69": {
+        "id": "96de2235-2018-453f-a250-ffc912a52b69",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "kind": "topic",
+        "status": "closed",
+        "level": 2,
+        "label": "Gospel Origins",
+        "summary": "How the gospels were written, and whether knowing their human origins makes faith harder or more meaningful",
+        "details": "Asked how anyone knows what he said, the speaker described how the gospels were written. Mark came first around year seventy, roughly forty years after the death, with oral stories in between. Matthew and Luke copied much of Mark and shared a lost sayings source called Q, while John is later and more philosophical. The speaker said this made the story feel more human rather than harder to believe.\n\nEvidence: u18, u20, u22, u24, u26",
+        "parentId": "7e6ca144-5631-4431-b640-94ec9d538e63",
+        "threadId": "010f6e35-f381-4c8a-9944-459cf5d2947f",
+        "seq": 3,
+        "startMs": 107100,
+        "endMs": 179300,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u17",
+          "u18",
+          "u19",
+          "u20",
+          "u21",
+          "u22",
+          "u23",
+          "u24",
+          "u25",
+          "u26",
+          "u27"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 278,
+        "y": 192
+      },
+      "f8a06ed3-1a07-4b21-bd68-62c7f0c92783": {
+        "id": "f8a06ed3-1a07-4b21-bd68-62c7f0c92783",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Camus And Meaning",
+        "summary": "Whether the attendee will keep going to church, mainly for the people and community after a lonely year",
+        "details": "Asked where meaning comes from for them, one speaker said they never needed God for meaning, or told themselves so. They had been rereading Camus' Myth of Sisyphus, where the absurd is the gap between our wish for sense and the silent universe. The answer is to keep pushing the boulder and own it. The other linked this to showing up at church each week with nothing resolved, and said they would likely keep going because the people helped with loneliness. They invited their friend, who said maybe for the music.\n\nEvidence: u28, u29, u31, u33, u34, u38, u41",
+        "parentId": null,
+        "threadId": "6b69bb9b-7c64-4c57-a53d-f7e11cca377a",
+        "seq": 4,
+        "startMs": 179300,
+        "endMs": 271600,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u28",
+          "u29",
+          "u30",
+          "u31",
+          "u32",
+          "u33",
+          "u34",
+          "u35",
+          "u36",
+          "u37",
+          "u38",
+          "u39",
+          "u40",
+          "u41"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 149,
+        "y": 288
+      },
+      "14c2cbe7-cea9-49dd-a727-1e5f8fa4b124": {
+        "id": "14c2cbe7-cea9-49dd-a727-1e5f8fa4b124",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "kind": "pending",
+        "status": "resolved",
+        "level": 1,
+        "label": "Summer Road Trip",
+        "summary": "Deferred: \"Oh, speaking of showing up, we still have to plan the summer road trip. My cousin needs dates. But let's do that later, I don't…",
+        "details": null,
+        "parentId": null,
+        "threadId": "bd1525f5-a861-4342-907a-4a3e3aeaa7f5",
+        "seq": 5,
+        "startMs": 229400,
+        "endMs": null,
+        "mentionedAtMs": 229400,
+        "utteranceIds": [
+          "u36"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 462,
+        "y": 288
+      },
+      "33979686-29de-4fbd-afe4-fc9deb45b1a5": {
+        "id": "33979686-29de-4fbd-afe4-fc9deb45b1a5",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Summer Road Trip",
+        "summary": "Picking coast or mountains and late July dates for the cousin's road trip",
+        "details": "The two returned to the summer road trip they had deferred earlier. They chose the coast over the mountains and the last week of July. One of them said they would text the cousin with the dates.\n\nEvidence: u42, u43, u44",
+        "parentId": null,
+        "threadId": "f020fbb4-b949-4edb-bf17-a79fd177e93b",
+        "seq": 6,
+        "startMs": 271600,
+        "endMs": 282000,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u42",
+          "u43",
+          "u44"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 129,
+        "y": 384
+      }
+    },
+    "edges": {
+      "f8008126-6943-4bb0-9394-e941f7febc17": {
+        "id": "f8008126-6943-4bb0-9394-e941f7febc17",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "sourceId": "a63777fb-345c-4bff-9b51-07e1683c3263",
+        "targetId": "7e6ca144-5631-4431-b640-94ec9d538e63",
+        "kind": "flow"
+      },
+      "83a948eb-5164-4c47-a407-1a5ad02e0b93": {
+        "id": "83a948eb-5164-4c47-a407-1a5ad02e0b93",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "sourceId": "7e6ca144-5631-4431-b640-94ec9d538e63",
+        "targetId": "96de2235-2018-453f-a250-ffc912a52b69",
+        "kind": "flow"
+      },
+      "7d6b86c7-4fdd-48d1-a789-df26b428c970": {
+        "id": "7d6b86c7-4fdd-48d1-a789-df26b428c970",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "sourceId": "96de2235-2018-453f-a250-ffc912a52b69",
+        "targetId": "f8a06ed3-1a07-4b21-bd68-62c7f0c92783",
+        "kind": "flow"
+      },
+      "813fa31c-0b2c-41ac-80f6-1092a4282833": {
+        "id": "813fa31c-0b2c-41ac-80f6-1092a4282833",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "sourceId": "f8a06ed3-1a07-4b21-bd68-62c7f0c92783",
+        "targetId": "14c2cbe7-cea9-49dd-a727-1e5f8fa4b124",
+        "kind": "tether"
+      },
+      "3ab91b18-bf42-4ebf-b9e5-16b186e431a2": {
+        "id": "3ab91b18-bf42-4ebf-b9e5-16b186e431a2",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "sourceId": "f8a06ed3-1a07-4b21-bd68-62c7f0c92783",
+        "targetId": "33979686-29de-4fbd-afe4-fc9deb45b1a5",
+        "kind": "flow"
+      },
+      "75a34e58-d809-4eed-9be9-a23efe9205ea": {
+        "id": "75a34e58-d809-4eed-9be9-a23efe9205ea",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "sourceId": "14c2cbe7-cea9-49dd-a727-1e5f8fa4b124",
+        "targetId": "33979686-29de-4fbd-afe4-fc9deb45b1a5",
+        "kind": "tether"
+      }
+    },
+    "activeNodeId": null,
+    "flags": [],
+    "commitments": [
+      {
+        "id": "3d864387-41a2-48e0-b465-e3f288353091",
+        "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+        "nodeId": "33979686-29de-4fbd-afe4-fc9deb45b1a5",
+        "text": "Text cousin about coast trip",
+        "speaker": null,
+        "atMs": 278500,
+        "done": false
+      }
+    ],
+    "annotations": [],
+    "lastSeq": 17
+  },
+  "utterances": [
+    {
+      "id": "u1",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 0,
+      "endMs": 5800,
+      "text": "Okay, so I have to ask. Your story on Sunday was literally a church bulletin. Since when?"
+    },
+    {
+      "id": "u2",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 6200,
+      "endMs": 10300,
+      "text": "Ha, yeah. I knew someone would ask. Like six weeks now?"
+    },
+    {
+      "id": "u3",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 10600,
+      "endMs": 15800,
+      "text": "Wait, really? You? You used to make fun of my aunt for saying grace."
+    },
+    {
+      "id": "u4",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 16500,
+      "endMs": 24600,
+      "text": "I know, I know. Honestly, it started because my neighbor sings in the choir and kept inviting me. I went once to be polite."
+    },
+    {
+      "id": "u5",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 25200,
+      "endMs": 26300,
+      "text": "And then?"
+    },
+    {
+      "id": "u6",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 26800,
+      "endMs": 39700,
+      "text": "And then it was just, I don't know, quiet. Nobody wanted anything from me for an hour. And afterwards people stayed and had bad coffee and talked to me like they actually wanted to know how my week was."
+    },
+    {
+      "id": "u7",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 40600,
+      "endMs": 42600,
+      "text": "That's kind of lovely, actually."
+    },
+    {
+      "id": "u8",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 43500,
+      "endMs": 52400,
+      "text": "Yeah. I'm not saying I believe all of it. I'm still figuring that out. Which is why I've been reading a lot."
+    },
+    {
+      "id": "u9",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 53000,
+      "endMs": 54700,
+      "text": "Reading what, the Bible?"
+    },
+    {
+      "id": "u10",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 55600,
+      "endMs": 61800,
+      "text": "Some of that, but mostly history. Like, what do historians actually say about Jesus as a person."
+    },
+    {
+      "id": "u11",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 62400,
+      "endMs": 67500,
+      "text": "Oh, I've wondered about that. Is it even settled that he existed?"
+    },
+    {
+      "id": "u12",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 67900,
+      "endMs": 79100,
+      "text": "That's the surprising part. Almost every historian, religious or not, thinks there was a real Jewish preacher from Galilee who got baptized by John the Baptist and was crucified under Pontius Pilate."
+    },
+    {
+      "id": "u13",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 79900,
+      "endMs": 84000,
+      "text": "Huh. I assumed it was more of a fifty-fifty thing."
+    },
+    {
+      "id": "u14",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 84500,
+      "endMs": 94700,
+      "text": "No, the existence part is pretty boring and agreed on. The fights are about everything else. What he actually said, what he thought he was doing."
+    },
+    {
+      "id": "u15",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 95300,
+      "endMs": 100800,
+      "text": "But how would anyone know what he said? It's two thousand years ago."
+    },
+    {
+      "id": "u16",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 101100,
+      "endMs": 106800,
+      "text": "Right, so that's the rabbit hole I fell into this week. How the gospels got written."
+    },
+    {
+      "id": "u17",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 107100,
+      "endMs": 109900,
+      "text": "Okay, go. I genuinely don't know this."
+    },
+    {
+      "id": "u18",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 110500,
+      "endMs": 117400,
+      "text": "So the earliest one is Mark, probably written around the year seventy. That's like forty years after Jesus died."
+    },
+    {
+      "id": "u19",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 117700,
+      "endMs": 122800,
+      "text": "Forty years? That's like me writing about something from before I was born."
+    },
+    {
+      "id": "u20",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 123300,
+      "endMs": 134300,
+      "text": "Exactly. So in between it's all stories passed around by word of mouth. Then Matthew and Luke come after, and they clearly copied a lot of Mark, sometimes word for word."
+    },
+    {
+      "id": "u21",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 134900,
+      "endMs": 137700,
+      "text": "Wait, they copied? Like a group project?"
+    },
+    {
+      "id": "u22",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 138300,
+      "endMs": 148400,
+      "text": "Ha, kind of. And they share some other material that's not in Mark, so scholars think there was another lost source with sayings in it. They call it Q."
+    },
+    {
+      "id": "u23",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 148700,
+      "endMs": 151400,
+      "text": "Q. That's such a spy movie name."
+    },
+    {
+      "id": "u24",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 152000,
+      "endMs": 156800,
+      "text": "And then John is later and totally different in tone. Way more philosophical."
+    },
+    {
+      "id": "u25",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 157500,
+      "endMs": 161300,
+      "text": "Does knowing all that make it harder to believe it?"
+    },
+    {
+      "id": "u26",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 161700,
+      "endMs": 170400,
+      "text": "You'd think so. But weirdly no? It makes it feel more human. Like real people trying to hold onto something that mattered to them."
+    },
+    {
+      "id": "u27",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 170800,
+      "endMs": 178400,
+      "text": "I get that. I don't know, for me I never needed God for things to feel meaningful. Or I tell myself that."
+    },
+    {
+      "id": "u28",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 179300,
+      "endMs": 183600,
+      "text": "Okay, so then where does meaning come from for you? Genuine question."
+    },
+    {
+      "id": "u29",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 184000,
+      "endMs": 187800,
+      "text": "Honestly, I've been reading Camus again. The Myth of Sisyphus."
+    },
+    {
+      "id": "u30",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 188700,
+      "endMs": 190000,
+      "text": "The boulder guy."
+    },
+    {
+      "id": "u31",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 190600,
+      "endMs": 201200,
+      "text": "The boulder guy. His whole idea is that we want the universe to make sense, and it just doesn't answer. That gap is what he calls the absurd."
+    },
+    {
+      "id": "u32",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 201800,
+      "endMs": 203100,
+      "text": "That sounds bleak."
+    },
+    {
+      "id": "u33",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 203700,
+      "endMs": 216800,
+      "text": "It sounds bleak but it isn't. He says you don't escape it with religion or by giving up. You just keep pushing the boulder and own it. And he ends with, one must imagine Sisyphus happy."
+    },
+    {
+      "id": "u34",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 217400,
+      "endMs": 225900,
+      "text": "Huh. Okay, that's not that far from what I like about church, honestly. Showing up every week even when nothing's resolved."
+    },
+    {
+      "id": "u35",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 226700,
+      "endMs": 228900,
+      "text": "Ha, don't tell Camus that."
+    },
+    {
+      "id": "u36",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 229400,
+      "endMs": 239700,
+      "text": "Oh, speaking of showing up, we still have to plan the summer road trip. My cousin needs dates. But let's do that later, I don't want to derail this."
+    },
+    {
+      "id": "u37",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 240200,
+      "endMs": 246800,
+      "text": "Yes, later. Remind me. Okay, but do you think you'll keep going? To church, I mean."
+    },
+    {
+      "id": "u38",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 247100,
+      "endMs": 257300,
+      "text": "I think so. Even if I land somewhere fuzzy on the belief part, the people are good for me. I was pretty lonely this year."
+    },
+    {
+      "id": "u39",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 258100,
+      "endMs": 260400,
+      "text": "I didn't know that. I'm sorry."
+    },
+    {
+      "id": "u40",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 260900,
+      "endMs": 267200,
+      "text": "It's fine. It's better now. And you could come some time, no pressure. The choir is genuinely good."
+    },
+    {
+      "id": "u41",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 267700,
+      "endMs": 271100,
+      "text": "Maybe for the music. I'll bring my Camus."
+    },
+    {
+      "id": "u42",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 271600,
+      "endMs": 275300,
+      "text": "Deal. Okay, road trip. Super quick. Coast or mountains?"
+    },
+    {
+      "id": "u43",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 275700,
+      "endMs": 277900,
+      "text": "Coast. Last week of July?"
+    },
+    {
+      "id": "u44",
+      "conversationId": "ea5b157f-3f82-45e5-9f28-cceb2b5c6690",
+      "speaker": null,
+      "startMs": 278500,
+      "endMs": 282000,
+      "text": "Coast, last week of July. I'll text my cousin. Done."
+    }
+  ]
+}

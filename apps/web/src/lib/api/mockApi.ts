@@ -1,4 +1,4 @@
-import { applyOps, type Conversation, type GraphState, type OpBatch } from '@constellate/shared';
+import { applyOps, type Conversation, type GraphState, type OpBatch, type Utterance } from '@constellate/shared';
 import { loadDemoGraph } from '../fixtures';
 import { mockBrainFromGraphs } from './mockBrain';
 import type { Api, BrainPayload, DeletedCounts, FavoriteMoment, Folder, Participant, RecallCard } from './types';
@@ -11,8 +11,12 @@ const clone = <T>(v: T): T => structuredClone(v);
  * In-memory API over the contract fixtures, for VITE_USE_MOCKS=1 and unit tests. Every call returns
  * copies so callers cannot mutate the store by accident. State lives until the page reloads.
  */
-export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { recallCards?: RecallCard[] } = {}): Api {
+export function createMockApi(
+  seed: GraphState[] = [loadDemoGraph()],
+  extra: { recallCards?: RecallCard[]; utterances?: Record<string, Utterance[]> } = {},
+): Api {
   const graphs = new Map(seed.map((g) => [g.conversation.id, clone(g)]));
+  let utterances: Record<string, Utterance[]> = clone(extra.utterances ?? {});
   let folders: Folder[] = [];
   let participants: Participant[] = [];
   let recall: RecallCard[] = clone(extra.recallCards ?? []);
@@ -55,8 +59,9 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
     async getGraph(id) {
       return clone(graph(id));
     },
-    async listUtterances() {
-      return [];
+    async listUtterances(id) {
+      // only the exported demo conversations have a transcript; the contract demo graph has none
+      return clone(utterances[id] ?? []);
     },
 
     async listParticipants(ids) {
@@ -168,6 +173,7 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
         recordings: [...graphs.values()].filter((g) => g.conversation.audioPath).length,
       };
       graphs.clear();
+      utterances = {};
       folders = [];
       participants = [];
       recall = [];

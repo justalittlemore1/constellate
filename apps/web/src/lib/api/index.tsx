@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useAuth } from '../auth';
 import { env } from '../env';
+import { loadDemoGraph, loadMockDemos } from '../fixtures';
 import { supabase } from '../supabase';
 import { createMockApi } from './mockApi';
 import { createRealApi } from './realApi';
@@ -12,9 +13,20 @@ export { createMockApi } from './mockApi';
 export { createRealApi, ApiError } from './realApi';
 export { mockBrainFromGraphs } from './mockBrain';
 
+/**
+ * Mock mode (VITE_USE_MOCKS=1): the contract demo graph plus the three exported demo conversations,
+ * with their transcripts. `createMockApi()`'s own default stays the demo graph alone, for unit tests.
+ */
+export function createMockModeApi(): Api {
+  const demos = loadMockDemos();
+  return createMockApi([loadDemoGraph(), ...demos.map((d) => d.graph)], {
+    utterances: Object.fromEntries(demos.map((d) => [d.graph.conversation.id, d.utterances])),
+  });
+}
+
 let mockSingleton: Api | null = null;
 function sharedMockApi(): Api {
-  return (mockSingleton ??= createMockApi());
+  return (mockSingleton ??= createMockModeApi());
 }
 
 const ApiContext = createContext<Api | null>(null);

@@ -64,6 +64,7 @@ describe('transcript clip maths', () => {
     expect(clip.lines.map((l) => l.id)).toEqual(['u2', 'u3']);
     expect(transcriptClip(5_000, null, LINES).toMs).toBe(5_000 + DEFAULT_CLIP_MS + 1_000);
     expect(lineAt(clip, 10_500)?.id).toBe('u2');
+    expect(lineAt(transcriptClip(12_000, 18_000, LINES.slice(2)), 11_000)?.id).toBe('u3'); // lead-in
     expect(lineAt(clip, 16_000)?.id).toBe('u3');
   });
 });

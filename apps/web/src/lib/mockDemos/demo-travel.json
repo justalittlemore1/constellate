@@ -1,0 +1,515 @@
+{
+  "graph": {
+    "conversation": {
+      "id": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "userId": "e5a1691e-fff3-4f34-a767-4c0738a34cd0",
+      "folderId": null,
+      "title": "Coast Road Trip Planning",
+      "summary": "A two-person plan for a six-day coast road trip: route, budget, camping and a motel night, music and phone rules, then camping gear.",
+      "macroAnchor": "Planning a trip with a friend",
+      "status": "ready",
+      "isSolo": false,
+      "isFavorite": false,
+      "location": null,
+      "reflection": null,
+      "startedAt": "2026-10-26T16:10:21.657+00:00",
+      "endedAt": "2026-10-26T16:13:08.457+00:00",
+      "durationMs": 166800,
+      "audioPath": null
+    },
+    "nodes": {
+      "f1b94529-d52d-419d-8eba-6d50f6459986": {
+        "id": "f1b94529-d52d-419d-8eba-6d50f6459986",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Route And Trip Length",
+        "summary": "Route planning for the coast trip: north-to-south direction for ocean views, six days, with a relaxed beach day",
+        "details": "The pair opened with a paper map and settled on the last week of July. One argued for driving north to south so the ocean stays on the passenger side, with easier pull-outs. They chose six days, keeping the lighthouse town, and set day four as a beach day with under two hours of driving.\n\nEvidence: u2, u3, u5, u7, u8",
+        "parentId": null,
+        "threadId": "3dde1e05-6393-4890-a8fc-2618579c5ee8",
+        "seq": 1,
+        "startMs": 0,
+        "endMs": 48000,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u1",
+          "u2",
+          "u3",
+          "u4",
+          "u5",
+          "u6",
+          "u7",
+          "u8"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 156,
+        "y": 0
+      },
+      "fe8ae1ce-28e1-46f8-8cae-b91352935fcb": {
+        "id": "fe8ae1ce-28e1-46f8-8cae-b91352935fcb",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Trip Budget",
+        "summary": "Keeping the trip cheap: about six hundred each, with camping as the main way to save on sleeping costs",
+        "details": "One person said they might be changing jobs and wanted a cap of about six hundred each. They estimated gas at roughly one hundred fifty each and food at about two hundred if they cook most nights. Lodging was identified as the expensive part, so they leaned toward camping. Camping gear was deferred until later.\n\nEvidence: u10, u11, u12, u13",
+        "parentId": null,
+        "threadId": "15ec84f1-b28a-4b7d-93e3-f44aa9550160",
+        "seq": 2,
+        "startMs": 48000,
+        "endMs": 82200,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u9",
+          "u10",
+          "u11",
+          "u12",
+          "u13"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 150,
+        "y": 96
+      },
+      "e731ce0a-13b0-4766-86e9-30f9d9e861cc": {
+        "id": "e731ce0a-13b0-4766-86e9-30f9d9e861cc",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Campgrounds And Motel Night",
+        "summary": "Where to put the one motel night and booking campgrounds early, since the good waterside sites fill up by June",
+        "details": "They agreed to camp most nights but include one motel night with a proper shower, set for night three in the middle of the trip. They noted that good waterside campgrounds fill up by June, so one person said they would book that night. A tangent about a cousin's wedding was set aside.\n\nEvidence: u14, u15, u16, u17",
+        "parentId": null,
+        "threadId": "47c7a9f7-607b-4284-9553-6bdd8d1f32ab",
+        "seq": 3,
+        "startMs": 82200,
+        "endMs": 108100,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u14",
+          "u15",
+          "u16",
+          "u17"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 143,
+        "y": 192
+      },
+      "7c51e3b8-7f93-4928-9754-0b740ed3ca92": {
+        "id": "7c51e3b8-7f93-4928-9754-0b740ed3ca92",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "pending",
+        "status": "resolved",
+        "level": 1,
+        "label": "Camping Gear",
+        "summary": "Deferred: \"Right. Which is why I think we camp most nights. Oh, and we need to figure out camping gear, but let's sort that out later.\"",
+        "details": null,
+        "parentId": null,
+        "threadId": "749ace12-e3a2-4dc7-a8d1-46a0737a9fe7",
+        "seq": 4,
+        "startMs": 72700,
+        "endMs": null,
+        "mentionedAtMs": 72700,
+        "utteranceIds": [
+          "u13"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 455,
+        "y": 96
+      },
+      "d09edc74-1cef-45a4-b3fd-31c986e5ef33": {
+        "id": "d09edc74-1cef-45a4-b3fd-31c986e5ef33",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Music And Phone Rules",
+        "summary": "Agree a music rule (one hour of aux each) and no phones at dinner during the trip",
+        "details": "They set a rule that each person gets the aux cord for one hour, even if that means the same album repeats. They also agreed to no phones at dinner so the trip is about the ocean. They then checked what was left to cover.\n\nEvidence: u18, u19, u20, u21, u22",
+        "parentId": null,
+        "threadId": "9f4f620f-b975-42ec-a356-3934d354c1e7",
+        "seq": 5,
+        "startMs": 108100,
+        "endMs": 131700,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u18",
+          "u19",
+          "u20",
+          "u21",
+          "u22"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 145,
+        "y": 288
+      },
+      "925dd468-4542-497d-8067-eab90db0c9e3": {
+        "id": "925dd468-4542-497d-8067-eab90db0c9e3",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "pending",
+        "status": "unexplored",
+        "level": 1,
+        "label": "Cousin's Wedding",
+        "summary": "Deferred: \"Yeah, I'll book tonight. Oh, remind me to tell you about my cousin's wedding, it's chaos.\"",
+        "details": null,
+        "parentId": null,
+        "threadId": "ce55cefb-20bb-4fe8-8128-38b7f3a07633",
+        "seq": 6,
+        "startMs": 101900,
+        "endMs": null,
+        "mentionedAtMs": 101900,
+        "utteranceIds": [
+          "u17"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 457,
+        "y": 192
+      },
+      "062576a1-b3ff-47c1-9d2d-15fcc9cebea4": {
+        "id": "062576a1-b3ff-47c1-9d2d-15fcc9cebea4",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "kind": "topic",
+        "status": "closed",
+        "level": 1,
+        "label": "Camping Gear",
+        "summary": "They list the gear they have and split what to bring, including a borrowed tent and a sleeping bag.",
+        "details": "They returned to the deferred camping gear. One has a two-person tent that is cramped, so the other offered to borrow a brother's larger tent, plus bringing a stove and cooler. The first will bring sleeping pads and a lantern, and the old sleeping bag will be aired out on day one. They wrapped up with the plan: coast, six days, six hundred dollars, one motel.\n\nEvidence: u23, u24, u25, u26, u27, u28",
+        "parentId": null,
+        "threadId": "ce04ead6-c55c-4e8a-9db6-4e51779ccea0",
+        "seq": 7,
+        "startMs": 131700,
+        "endMs": 166800,
+        "mentionedAtMs": null,
+        "utteranceIds": [
+          "u23",
+          "u24",
+          "u25",
+          "u26",
+          "u27",
+          "u28"
+        ],
+        "speakers": [],
+        "highlighted": false,
+        "createdBy": "ai",
+        "x": 156,
+        "y": 384
+      }
+    },
+    "edges": {
+      "9910688e-8b8b-4f0a-91fb-91a631326dd3": {
+        "id": "9910688e-8b8b-4f0a-91fb-91a631326dd3",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "f1b94529-d52d-419d-8eba-6d50f6459986",
+        "targetId": "fe8ae1ce-28e1-46f8-8cae-b91352935fcb",
+        "kind": "flow"
+      },
+      "458dd7f0-d638-451c-965c-c03bf1c48bed": {
+        "id": "458dd7f0-d638-451c-965c-c03bf1c48bed",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "fe8ae1ce-28e1-46f8-8cae-b91352935fcb",
+        "targetId": "7c51e3b8-7f93-4928-9754-0b740ed3ca92",
+        "kind": "tether"
+      },
+      "9cf2f4cb-5109-4b34-bb7c-9e4acad81ca5": {
+        "id": "9cf2f4cb-5109-4b34-bb7c-9e4acad81ca5",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "fe8ae1ce-28e1-46f8-8cae-b91352935fcb",
+        "targetId": "e731ce0a-13b0-4766-86e9-30f9d9e861cc",
+        "kind": "flow"
+      },
+      "81d85cdd-73a3-4d70-9959-a4f095dbdbfe": {
+        "id": "81d85cdd-73a3-4d70-9959-a4f095dbdbfe",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "e731ce0a-13b0-4766-86e9-30f9d9e861cc",
+        "targetId": "d09edc74-1cef-45a4-b3fd-31c986e5ef33",
+        "kind": "flow"
+      },
+      "8f7c20d8-a979-4e5f-86f1-6927a2e3bf11": {
+        "id": "8f7c20d8-a979-4e5f-86f1-6927a2e3bf11",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "e731ce0a-13b0-4766-86e9-30f9d9e861cc",
+        "targetId": "925dd468-4542-497d-8067-eab90db0c9e3",
+        "kind": "tether"
+      },
+      "2fe11450-b142-43a8-bd36-ac8042b1d798": {
+        "id": "2fe11450-b142-43a8-bd36-ac8042b1d798",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "d09edc74-1cef-45a4-b3fd-31c986e5ef33",
+        "targetId": "062576a1-b3ff-47c1-9d2d-15fcc9cebea4",
+        "kind": "flow"
+      },
+      "2a658ada-cb6c-4146-a8f0-8c9aa3b422fc": {
+        "id": "2a658ada-cb6c-4146-a8f0-8c9aa3b422fc",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "sourceId": "7c51e3b8-7f93-4928-9754-0b740ed3ca92",
+        "targetId": "062576a1-b3ff-47c1-9d2d-15fcc9cebea4",
+        "kind": "tether"
+      }
+    },
+    "activeNodeId": null,
+    "flags": [],
+    "commitments": [
+      {
+        "id": "df866a26-8b8a-4723-88ff-ecca6c87913e",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "nodeId": "e731ce0a-13b0-4766-86e9-30f9d9e861cc",
+        "text": "Book campgrounds tonight",
+        "speaker": null,
+        "atMs": 101900,
+        "done": false
+      },
+      {
+        "id": "6e7b1eaf-f320-4856-874b-111baf649775",
+        "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+        "nodeId": "062576a1-b3ff-47c1-9d2d-15fcc9cebea4",
+        "text": "Bring sleeping pads and lantern",
+        "speaker": null,
+        "atMs": 145200,
+        "done": false
+      }
+    ],
+    "annotations": [],
+    "lastSeq": 13
+  },
+  "utterances": [
+    {
+      "id": "u1",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 0,
+      "endMs": 4300,
+      "text": "Okay, I brought snacks and a map. An actual paper map."
+    },
+    {
+      "id": "u2",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 4800,
+      "endMs": 11200,
+      "text": "Who even sells those anymore? Okay, coast road trip. Last week of July, like we said."
+    },
+    {
+      "id": "u3",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 12000,
+      "endMs": 21100,
+      "text": "Yes. So, route. I'm thinking we start in the north and drive south, so the ocean is on your side the whole way."
+    },
+    {
+      "id": "u4",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 21800,
+      "endMs": 23400,
+      "text": "Wait, really? That matters?"
+    },
+    {
+      "id": "u5",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 23700,
+      "endMs": 29500,
+      "text": "For the views, totally. Plus the pull-outs are easier to get into from that lane."
+    },
+    {
+      "id": "u6",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 30100,
+      "endMs": 32800,
+      "text": "Okay, north to south. How many days?"
+    },
+    {
+      "id": "u7",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 33600,
+      "endMs": 40400,
+      "text": "Six, I think. Five if we skip the lighthouse town, but we're not skipping the lighthouse town."
+    },
+    {
+      "id": "u8",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 40700,
+      "endMs": 47700,
+      "text": "Obviously. I want at least one day where we don't drive more than two hours. Just beach and a book."
+    },
+    {
+      "id": "u9",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 48000,
+      "endMs": 52800,
+      "text": "Done. Day four, beach day. Okay, money. What are you thinking?"
+    },
+    {
+      "id": "u10",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 53400,
+      "endMs": 60700,
+      "text": "Honestly, I might be changing jobs, so I want to keep it cheap. Like six hundred each, max?"
+    },
+    {
+      "id": "u11",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 61600,
+      "endMs": 69300,
+      "text": "That's doable. Gas split two ways is maybe a hundred and fifty each. Food if we cook most nights, another two hundred."
+    },
+    {
+      "id": "u12",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 69900,
+      "endMs": 72300,
+      "text": "So sleeping is the expensive part."
+    },
+    {
+      "id": "u13",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 72700,
+      "endMs": 81500,
+      "text": "Right. Which is why I think we camp most nights. Oh, and we need to figure out camping gear, but let's sort that out later."
+    },
+    {
+      "id": "u14",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 82200,
+      "endMs": 90200,
+      "text": "Okay, later. So campgrounds, but I want one real bed. One motel night, with a shower that isn't a coin box."
+    },
+    {
+      "id": "u15",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 90600,
+      "endMs": 93200,
+      "text": "Fair. Middle of the trip? Night three?"
+    },
+    {
+      "id": "u16",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 93900,
+      "endMs": 101200,
+      "text": "Night three. And maybe we book the campgrounds now? The good ones by the water fill up by June."
+    },
+    {
+      "id": "u17",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 101900,
+      "endMs": 107500,
+      "text": "Yeah, I'll book tonight. Oh, remind me to tell you about my cousin's wedding, it's chaos."
+    },
+    {
+      "id": "u18",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 108100,
+      "endMs": 115800,
+      "text": "Ha, okay. Can we also make a rule about music? Each person gets the aux for one hour, no complaining."
+    },
+    {
+      "id": "u19",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 116400,
+      "endMs": 119900,
+      "text": "Even if you play the same album four times?"
+    },
+    {
+      "id": "u20",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 120300,
+      "endMs": 122200,
+      "text": "Especially then. That's the deal."
+    },
+    {
+      "id": "u21",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 122800,
+      "endMs": 128100,
+      "text": "Fine. And no phones at dinner. We're going to the ocean, not to scroll."
+    },
+    {
+      "id": "u22",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 128900,
+      "endMs": 131100,
+      "text": "Agreed. Okay, what else is left?"
+    },
+    {
+      "id": "u23",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 131700,
+      "endMs": 138200,
+      "text": "Oh, right. Camping gear. So I have a tent, but it's a two-person tent, which means a one-and-a-half-person tent."
+    },
+    {
+      "id": "u24",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 138800,
+      "endMs": 144800,
+      "text": "I can borrow my brother's bigger one. And I have the little stove and the cooler."
+    },
+    {
+      "id": "u25",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 145200,
+      "endMs": 151300,
+      "text": "Perfect. Then I'll bring sleeping pads and the lantern. Do you have a sleeping bag?"
+    },
+    {
+      "id": "u26",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 151600,
+      "endMs": 156200,
+      "text": "An old one. It smells like a basement, but it's warm."
+    },
+    {
+      "id": "u27",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 156900,
+      "endMs": 162100,
+      "text": "We'll air it out on day one. Okay, I think that's a whole trip."
+    },
+    {
+      "id": "u28",
+      "conversationId": "4feff149-a70a-4dca-b36d-c7a70eb22c9e",
+      "speaker": null,
+      "startMs": 162700,
+      "endMs": 166800,
+      "text": "Coast, six days, six hundred bucks, one motel. I'm so ready."
+    }
+  ]
+}
