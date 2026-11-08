@@ -586,18 +586,22 @@ function MapInner({
       // weave labels stay ≈ 13.5 px on screen when the map is zoomed in past 1 (stars keep scaling)
       style={{ '--cmap-label-scale': String(1 / Math.max(1, zoom)) } as React.CSSProperties}
     >
-      {/* keyboard / screen-reader way to the outline: invisible until it has keyboard focus */}
-      <button
-        type="button"
-        onClick={() => {
-          setView(view === 'map' ? 'outline' : 'map');
-          placed.current = false;
-        }}
-        data-testid="text-view-link"
-        className="hover-wash sr-only z-30 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-bg focus:px-4 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-topic"
-      >
-        {view === 'map' ? 'Text view' : 'Map view'}
-      </button>
+      {/* keyboard / screen-reader way to the outline: invisible until it has keyboard focus.
+          Only when the map owns its view: a controlling parent (the /c/:id header) has its own
+          visible Text view control, and two controls for one thing confuse screen readers. */}
+      {viewProp === undefined && (
+        <button
+          type="button"
+          onClick={() => {
+            setView(view === 'map' ? 'outline' : 'map');
+            placed.current = false;
+          }}
+          data-testid="text-view-link"
+          className="hover-wash sr-only z-30 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-bg focus:px-4 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-topic"
+        >
+          {view === 'map' ? 'Text view' : 'Map view'}
+        </button>
+      )}
 
       {toolbarShown && (
         <MapToolbar

@@ -4,11 +4,9 @@
  */
 import type { GraphState, TopicNode } from '@constellate/shared';
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
-import { createMockApi } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
 import { ConversationMap, HOVER_DWELL_MS } from './ConversationMap';
@@ -247,33 +245,35 @@ describe('label size at 375 and 430 px', () => {
 });
 
 describe('controlled list view for A4 (SavedMap view / onViewChange)', () => {
-  it('view="list" shows the nodes as a list; the in-map link reports changes', async () => {
-    const user = userEvent.setup();
-    const onViewChange = vi.fn();
-    const api = createMockApi();
-    const { rerender } = renderApp({
+  it('view="list" shows the nodes as a list, with no in-map toggle (the parent owns the control)', () => {
+    renderApp({
       route: `/c/${demo.conversation.id}`,
-      api,
-      element: <SavedMap graph={demo} view="list" onViewChange={onViewChange} />,
+      element: <SavedMap graph={demo} view="list" onViewChange={vi.fn()} />,
       path: '/c/:id',
     });
     expect(screen.getByRole('tree', { name: /outline/i })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Map view' }));
-    expect(onViewChange).toHaveBeenCalledWith('map');
-    void rerender;
+    expect(screen.queryByTestId('text-view-link')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Map view' })).toBeNull();
   });
 
-  it('view="map" shows the map; the focus-only "Text view" link asks for the list', async () => {
-    const user = userEvent.setup();
-    const onViewChange = vi.fn();
+  it('view="map" shows the map without the focus-only "Text view" link', () => {
     renderApp({
       route: `/c/${demo.conversation.id}`,
-      element: <SavedMap graph={demo} view="map" onViewChange={onViewChange} />,
+      element: <SavedMap graph={demo} view="map" onViewChange={vi.fn()} />,
       path: '/c/:id',
     });
     expect(screen.queryByRole('tree')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Text view' }));
-    expect(onViewChange).toHaveBeenCalledWith('list');
+    expect(screen.queryByTestId('text-view-link')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Text view' })).toBeNull();
+  });
+
+  it('uncontrolled, the focus-only "Text view" link is still there', () => {
+    renderApp({
+      route: `/c/${demo.conversation.id}`,
+      element: <SavedMap graph={demo} />,
+      path: '/c/:id',
+    });
+    expect(screen.getByTestId('text-view-link')).toHaveTextContent('Text view');
   });
 });
 
