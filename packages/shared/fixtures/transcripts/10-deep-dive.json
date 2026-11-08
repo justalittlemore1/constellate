@@ -182,6 +182,9 @@
         "parent": "u119",
         "child": "u122"
       }
+    ],
+    "metricsOnly": [
+      "nesting"
     ]
   }
 }

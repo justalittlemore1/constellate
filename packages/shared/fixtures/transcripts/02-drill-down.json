@@ -54,6 +54,9 @@
     ],
     "revisits": [],
     "pending": [],
-    "commitments": []
+    "commitments": [],
+    "metricsOnly": [
+      "boundaries"
+    ]
   }
 }

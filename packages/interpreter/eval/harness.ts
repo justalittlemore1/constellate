@@ -39,6 +39,11 @@ export interface Expect {
   pending?: { keywords: string[]; raisedAt: string; final: 'unexplored' | 'resolved'; resolvedAt?: string }[];
   commitments?: { keywords: string[]; at: string }[];
   maxChildlessLevel1Ms?: number;
+  /**
+   * Check names (or prefixes, e.g. "nesting") reported as metrics but not deciding pass/fail,
+   * when the scenario's pass condition in docs/PLAN.md does not include them.
+   */
+  metricsOnly?: string[];
 }
 
 export function loadFixtures(only?: string[]): TranscriptFixture[] {
@@ -388,10 +393,12 @@ export function score(run: RunResult): Score {
     );
   }
 
+  const metricOnly = (c: Check) => (ex.metricsOnly ?? []).some((m) => c.name === m || c.name.startsWith(`${m} `));
+  for (const c of checks) if (metricOnly(c)) c.name = `${c.name} (metric only)`;
   const minutes = run.durationMs / 60_000;
   return {
     id: run.fixture.id,
-    pass: checks.every((c) => c.pass),
+    pass: checks.every((c) => c.pass || c.name.endsWith('(metric only)')),
     checks,
     topics: topics.length,
     nodesPerMin: minutes > 0 ? topics.length / minutes : 0,

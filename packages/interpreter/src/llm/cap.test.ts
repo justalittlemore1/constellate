@@ -62,6 +62,13 @@ describe('daily cap', () => {
     expect(calls).toEqual([2]);
   });
 
+  it('has no cap unless one is passed (the server brings its own)', async () => {
+    const { ai, calls } = fakeAi();
+    const embed = createGeminiEmbedder({ ai });
+    for (let i = 0; i < 160; i++) await embed([`t${i}`]);
+    expect(calls).toHaveLength(160);
+  });
+
   it('chunks very large batches, one counted request per chunk', async () => {
     const { ai, calls } = fakeAi();
     const cap = createDailyCap({ limit: 10, file: join(tmp(), 'l.json') });

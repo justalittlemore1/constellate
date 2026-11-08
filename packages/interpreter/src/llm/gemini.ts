@@ -4,7 +4,7 @@
  */
 import { GoogleGenAI } from '@google/genai';
 import { MODELS } from '@constellate/shared';
-import { CapExceededError, createDailyCap, EVAL_EMBED_CAP_PER_DAY, type DailyCap } from './cap';
+import { CapExceededError, type DailyCap } from './cap';
 import { countGemini, countGeminiThrottle, isThrottle } from './usage';
 
 export interface GeminiClientOptions {
@@ -23,19 +23,19 @@ function makeAi(opts: GeminiClientOptions): GoogleGenAI {
 export const EMBED_BATCH_MAX = 100;
 
 export interface GeminiEmbedderOptions extends GeminiClientOptions {
-  /** hard daily request cap; defaults to the eval's 150/day ledger. `null` only in tests with a fake `ai`. */
+  /** hard daily request cap (the eval passes its 150/day ledger; the server has its own 500/day cap) */
   cap?: DailyCap | null;
   log?(event: string, data?: Record<string, unknown>): void;
 }
 
 /**
  * Unit-normalised `MODELS.embed` embeddings, `MODELS.embedDims` long. Every request is counted
- * (usage.ts) and checked against the daily cap (cap.ts); past the cap it throws CapExceededError
- * without calling Gemini, and callers degrade (no revisit candidates).
+ * (usage.ts). With a `cap` (cap.ts) each request is checked first; past it this throws
+ * CapExceededError without calling Gemini, and callers degrade (no revisit candidates).
  */
 export function createGeminiEmbedder(opts: GeminiEmbedderOptions = {}): (texts: string[]) => Promise<number[][]> {
   const ai = makeAi(opts);
-  const cap = opts.cap === undefined ? createDailyCap({ limit: EVAL_EMBED_CAP_PER_DAY }) : opts.cap;
+  const cap = opts.cap ?? null;
   return async (texts) => {
     const out: number[][] = [];
     for (let i = 0; i < texts.length; i += EMBED_BATCH_MAX) {

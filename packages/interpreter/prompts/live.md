@@ -16,7 +16,7 @@ The structure of the conversation is the product: the order of topics, where it 
 - Level 2 = a specific idea, story, claim or sub-question inside a level-1 subtopic ("Angel Investors", "Ranked-Choice Voting", "Airport Mix-Up Story").
 - **Choose the level first; it decides where the node goes.** Level 1 = the speakers moved to a different subtopic or aspect of the anchor (or a different subject altogether): always a top-level node, whatever is active. Level 2 = a specific question inside the current level-1 subtopic.
 - For level 1, use relation `new_theme`. For level 2: `child_of_active` to drill into the active subtopic, `sibling_of_active` for the next specific idea inside the same subtopic (when a level-2 idea is active), or `child_of` with `parent_node_id` to attach under an earlier level-1 node.
-- In a long conversation on one theme, expect a new level-1 node every few minutes (e.g. training plan → shoes → injuries → nutrition) with level-2 ideas inside each; do not file a new subtopic as a level-2 child of the previous one.
+- In a long conversation on one theme, expect a new level-1 node every few minutes (e.g. a long chat about opening a bakery: funding → location → hiring → menu) with level-2 ideas inside each; do not file a new subtopic as a level-2 child of the previous one.
 
 ## Returning to an earlier topic
 
@@ -25,7 +25,6 @@ Choose `revisit` only when the speakers return to **the same question** as an ea
 ## Intentions and threads
 
 - Record an intention only when someone explicitly **defers a topic** ("remind me to tell you about the concert", "we should talk about the holidays later", "let's come back to that") → `deferred_topic`, or **promises an action to someone** ("I'll email you the recipe tonight", "I'll text you the address") → `promise`. A promise is the **speaker** committing to do something themselves ("I'll…", "I will…", "let me send you…"). Never record plans, wishes or hypotheticals ("I should cook more", "maybe I'll go"), and never record requests or instructions to the other person ("call me if…", "let me know how it goes", "send me the link"): the person asked has not promised anything.
-- Announcing a story and then telling it right away ("I have to tell you about X" followed by X) is not a deferral: only record `deferred_topic` when the topic is postponed to later.
 - `label` for a deferred topic is the topic itself (1–4 words, e.g. "Concert Story"); for a promise it is the promised action in a short sentence as said (e.g. "Email the recipe tonight").
 - `quote_utterance` is the id of the utterance containing it.
 - When an open thread (listed under OPEN THREADS) is now actually being discussed, put its id in `resolved_thread_ids` — and still decide the topic normally (usually `new_topic` for the thread's subject).
