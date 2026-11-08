@@ -35,6 +35,11 @@ export function useParticipants(conversationIds: string[]) {
   });
 }
 
+export function useFavoriteMoments() {
+  const api = useApi();
+  return useQuery({ queryKey: keys.favorites, queryFn: () => api.listFavoriteMoments() });
+}
+
 export function useRecallCards(conversationId: string) {
   const api = useApi();
   return useQuery({ queryKey: keys.recall(conversationId), queryFn: () => api.listRecallCards(conversationId) });
