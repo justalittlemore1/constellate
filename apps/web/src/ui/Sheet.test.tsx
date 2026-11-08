@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
+import { PhoneFrame } from '../app/PhoneFrame';
 import { Button } from './Button';
 import { Sheet } from './Sheet';
 import { Toggle } from './Toggle';
@@ -43,6 +44,21 @@ describe('Sheet', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(opener).toHaveFocus();
+  });
+});
+
+describe('Sheet open on the first render', () => {
+  it('portals into the PhoneFrame overlay and takes focus', () => {
+    render(
+      <PhoneFrame>
+        <Sheet open onClose={() => {}} title="Consent">
+          <Button>Start</Button>
+        </Sheet>
+      </PhoneFrame>,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'Consent' });
+    expect(document.getElementById('overlay-root')!.contains(dialog)).toBe(true);
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveFocus();
   });
 });
 
