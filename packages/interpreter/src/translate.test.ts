@@ -390,3 +390,77 @@ describe('validation', () => {
     expect(cleanLabel('...')).toBe('Untitled');
   });
 });
+
+describe('commit gate keeps threads and promises attached', () => {
+  const joke = [utt(5, 'a pigeon!', 20_000, 23_000), utt(6, 'remind me about soccer', 23_500, 26_000)];
+  const back = [utt(7, 'okay so chair flips', 28_000)];
+  const toStudy = dec({
+    action: 'revisit',
+    revisit: { node_id: 'n1', starts_at_utterance: 'u7', label: null, summary: 's' },
+  });
+
+  it('re-points a thread raised in a reversed provisional node to the node it folds into', () => {
+    const s = session();
+    s.step([...W1, ...W2], newTopic('Study Plan', 'u1'));
+    s.step(joke, {
+      ...newTopic('Pigeon', 'u5'),
+      intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u6' }],
+    });
+    expect(s.edges('tether')[0]!.sourceId).toBe(s.node('Pigeon').id);
+    s.step(back, toStudy);
+    const tethers = s.edges('tether');
+    expect(tethers).toHaveLength(1);
+    expect(tethers[0]).toMatchObject({ sourceId: s.node('Study Plan').id, targetId: s.node('Soccer Story').id });
+  });
+
+  it('re-points a resolution link made in a reversed provisional node', () => {
+    const s = session();
+    s.step(W1, newTopic('Study Plan', 'u1'));
+    s.step(
+      W2,
+      dec({ action: 'continue', intentions: [{ kind: 'deferred_topic', label: 'Apartment', quote_utterance: 'u3' }] }),
+    );
+    s.step(joke, { ...newTopic('Lease', 'u5'), resolved_thread_ids: ['p2'] });
+    s.step(back, toStudy);
+    const p = s.node('Apartment');
+    expect(p.status).toBe('resolved');
+    expect(s.edges('tether').some((e) => e.sourceId === p.id && e.targetId === s.node('Study Plan').id)).toBe(true);
+  });
+
+  it('holds a promise made in a provisional node until the gate settles', () => {
+    const promise = { kind: 'promise' as const, label: 'Send the notes', quote_utterance: 'u6' };
+    const reversed = session();
+    reversed.step([...W1, ...W2], newTopic('Study Plan', 'u1'));
+    reversed.step(joke, { ...newTopic('Pigeon', 'u5'), intentions: [promise] });
+    expect(reversed.state.commitments).toHaveLength(0);
+    reversed.step(back, toStudy);
+    expect(reversed.state.commitments).toHaveLength(1);
+    expect(reversed.state.commitments[0]!.nodeId).toBe(reversed.node('Study Plan').id);
+
+    const promoted = session();
+    promoted.step([...W1, ...W2], newTopic('Study Plan', 'u1'));
+    promoted.step(joke, { ...newTopic('Notes', 'u5'), intentions: [promise] });
+    promoted.step(back, dec({ action: 'continue' }));
+    expect(promoted.state.commitments[0]!.nodeId).toBe(promoted.node('Notes').id);
+
+    const stopped = session();
+    stopped.step([...W1, ...W2], newTopic('Study Plan', 'u1'));
+    stopped.step(joke, { ...newTopic('Notes', 'u5'), intentions: [promise] });
+    stopped.stop(30_000);
+    expect(stopped.state.commitments[0]!.nodeId).toBe(stopped.node('Notes').id);
+  });
+
+  it('drops an intention whose quote utterance is unknown', () => {
+    const s = session();
+    const r = s.step(W1, {
+      ...newTopic('Hockey', 'u1'),
+      intentions: [
+        { kind: 'deferred_topic', label: 'Soccer', quote_utterance: 'u42' },
+        { kind: 'promise', label: 'Call mom', quote_utterance: 'nope' },
+      ],
+    });
+    expect(Object.values(s.state.nodes).filter((n) => n.kind === 'pending')).toHaveLength(0);
+    expect(s.state.commitments).toHaveLength(0);
+    expect(r.warnings.filter((w) => w.includes('unknown quote_utterance'))).toHaveLength(2);
+  });
+});

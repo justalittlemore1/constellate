@@ -169,4 +169,29 @@ describe('live interpreter', () => {
     expect(nodes.find((n) => n.kind === 'parked')!.status).toBe('unexplored');
     expect(t.deps.state.activeNodeId).toBeNull();
   });
+
+  it('ignores park() after stop()', async () => {
+    const t = setup(() => open('Hockey', 'u1'));
+    await t.feed(utt(1, 'anyway hockey', 0, 2_000));
+    await t.interp.stop();
+    const before = t.deps.emitted.length;
+    t.interp.park('too late', 3_000);
+    expect(t.deps.emitted).toHaveLength(before);
+    expect(Object.values(t.deps.state.nodes).some((n) => n.kind === 'parked')).toBe(false);
+  });
+
+  it('re-arms the silence timer after a skipped window', async () => {
+    const t = setup((_a, n) => {
+      if (n <= 2) throw new Error('down');
+      return open('Hockey', 'u1');
+    });
+    await t.feed(utt(1, 'a', 0, 5_000));
+    await t.feed(utt(2, 'b', 5_200, 9_000));
+    await t.feed(utt(3, 'c', 10_600, 12_000)); // 1.6 s pause → call (fails twice, skipped)
+    expect(t.llm.calls).toHaveLength(2);
+    t.deps.clock.advance(30_000); // long silence: the re-armed timer retries the rolled-back window
+    await t.interp.idle();
+    expect(t.llm.calls).toHaveLength(3);
+    expect(windowIdsOf(t.llm.calls[2]!.user)).toEqual(['u1', 'u2', 'u3']);
+  });
 });

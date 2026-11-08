@@ -10,6 +10,7 @@
  */
 import {
   applyOps,
+  type Commitment,
   INTERPRETER,
   LABEL_MAX_WORDS,
   placeNode,
@@ -25,7 +26,16 @@ import type { Aliases } from './context';
 import type { Decision } from './decision';
 
 export interface GateMemory {
-  provisional: { nodeId: string; prevActiveId: string | null; startMs: number } | null;
+  provisional: {
+    nodeId: string;
+    prevActiveId: string | null;
+    startMs: number;
+    /**
+     * Commitments made while the node is provisional. There is no op to re-point a commitment, so they
+     * are emitted when the gate settles: on the promoted node, or on the node it folds back into.
+     */
+    held?: Commitment[];
+  } | null;
   /** highest seq ever assigned (removed provisional nodes do not free their seq) */
   lastSeq: number;
   /** when macro_anchor was last set (ms on the audio clock) */
@@ -193,6 +203,7 @@ class Builder {
     this.push({ op: 'node.update', id: p.nodeId, patch: { status: 'active' } });
     const prev = p.prevActiveId && this.state.nodes[p.prevActiveId] ? p.prevActiveId : null;
     this.moveTo(prev, p.nodeId, p.startMs);
+    for (const c of p.held ?? []) this.push({ op: 'commitment.add', commitment: { ...c, nodeId: p.nodeId } });
   }
 
   /** remove the provisional node and fold its utterances into the node it interrupted */
@@ -202,11 +213,22 @@ class Builder {
     const node = this.state.nodes[p.nodeId];
     if (!node) return;
     const back = p.prevActiveId ? this.state.nodes[p.prevActiveId] : undefined;
+    // tethers (threads raised here, threads resolved here) move to the node we fold back into,
+    // so removing the provisional node never orphans a thread
+    const tethers = Object.values(this.state.edges).filter(
+      (e) => e.kind === 'tether' && (e.sourceId === p.nodeId || e.targetId === p.nodeId),
+    );
     this.push({ op: 'node.remove', id: p.nodeId });
     if (back) {
       const ids = [...back.utteranceIds, ...node.utteranceIds.filter((u) => !back.utteranceIds.includes(u))];
       this.push({ op: 'node.update', id: back.id, patch: { utteranceIds: ids } });
+      for (const e of tethers) {
+        const s = e.sourceId === p.nodeId ? back.id : e.sourceId;
+        const t = e.targetId === p.nodeId ? back.id : e.targetId;
+        if (this.state.nodes[s] && this.state.nodes[t]) this.edge(s, t, 'tether');
+      }
     }
+    for (const c of p.held ?? []) this.push({ op: 'commitment.add', commitment: { ...c, nodeId: back?.id ?? null } });
   }
 
   addTopic(input: {
@@ -428,10 +450,12 @@ export function translate(input: TranslateInput): TranslateResult {
 
   // 4 ─ intentions
   const anchorForThreads = effectiveActiveId(b.state, b.memory);
-  const lastUtterance = window[window.length - 1];
   for (const it of d.intentions) {
-    const quote = input.utterancesById.get(it.quote_utterance) ?? lastUtterance;
-    if (!quote) continue;
+    const quote = input.utterancesById.get(it.quote_utterance);
+    if (!quote) {
+      b.warnings.push(`dropped ${it.kind} "${it.label}": unknown quote_utterance ${it.quote_utterance}`);
+      continue;
+    }
     if (it.kind === 'deferred_topic') {
       const label = cleanLabel(it.label);
       const exists = Object.values(b.state.nodes).some(
@@ -449,19 +473,23 @@ export function translate(input: TranslateInput): TranslateResult {
       });
     } else {
       const text = it.label.trim();
-      if (b.state.commitments.some((c) => c.text.toLowerCase() === text.toLowerCase())) continue;
-      b.push({
-        op: 'commitment.add',
-        commitment: {
-          id: b.newId(),
-          conversationId: b.state.conversation.id,
-          nodeId: anchorForThreads && b.state.nodes[anchorForThreads] ? anchorForThreads : null,
-          text,
-          speaker: quote.speaker,
-          atMs: quote.startMs,
-          done: false,
-        },
-      });
+      const held = b.memory.provisional?.held ?? [];
+      if ([...b.state.commitments, ...held].some((c) => c.text.toLowerCase() === text.toLowerCase())) continue;
+      const commitment: Commitment = {
+        id: b.newId(),
+        conversationId: b.state.conversation.id,
+        nodeId: anchorForThreads && b.state.nodes[anchorForThreads] ? anchorForThreads : null,
+        text,
+        speaker: quote.speaker,
+        atMs: quote.startMs,
+        done: false,
+      };
+      const prov = b.memory.provisional;
+      if (prov && commitment.nodeId === prov.nodeId) {
+        b.memory = { ...b.memory, provisional: { ...prov, held: [...held, commitment] } };
+      } else {
+        b.push({ op: 'commitment.add', commitment });
+      }
     }
   }
 

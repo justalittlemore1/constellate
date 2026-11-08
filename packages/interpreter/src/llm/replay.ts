@@ -35,13 +35,17 @@ function safe(s: string): string {
 export interface ReplayStore {
   /** every file path read or written in this process (lets the eval prune stale recordings) */
   used: Set<string>;
+  /** replay-mode lookups that found no recording (the interpreter swallows embedding failures) */
+  misses: number;
 }
+
+export const newReplayStore = (): ReplayStore => ({ used: new Set(), misses: 0 });
 
 export function createReplayClient(
   inner: LlmClient | null,
   dir: string,
   mode: ReplayMode,
-  store: ReplayStore = { used: new Set() },
+  store: ReplayStore = newReplayStore(),
 ): LlmClient {
   return {
     async json<T>(args: LlmJsonArgs) {
@@ -53,7 +57,10 @@ export function createReplayClient(
         const r = JSON.parse(readFileSync(file, 'utf8')) as Recording;
         return { data: r.data as T, ms: r.ms, inTok: r.inTok, outTok: r.outTok };
       }
-      if (mode === 'replay' || !inner) throw new LlmError('replay_miss', `no recording for ${args.model} ${key}`);
+      if (mode === 'replay' || !inner) {
+        store.misses++;
+        throw new LlmError('replay_miss', `no recording for ${args.model} ${key}`);
+      }
       const res = await inner.json<T>(args);
       mkdirSync(folder, { recursive: true });
       const rec: Recording = {
@@ -76,7 +83,7 @@ export function createReplayEmbedder(
   inner: ((texts: string[]) => Promise<number[][]>) | null,
   dir: string,
   mode: ReplayMode,
-  store: ReplayStore = { used: new Set() },
+  store: ReplayStore = newReplayStore(),
 ): (texts: string[]) => Promise<number[][]> {
   const folder = join(dir, 'embeddings');
   return async (texts) => {
@@ -90,8 +97,10 @@ export function createReplayEmbedder(
       } else missing.push(i);
     });
     if (missing.length > 0) {
-      if (mode === 'replay' || !inner)
+      if (mode === 'replay' || !inner) {
+        store.misses += missing.length;
         throw new LlmError('replay_miss', `no embedding recording for ${missing.length} text(s)`);
+      }
       const got = await inner(missing.map((i) => texts[i]!));
       mkdirSync(folder, { recursive: true });
       missing.forEach((i, j) => {

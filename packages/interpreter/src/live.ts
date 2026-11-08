@@ -263,6 +263,7 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       if (!decision) {
         // skip: the window rolls into the next one
         window = [...batch, ...window];
+        armPauseTimer();
         log('interpreter.skip', { reason, error: record.error, window: record.windowIds });
         return;
       }
@@ -331,6 +332,7 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       else armPauseTimer();
     },
     park(text, atMs) {
+      if (stopped) return;
       const r = parkOps(deps.getState(), memory, text, atMs, deps.newId);
       memory = r.memory;
       deps.emit(r.ops);

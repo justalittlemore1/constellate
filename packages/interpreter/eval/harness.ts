@@ -266,10 +266,12 @@ export function score(run: RunResult): Score {
     for (const p of ex.pending) {
       const n = produced.find(
         (x) =>
-          !used.has(x.id) && p.keywords.some((k) => `${x.label} ${x.summary}`.toLowerCase().includes(k.toLowerCase())),
+          !used.has(x.id) &&
+          p.keywords.some((k) => `${x.label} ${x.summary}`.toLowerCase().includes(k.toLowerCase())) &&
+          x.utteranceIds.some((u) => near(uNum(u), uNum(p.raisedAt))),
       );
       if (!n) {
-        add(`pending "${p.keywords[0]}"`, false, 'not created');
+        add(`pending "${p.keywords[0]}"`, false, `no pending thread matching the keywords raised near ${p.raisedAt}`);
         continue;
       }
       used.add(n.id);
@@ -302,11 +304,20 @@ export function score(run: RunResult): Score {
 
   if (ex.commitments) {
     const cs = state.commitments;
-    const ok =
-      cs.length === ex.commitments.length &&
-      ex.commitments.every((c) =>
-        cs.some((x) => c.keywords.some((k) => x.text.toLowerCase().includes(k.toLowerCase()))),
+    // a commitment's atMs is its quote utterance's startMs → map back to the utterance number
+    const uttAt = (ms: number) => run.fixture.utterances.findIndex((u) => u.startMs === ms) + 1;
+    const used = new Set<string>();
+    const matchedAll = ex.commitments.every((c) => {
+      const hit = cs.find(
+        (x) =>
+          !used.has(x.id) &&
+          c.keywords.some((k) => x.text.toLowerCase().includes(k.toLowerCase())) &&
+          near(uttAt(x.atMs), uNum(c.at)),
       );
+      if (hit) used.add(hit.id);
+      return !!hit;
+    });
+    const ok = cs.length === ex.commitments.length && matchedAll;
     add(
       'commitments',
       ok,

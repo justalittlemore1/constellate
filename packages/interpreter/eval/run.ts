@@ -19,6 +19,7 @@ import {
   createLlmClient,
   createReplayClient,
   createReplayEmbedder,
+  newReplayStore,
   providerFromEnv,
   type ReplayMode,
   type ReplayStore,
@@ -43,7 +44,8 @@ async function main() {
   const providers: InterpreterProvider[] = which === 'both' ? ['gemini', 'anthropic'] : [which as InterpreterProvider];
   const only = arg('only')?.split(',');
   const fixtures = loadFixtures(only);
-  const store: ReplayStore = { used: new Set() };
+  const store: ReplayStore = newReplayStore();
+  let ran = 0;
   const embed = createReplayEmbedder(mode === 'replay' ? null : createGeminiEmbedder(), RECORDINGS, mode, store);
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
   const gateProvider = providerFromEnv();
@@ -62,6 +64,7 @@ async function main() {
       mode,
       store,
     );
+    ran++;
     const runs: RunResult[] = [];
     for (const f of fixtures) {
       process.stdout.write(`[eval] ${provider} ${f.id} … `);
@@ -88,6 +91,14 @@ async function main() {
 
   // A full recording run replaces the previous recordings of the models (and embeddings) it used.
   if (mode === 'record' && !only && which === 'both') pruneUnused(store);
+  if (replay && ran === 0) {
+    console.error('[eval] replay: no recordings for any provider. Run `pnpm eval` with API keys first.');
+    process.exitCode = 1;
+  }
+  if (replay && store.misses > 0) {
+    console.error(`[eval] replay: ${store.misses} request(s) had no recording; re-run \`pnpm eval\`.`);
+    process.exitCode = 1;
+  }
   if (gateFailed && !flag('no-gate')) process.exitCode = 1;
 }
 

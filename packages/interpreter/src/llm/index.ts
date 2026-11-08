@@ -6,7 +6,14 @@ import { createGeminiClient } from './gemini';
 
 export { createAnthropicClient } from './anthropic';
 export { createGeminiClient, createGeminiEmbedder, normalise } from './gemini';
-export { createReplayClient, createReplayEmbedder, requestKey, type ReplayMode, type ReplayStore } from './replay';
+export {
+  createReplayClient,
+  createReplayEmbedder,
+  newReplayStore,
+  requestKey,
+  type ReplayMode,
+  type ReplayStore,
+} from './replay';
 export { LlmError, withTimeout } from './errors';
 
 export function providerFromEnv(): InterpreterProvider {

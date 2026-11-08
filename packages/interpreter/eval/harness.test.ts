@@ -1,8 +1,8 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MODELS } from '@constellate/shared';
-import { createReplayClient, createReplayEmbedder } from '../src/llm';
+import { createReplayClient, createReplayEmbedder, newReplayStore } from '../src/llm';
 import { bagEmbed, dec, scriptedLlm, windowIdsOf } from '../src/test-utils';
 import type { Decision } from '../src/decision';
 import { loadFixtures, outline, renderReport, runFixture, score } from './harness';
@@ -138,21 +138,70 @@ describe('eval replay', () => {
   const models = [MODELS.interpreter.gemini, MODELS.interpreter.anthropic].filter((m) =>
     existsSync(join(RECORDINGS, m.replace(/[^a-zA-Z0-9._-]/g, '_'))),
   );
-  it.runIf(models.length === 0)('has no recordings yet (skipped)', () => {
-    expect(existsSync(RECORDINGS) ? readdirSync(RECORDINGS).length >= 0 : true).toBe(true);
-  });
+  // Visible as "todo" in the test output until the first live `pnpm eval` commits recordings.
+  if (models.length === 0) it.todo('replays committed recordings (none yet: run `pnpm eval` with API keys)');
   for (const model of models) {
-    it(`replays every fixture for ${model} without a cache miss`, async () => {
-      const llm = createReplayClient(null, RECORDINGS, 'replay');
-      const emb = createReplayEmbedder(null, RECORDINGS, 'replay');
+    it(`replays every fixture for ${model} with no LLM or embedding cache miss`, async () => {
+      const store = newReplayStore();
+      const llm = createReplayClient(null, RECORDINGS, 'replay', store);
+      const emb = createReplayEmbedder(null, RECORDINGS, 'replay', store);
       for (const f of loadFixtures()) {
         const run = await runFixture(f, llm, emb, model);
         expect(run.error, f.id).toBeNull();
-        expect(
-          run.records.every((r) => !r.error?.includes('no recording')),
-          f.id,
-        ).toBe(true);
       }
+      expect(store.misses).toBe(0);
     }, 120_000);
   }
+});
+
+describe('eval scoring: proximity and one-to-one matching', () => {
+  const [, , , f04, , , , , f09] = loadFixtures();
+
+  it('a pending thread with the right keyword but raised far from raisedAt does not count', async () => {
+    const run = await runFixture(
+      f04!,
+      oracle({
+        u1: topic('Camping Trip', 'u1'),
+        u13: dec({
+          action: 'continue',
+          intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u13' }],
+        }),
+      }),
+      embed,
+      'test',
+    );
+    const c = score(run).checks.find((x) => x.name.startsWith('pending "soccer"'))!;
+    expect(c.pass).toBe(false);
+  });
+
+  it('one produced commitment cannot satisfy two expected ones, and it must be near `at`', async () => {
+    const promise = (u: string) => ({ kind: 'promise' as const, label: 'Send the paper tonight', quote_utterance: u });
+    const right = await runFixture(
+      f09!,
+      oracle({ u1: topic('Sleep And Memory', 'u1'), u9: dec({ action: 'continue', intentions: [promise('u9')] }) }),
+      embed,
+      'test',
+    );
+    expect(score(right).checks.find((x) => x.name === 'commitments')!.pass).toBe(true);
+    const far = await runFixture(
+      f09!,
+      oracle({ u2: { ...topic('Sleep And Memory', 'u1'), intentions: [promise('u2')] } }),
+      embed,
+      'test',
+    );
+    expect(score(far).checks.find((x) => x.name === 'commitments')!.pass).toBe(false);
+    const twice = {
+      ...right,
+      fixture: {
+        ...f09!,
+        expect: {
+          commitments: [
+            { keywords: ['paper'], at: 'u9' },
+            { keywords: ['paper'], at: 'u9' },
+          ],
+        },
+      },
+    };
+    expect(score(twice).checks.find((x) => x.name === 'commitments')!.pass).toBe(false);
+  });
 });
