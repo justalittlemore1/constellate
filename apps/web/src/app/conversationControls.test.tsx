@@ -1,12 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetUiFlags, setUiFlags } from '../lib/uiFlags';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { setUiFlags } from '../lib/uiFlags';
 import { loadDemoGraph } from '../lib/fixtures';
 import { renderApp } from '../test/render';
 
 // Stand in for A3's SavedMap and record the controlled props this screen passes it
-// (`view` / `onViewChange` / `revealHold`, being added in A3's PR).
+// (`view` / `onViewChange` / `revealHold`). conversationTextView.test.tsx renders the real one.
 const calls: { view?: string; revealHold?: boolean; onViewChange?: (v: 'map' | 'list') => void }[] = [];
 vi.mock('../features/map', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../features/map')>()),
@@ -22,11 +22,14 @@ const demo = loadDemoGraph();
 const map = () => screen.getByTestId('saved-map');
 
 describe('/c/:id "Text view" button (as on the Brain)', () => {
-  // behind uiFlags.conversationTextView until A3's controlled SavedMap props land
-  beforeEach(() => setUiFlags({ conversationTextView: true }));
+  it('is on by default, and hidden when uiFlags.conversationTextView is off', async () => {
+    renderApp({ route: `/c/${demo.conversation.id}` });
+    await screen.findByTestId('saved-map');
+    expect(screen.getByRole('button', { name: 'Text view' })).toBeInTheDocument();
+  });
 
-  it('is off by default until A3’s view prop lands (so it never shows as a dead button)', async () => {
-    resetUiFlags();
+  it('can be hidden again with its flag', async () => {
+    setUiFlags({ conversationTextView: false });
     renderApp({ route: `/c/${demo.conversation.id}` });
     await screen.findByTestId('saved-map');
     expect(screen.queryByRole('button', { name: 'Text view' })).not.toBeInTheDocument();

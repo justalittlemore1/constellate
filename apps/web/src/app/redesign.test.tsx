@@ -18,8 +18,9 @@ beforeAll(() => installFlowDomStubs());
 const demo = loadDemoGraph();
 
 describe('ui flags', () => {
-  it('every redesign flag is off by default (hidden, not deleted)', () => {
-    expect(Object.values(UI_FLAG_DEFAULTS).every((v) => v === false)).toBe(true);
+  it('every redesign flag is off by default (hidden, not deleted), except the shipped Text view', () => {
+    const on = Object.entries(UI_FLAG_DEFAULTS).filter(([, v]) => v);
+    expect(on.map(([k]) => k)).toEqual(['conversationTextView']);
     expect(uiFlag('sidebarFolders')).toBe(false);
   });
 
