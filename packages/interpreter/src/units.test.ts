@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { makeGraph, makeNode } from '@constellate/shared/testing';
 import type { GraphState } from '@constellate/shared';
 import { msUntilPause, pauseBefore, pauseDue, SILENCE_FALLBACK_MS, speechMs, triggerOnUtterance } from './trigger';
-import { granularityHint, HINT_CONSERVATIVE, HINT_SPLIT } from './granularity';
+import { granularityHint, HINT_CONSERVATIVE, HINT_SPLIT, hintLong } from './granularity';
 import { aliasFor, packContext } from './context';
 import { DECISION_JSON_SCHEMA, parseDecision } from './decision';
 import { dec, utt } from './test-utils';
@@ -62,9 +62,18 @@ describe('granularity', () => {
     expect(granularityHint(s, 181_000, [])).toBe(HINT_SPLIT);
   });
 
-  it('does not ask to split when the subtopic already has children', () => {
+  it('a subtopic with children gets the generic long-topic check instead of the split hint', () => {
     const s = withNodes([makeNode('a', { startMs: 0 }), makeNode('b', { level: 2, parentId: 'a', seq: 2 })], 'a');
-    expect(granularityHint(s, 400_000, [])).toBe('');
+    expect(granularityHint(s, 400_000, [])).toBe(hintLong('a', 6));
+  });
+
+  it('a level-2 idea running over 3 minutes gets the long-topic check', () => {
+    const s = withNodes(
+      [makeNode('a', { startMs: 0 }), makeNode('b', { level: 2, parentId: 'a', seq: 2, startMs: 10_000 })],
+      'b',
+    );
+    expect(granularityHint(s, 150_000, [])).toBe('');
+    expect(granularityHint(s, 200_000, [])).toBe(hintLong('b', 3));
   });
 
   it('asks for restraint after 3 non-explicit nodes in 60 s', () => {

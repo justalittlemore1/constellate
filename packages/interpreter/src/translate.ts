@@ -40,6 +40,61 @@ export interface GateMemory {
   lastSeq: number;
   /** when macro_anchor was last set (ms on the audio clock) */
   anchorSetAtMs: number | null;
+  /**
+   * Deferred topics wait one decision before becoming pending nodes: "I have to tell you about X"
+   * followed by X right away is not a deferral (it is dropped when the next window talks about X).
+   */
+  heldDeferrals?: HeldDeferral[];
+}
+
+export interface HeldDeferral {
+  label: string;
+  quoteId: string;
+  quoteText: string;
+  atMs: number;
+  anchorId: string | null;
+}
+
+const GENERIC = new Set([
+  'story',
+  'stories',
+  'talk',
+  'chat',
+  'thing',
+  'things',
+  'news',
+  'update',
+  'about',
+  'the',
+  'my',
+  'your',
+  'our',
+  'their',
+  'his',
+  'her',
+  'a',
+  'an',
+  'of',
+  'and',
+  'to',
+  'with',
+  'for',
+  'plan',
+  'plans',
+  'question',
+  'later',
+  'topic',
+]);
+
+/** Content words of a label, lowercased (≥ 3 letters, generic words removed). */
+export function contentWords(label: string): string[] {
+  return (label.toLowerCase().match(/[a-z]+/g) ?? []).filter((w) => w.length >= 3 && !GENERIC.has(w));
+}
+
+/** True when the window mentions one of the label's content words (singular/plural tolerant). */
+export function mentions(window: readonly Utterance[], label: string): boolean {
+  const text = window.map((u) => u.text.toLowerCase()).join(' ');
+  return contentWords(label).some((w) => new RegExp(`\\b${w.replace(/s$/, '')}s?\\b`).test(text));
 }
 
 export const emptyMemory = (): GateMemory => ({ provisional: null, lastSeq: 0, anchorSetAtMs: null });
@@ -63,7 +118,7 @@ export interface TranslateResult {
   state: GraphState;
   /** nodes created as new topics this decision (for the granularity burst rule) */
   created: { nodeId: string; explicit: boolean }[];
-  /** nodes created this decision: embed them. Summary refinements are not re-embedded (AGENTS.md › API budget) */
+  /** nodes created this decision (embed them; summary refinements are not re-embedded) */
   touched: string[];
   /** non-fatal problems, for logs */
   warnings: string[];
@@ -110,6 +165,20 @@ export function validateDecision(
     }
   }
   return null;
+}
+
+/**
+ * A promise needs the speaker committing to act ("I'll send…", "I will", "I'm going to", "let me
+ * send…"). Requests to the other person ("text me if…", "let me know") are not promises.
+ */
+/** "I can email it", "happy to send…", "let me book…": an offer to act. */
+const COMMIT_OFFER =
+  /\b(let me|i can|i could|i'd|i would|happy to) (send|get|grab|book|check|text|email|e-mail|call|find|look|bring|forward|share|ask|show|lend|pick|drop|write|message)\b/i;
+
+export function isCommitment(text: string): boolean {
+  const t = text.replace(/[’‘]/g, "'");
+  if (/\b(i'll|i will|i'm going to|i am going to|i'm gonna|i promise|i'll make sure|will do)\b/i.test(t)) return true;
+  return COMMIT_OFFER.test(t);
 }
 
 /** 1–4 words, no trailing punctuation, first letters capitalised. */
@@ -311,6 +380,22 @@ class Builder {
     return id;
   }
 
+  createPending(h: HeldDeferral) {
+    const exists = Object.values(this.state.nodes).some(
+      (n) => n.kind !== 'topic' && n.label.toLowerCase() === h.label.toLowerCase(),
+    );
+    if (exists) return;
+    this.addThread({
+      kind: 'pending',
+      label: h.label,
+      summary: cleanSummary(`Deferred: "${h.quoteText}"`),
+      atMs: h.atMs,
+      utteranceIds: [h.quoteId],
+      anchorId: h.anchorId && this.state.nodes[h.anchorId] ? h.anchorId : effectiveActiveId(this.state, this.memory),
+      createdBy: 'ai',
+    });
+  }
+
   resolveThread(threadId: string, discussedInId: string | null) {
     const t = this.state.nodes[threadId];
     if (!t || t.kind === 'topic' || t.status !== 'active') return;
@@ -333,19 +418,14 @@ function placement(
     if (p.level >= 2) return asChildOf(p.parentId ? b.state.nodes[p.parentId] : undefined);
     return { level: (p.level + 1) as Level, parentId: p.id };
   };
-  switch (relation) {
-    case 'new_theme':
-      return { level: 1, parentId: null };
-    case 'child_of':
-      return asChildOf(explicitParentId ? b.state.nodes[explicitParentId] : undefined);
-    case 'child_of_active':
-      return asChildOf(active);
-    case 'sibling_of_active': {
-      if (!active || active.kind !== 'topic') return { level: 1, parentId: null };
-      if (wantLevel === 1 && active.level === 2) return { level: 1, parentId: null };
-      return { level: active.level, parentId: active.parentId };
-    }
-  }
+  // A level-1 answer is always a new subtopic of the anchor (models tended to file new subtopics as
+  // children of whatever was active). For level 2 the relation picks the parent.
+  if (wantLevel === 1 || relation === 'new_theme') return { level: 1, parentId: null };
+  if (relation === 'child_of') return asChildOf(explicitParentId ? b.state.nodes[explicitParentId] : active);
+  if (relation === 'child_of_active') return asChildOf(active);
+  // sibling_of_active: the next idea next to the active one
+  if (!active || active.kind !== 'topic' || active.level === 1) return { level: 1, parentId: null };
+  return { level: active.level, parentId: active.parentId };
 }
 
 export function translate(input: TranslateInput): TranslateResult {
@@ -377,6 +457,23 @@ export function translate(input: TranslateInput): TranslateResult {
   }
   let current = b.state.activeNodeId;
 
+  // A new topic attached under an EARLIER, closed node that is not the active node or one of its
+  // ancestors means the conversation went back to that subject: record it as a return (same
+  // thread, revisit edge) rather than as an unrelated child. Chronology is never rewritten.
+  let returnTo: TopicNode | undefined;
+  if (action === 'new_topic' && d.new_topic!.relation === 'child_of') {
+    const p = idOf(d.new_topic!.parent_node_id) ? b.state.nodes[idOf(d.new_topic!.parent_node_id)!] : undefined;
+    const ancestors = new Set<string>();
+    for (
+      let n = current ? b.state.nodes[current] : undefined;
+      n;
+      n = n.parentId ? b.state.nodes[n.parentId] : undefined
+    ) {
+      ancestors.add(n.id);
+    }
+    if (p && p.kind === 'topic' && p.status === 'closed' && !ancestors.has(p.id)) returnTo = p;
+  }
+
   // 2 ─ the action
   let discussedIn: string | null = current;
   if (action === 'revisit') {
@@ -391,6 +488,27 @@ export function translate(input: TranslateInput): TranslateResult {
         b.push({ op: 'node.update', id: current, patch: { summary: cleanSummary(upd) } });
       }
     }
+  } else if (action === 'new_topic' && returnTo) {
+    const t = d.new_topic!;
+    const k = indexOf(t.starts_at_utterance);
+    if (current) b.addUtterances(current, window.slice(0, k));
+    const startMs = window[k]!.startMs;
+    const id = b.addTopic({
+      label: t.label,
+      summary: t.summary,
+      level: returnTo.level,
+      parentId: returnTo.parentId,
+      threadId: returnTo.threadId,
+      status: 'active',
+      startMs,
+      utterances: window.slice(k),
+      revisitOfId: returnTo.id,
+    });
+    b.moveTo(current, id, startMs);
+    b.edge(id, returnTo.id, 'revisit');
+    b.warnings.push(`new_topic under earlier closed ${returnTo.label} recorded as a return`);
+    current = id;
+    discussedIn = id;
   } else if (action === 'new_topic') {
     const t = d.new_topic!;
     const k = current ? indexOf(t.starts_at_utterance) : 0;
@@ -447,8 +565,17 @@ export function translate(input: TranslateInput): TranslateResult {
   }
   for (const id of resolveIds) b.resolveThread(id, discussedIn);
 
-  // 4 ─ intentions
+  // 4 ─ intentions. First settle deferrals held from the previous decision.
   const anchorForThreads = effectiveActiveId(b.state, b.memory);
+  const held = b.memory.heldDeferrals ?? [];
+  b.memory = { ...b.memory, heldDeferrals: [] };
+  for (const h of held) {
+    if (mentions(window, h.label)) {
+      b.warnings.push(`deferral "${h.label}" dropped: told right away, not postponed`);
+      continue;
+    }
+    b.createPending(h);
+  }
   for (const it of d.intentions) {
     const quote = input.utterancesById.get(it.quote_utterance);
     if (!quote) {
@@ -460,17 +587,30 @@ export function translate(input: TranslateInput): TranslateResult {
       const exists = Object.values(b.state.nodes).some(
         (n) => n.kind !== 'topic' && n.label.toLowerCase() === label.toLowerCase(),
       );
-      if (exists) continue;
-      b.addThread({
-        kind: 'pending',
-        label,
-        summary: cleanSummary(`Deferred: "${quote.text}"`),
-        atMs: quote.startMs,
-        utteranceIds: [quote.id],
-        anchorId: anchorForThreads,
-        createdBy: 'ai',
-      });
+      if (exists || (b.memory.heldDeferrals ?? []).some((h) => h.label.toLowerCase() === label.toLowerCase())) continue;
+      // told right away within this same window ("I have to tell you about X" → "what X?")
+      const after = window.slice(window.findIndex((u) => u.id === quote.id) + 1);
+      if (after.length > 0 && mentions(after, label)) {
+        b.warnings.push(`deferral "${label}" dropped: told right away, not postponed`);
+        continue;
+      }
+      b.memory = {
+        ...b.memory,
+        heldDeferrals: [
+          ...(b.memory.heldDeferrals ?? []),
+          { label, quoteId: quote.id, quoteText: quote.text, atMs: quote.startMs, anchorId: anchorForThreads },
+        ],
+      };
     } else {
+      // the quote id can be one off: also accept the neighbouring utterances
+      const qi = window.findIndex((u) => u.id === quote.id);
+      const nearby = [quote, ...(qi >= 0 ? [window[qi - 1], window[qi + 1]] : [])].filter(
+        (u): u is Utterance => u !== undefined,
+      );
+      if (!nearby.some((u) => isCommitment(u.text))) {
+        b.warnings.push(`dropped promise "${it.label}": ${quote.id} has no first-person commitment`);
+        continue;
+      }
       const text = it.label.trim();
       const held = b.memory.provisional?.held ?? [];
       if ([...b.state.commitments, ...held].some((c) => c.text.toLowerCase() === text.toLowerCase())) continue;
@@ -542,6 +682,8 @@ export function stopOps(
 ): { ops: GraphOp[]; memory: GateMemory; state: GraphState } {
   const b = new Builder(state, memory, newId);
   b.promote();
+  for (const h of b.memory.heldDeferrals ?? []) b.createPending(h);
+  b.memory = { ...b.memory, heldDeferrals: [] };
   const active = b.state.activeNodeId;
   if (active) {
     b.push({ op: 'node.update', id: active, patch: { status: 'closed', endMs } });

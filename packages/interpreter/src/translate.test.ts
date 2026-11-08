@@ -3,7 +3,16 @@ import { applyOps, GUTTER_X, LANE_WIDTH, type GraphState, type Utterance } from 
 import { makeGraph } from '@constellate/shared/testing';
 import { buildAliases } from './context';
 import type { Decision } from './decision';
-import { cleanLabel, emptyMemory, parkOps, stopOps, translate, validateDecision, type GateMemory } from './translate';
+import {
+  cleanLabel,
+  emptyMemory,
+  isCommitment,
+  parkOps,
+  stopOps,
+  translate,
+  validateDecision,
+  type GateMemory,
+} from './translate';
 import { dec, utt } from './test-utils';
 
 /** Drives translate over successive windows, applying ops like the server would. */
@@ -246,6 +255,9 @@ describe('translate', () => {
         ],
       }),
     );
+    // held for one decision: the next window does not talk about soccer, so it was really deferred
+    expect(Object.values(s.state.nodes).some((n) => n.kind === 'pending')).toBe(false);
+    s.step([utt(5, 'we need two tents', 19_000)], dec({ action: 'continue' }));
     const p = s.node('Soccer Story');
     expect(p.kind).toBe('pending');
     expect(p.status).toBe('active');
@@ -264,10 +276,10 @@ describe('translate', () => {
 
     // the same deferral again is not duplicated
     s.step(
-      [utt(5, 'soccer later ok', 20_000)],
+      [utt(6, 'soccer later ok', 20_000)],
       dec({
         action: 'continue',
-        intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u5' }],
+        intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u6' }],
       }),
     );
     expect(Object.values(s.state.nodes).filter((n) => n.kind === 'pending')).toHaveLength(1);
@@ -290,7 +302,8 @@ describe('translate', () => {
       }),
     );
     s.step(W3, newTopic('Lease Renewal', 'u5', { explicit_shift: true }), {});
-    s.step(W4, dec({ action: 'continue', resolved_thread_ids: ['p2', 'p99'] }));
+    const alias = `p${s.node('Apartment Lease').seq}`;
+    s.step(W4, dec({ action: 'continue', resolved_thread_ids: [alias, 'p99'] }));
     const p = s.node('Apartment Lease');
     expect(p.status).toBe('resolved');
     expect(s.edges('tether').some((e) => e.sourceId === p.id && e.targetId === s.node('Lease Renewal').id)).toBe(true);
@@ -305,8 +318,9 @@ describe('translate', () => {
       W2,
       dec({ action: 'continue', intentions: [{ kind: 'deferred_topic', label: 'Apartment', quote_utterance: 'u3' }] }),
     );
+    s.step(W3, dec({ action: 'continue' }));
     const pid = s.node('Apartment').id;
-    const r = s.step(W3, newTopic('Rent Increase', 'u5', { explicit_shift: true }), { autoResolveIds: [pid] });
+    const r = s.step(W4, newTopic('Rent Increase', 'u7', { explicit_shift: true }), { autoResolveIds: [pid] });
     expect(r.ops.some((o) => o.op === 'node.update' && o.id === pid)).toBe(true);
     expect(s.node('Apartment').status).toBe('resolved');
   });
@@ -392,7 +406,10 @@ describe('validation', () => {
 });
 
 describe('commit gate keeps threads and promises attached', () => {
-  const joke = [utt(5, 'a pigeon!', 20_000, 23_000), utt(6, 'remind me about soccer', 23_500, 26_000)];
+  const joke = [
+    utt(5, 'a pigeon!', 20_000, 23_000),
+    utt(6, "remind me about soccer, and I'll send the notes", 23_500, 26_000),
+  ];
   const back = [utt(7, 'okay so chair flips', 28_000)];
   const toStudy = dec({
     action: 'revisit',
@@ -406,7 +423,6 @@ describe('commit gate keeps threads and promises attached', () => {
       ...newTopic('Pigeon', 'u5'),
       intentions: [{ kind: 'deferred_topic', label: 'Soccer Story', quote_utterance: 'u6' }],
     });
-    expect(s.edges('tether')[0]!.sourceId).toBe(s.node('Pigeon').id);
     s.step(back, toStudy);
     const tethers = s.edges('tether');
     expect(tethers).toHaveLength(1);
@@ -417,9 +433,10 @@ describe('commit gate keeps threads and promises attached', () => {
     const s = session();
     s.step(W1, newTopic('Study Plan', 'u1'));
     s.step(
-      W2,
+      [W2[0]!],
       dec({ action: 'continue', intentions: [{ kind: 'deferred_topic', label: 'Apartment', quote_utterance: 'u3' }] }),
     );
+    s.step([W2[1]!], dec({ action: 'continue' })); // the held deferral becomes pending node p2
     s.step(joke, { ...newTopic('Lease', 'u5'), resolved_thread_ids: ['p2'] });
     s.step(back, toStudy);
     const p = s.node('Apartment');
@@ -462,5 +479,152 @@ describe('commit gate keeps threads and promises attached', () => {
     expect(Object.values(s.state.nodes).filter((n) => n.kind === 'pending')).toHaveLength(0);
     expect(s.state.commitments).toHaveLength(0);
     expect(r.warnings.filter((w) => w.includes('unknown quote_utterance'))).toHaveLength(2);
+  });
+});
+
+describe('promise guard', () => {
+  it('accepts first-person commitments and rejects requests', () => {
+    expect(isCommitment("I'll send you the paper tonight, it's readable.")).toBe(true);
+    expect(isCommitment('I will book it tomorrow')).toBe(true);
+    expect(isCommitment('Let me send you the link')).toBe(true);
+    expect(isCommitment('Text me if anyone in your group drops out.')).toBe(false);
+    expect(isCommitment('Let me know how it goes')).toBe(false);
+    expect(isCommitment('I should really read more of this stuff.')).toBe(false);
+  });
+
+  it('drops a promise intention whose quote is a request', () => {
+    const s = session();
+    const r = s.step([utt(1, 'Text me if anyone drops out', 0)], {
+      ...newTopic('Concert', 'u1'),
+      intentions: [{ kind: 'promise', label: 'Text if anyone drops out', quote_utterance: 'u1' }],
+    });
+    expect(s.state.commitments).toHaveLength(0);
+    expect(r.warnings.some((w) => w.includes('no first-person commitment'))).toBe(true);
+  });
+});
+
+describe('announced then told is not a deferral', () => {
+  it('drops a deferral when the next window talks about it', () => {
+    const s = session();
+    s.step(W1, newTopic('Running Shoes', 'u1'));
+    const r1 = s.step(
+      [utt(3, 'oh and I have to tell you about the blister', 10_000)],
+      dec({
+        action: 'continue',
+        intentions: [{ kind: 'deferred_topic', label: 'Blister Story', quote_utterance: 'u3' }],
+      }),
+    );
+    expect(r1.ops.some((o) => o.op === 'node.add' && o.node.kind === 'pending')).toBe(false);
+    const r2 = s.step(
+      [utt(4, 'what blister? oh no', 15_000), utt(5, 'cotton socks, it popped', 18_000)],
+      dec({ action: 'continue' }),
+    );
+    expect(Object.values(s.state.nodes).some((n) => n.kind === 'pending')).toBe(false);
+    expect(r2.warnings.some((w) => w.includes('told right away'))).toBe(true);
+  });
+
+  it('drops a deferral told later in the same window', () => {
+    const s = session();
+    s.step(W1, newTopic('Running Shoes', 'u1'));
+    s.step(
+      [utt(3, 'oh and I have to tell you about the blister', 10_000), utt(4, 'oh no, what blister?', 14_000)],
+      dec({
+        action: 'continue',
+        intentions: [{ kind: 'deferred_topic', label: 'Blister Story', quote_utterance: 'u3' }],
+      }),
+    );
+    s.stop(20_000);
+    expect(Object.values(s.state.nodes).some((n) => n.kind === 'pending')).toBe(false);
+  });
+
+  it('a deferral still held at stop becomes an unexplored thread', () => {
+    const s = session();
+    s.step(W1, newTopic('Camping', 'u1'));
+    s.step(
+      [utt(3, 'remind me to tell you about soccer', 10_000)],
+      dec({ action: 'continue', intentions: [{ kind: 'deferred_topic', label: 'Soccer', quote_utterance: 'u3' }] }),
+    );
+    s.stop(15_000);
+    expect(s.node('Soccer')).toMatchObject({ kind: 'pending', status: 'unexplored' });
+    expect(s.edges('tether').some((e) => e.sourceId === s.node('Camping').id)).toBe(true);
+  });
+});
+
+describe('return under an earlier subject', () => {
+  it('a new topic attached under an earlier, closed node is recorded as a return to that thread', () => {
+    const s = session();
+    s.step(W1, newTopic('Working Out', 'u1', { explicit_shift: true }));
+    s.step(W2, newTopic('Movie', 'u3', { explicit_shift: true }));
+    const r = s.step(W3, newTopic('Gym Schedule', 'u5', { level: 2, relation: 'child_of', parent_node_id: 'n1' }));
+    const gym = s.node('Gym Schedule');
+    const first = s.node('Working Out');
+    expect(gym.threadId).toBe(first.threadId);
+    expect(gym.level).toBe(1);
+    expect(gym.status).toBe('active');
+    expect(s.edges('revisit').map((e) => [e.sourceId, e.targetId])).toEqual([[gym.id, first.id]]);
+    expect(r.warnings.some((w) => w.includes('recorded as a return'))).toBe(true);
+  });
+
+  it('a child of the active subtopic stays a child (not a return)', () => {
+    const s = session();
+    s.step(W1, newTopic('Christianity', 'u1', { explicit_shift: true }));
+    s.step(
+      W2,
+      newTopic('Resurrection', 'u3', { level: 2, relation: 'child_of', parent_node_id: 'n1', explicit_shift: true }),
+    );
+    expect(s.node('Resurrection').parentId).toBe(s.node('Christianity').id);
+    expect(s.edges('revisit')).toHaveLength(0);
+  });
+});
+
+describe('placement: a level-1 answer is always a top-level subtopic', () => {
+  const setup = () => {
+    const s = session();
+    s.step(W1, newTopic('Training Plan', 'u1', { explicit_shift: true }));
+    s.step(W2, newTopic('Easy Pace', 'u3', { level: 2, relation: 'child_of_active', explicit_shift: true }));
+    return s;
+  };
+  for (const relation of ['child_of_active', 'sibling_of_active', 'child_of'] as const) {
+    it(`level 1 with relation ${relation} goes top-level`, () => {
+      const s = setup();
+      s.step(
+        W3,
+        newTopic('Shoes', 'u5', {
+          level: 1,
+          relation,
+          parent_node_id: relation === 'child_of' ? 'n1' : null,
+          explicit_shift: true,
+        }),
+      );
+      expect(s.node('Shoes')).toMatchObject({ level: 1, parentId: null });
+    });
+  }
+  it('level 2 sibling_of_active next to a level-2 idea stays under the same subtopic', () => {
+    const s = setup();
+    s.step(W3, newTopic('Intervals', 'u5', { level: 2, relation: 'sibling_of_active', explicit_shift: true }));
+    expect(s.node('Intervals')).toMatchObject({ level: 2, parentId: s.node('Training Plan').id });
+  });
+  it('level 2 sibling_of_active while a level-1 node is active becomes a level-1 sibling', () => {
+    const s = session();
+    s.step(W1, newTopic('Training Plan', 'u1', { explicit_shift: true }));
+    s.step(W2, newTopic('Shoes', 'u3', { level: 2, relation: 'sibling_of_active', explicit_shift: true }));
+    expect(s.node('Shoes')).toMatchObject({ level: 1, parentId: null });
+  });
+});
+
+describe('promise guard: wider phrasings and an adjacent quote id', () => {
+  it('accepts offers to act', () => {
+    expect(isCommitment('Sure, I can email it to you')).toBe(true);
+    expect(isCommitment("I'd send it but it's huge, happy to share the link")).toBe(true);
+    expect(isCommitment('Will do!')).toBe(true);
+    expect(isCommitment('I can see why you like it')).toBe(false);
+  });
+  it('accepts a promise whose quote id is one off', () => {
+    const s = session();
+    s.step([utt(1, 'can you send me the recipe?', 0), utt(2, "Sure, I'll send it tonight", 4_000)], {
+      ...newTopic('Recipe', 'u1'),
+      intentions: [{ kind: 'promise', label: 'Send the recipe tonight', quote_utterance: 'u1' }],
+    });
+    expect(s.state.commitments).toHaveLength(1);
   });
 });

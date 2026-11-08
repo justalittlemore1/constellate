@@ -39,6 +39,11 @@ export interface Expect {
   pending?: { keywords: string[]; raisedAt: string; final: 'unexplored' | 'resolved'; resolvedAt?: string }[];
   commitments?: { keywords: string[]; at: string }[];
   maxChildlessLevel1Ms?: number;
+  /**
+   * Check names (or prefixes, e.g. "nesting") reported as metrics but not deciding pass/fail,
+   * when the scenario's pass condition in docs/PLAN.md does not include them.
+   */
+  metricsOnly?: string[];
 }
 
 export function loadFixtures(only?: string[]): TranscriptFixture[] {
@@ -69,6 +74,25 @@ export interface RunResult {
   records: DecisionRecord[];
   durationMs: number;
   error: string | null;
+  /** set when embeddings were unavailable (daily cap, quota) */
+  embedNote?: string;
+}
+
+export interface RunOptions {
+  keepPrompts?: boolean;
+  /**
+   * Batched embedding (AGENTS.md › API budget): after a pass, embed every text that missed the cache
+   * in one request and return how many were embedded; the fixture is re-run while that is > 0
+   * (Claude answers for unchanged prompts are served from the recordings).
+   */
+  flushEmbeddings?: () => Promise<number>;
+  maxPasses?: number;
+  /**
+   * The LLM client for pass n (from 1). --resample uses a fresh-sampling client for pass 1 only and
+   * reuses those answers afterwards, so extra passes do not re-sample Claude (which would invent
+   * new node labels and spend more embeddings).
+   */
+  llmForPass?: (pass: number) => LlmClient;
 }
 
 export async function runFixture(
@@ -76,7 +100,39 @@ export async function runFixture(
   llm: LlmClient,
   embed: (texts: string[]) => Promise<number[][]>,
   model: string,
-  opts: { keepPrompts?: boolean } = {},
+  opts: RunOptions = {},
+): Promise<RunResult> {
+  const maxPasses = opts.flushEmbeddings ? (opts.maxPasses ?? 5) : 1;
+  const pick = (pass: number) => opts.llmForPass?.(pass) ?? llm;
+  let result = await runOnce(fixture, pick(1), embed, model, opts);
+  for (let pass = 2; pass <= maxPasses; pass++) {
+    let embedded = 0;
+    try {
+      embedded = (await opts.flushEmbeddings?.()) ?? 0;
+    } catch (e) {
+      // cap reached or quota: keep the degraded result (no revisit candidates where vectors are missing)
+      result = { ...result, embedNote: e instanceof Error ? e.message : String(e) };
+      break;
+    }
+    if (embedded === 0) break;
+    result = await runOnce(fixture, pick(pass), embed, model, opts);
+  }
+  if (opts.flushEmbeddings) {
+    try {
+      await opts.flushEmbeddings(); // vectors first needed in the last pass (e.g. the final node batch)
+    } catch {
+      // ignore: only affects the next run's cache
+    }
+  }
+  return result;
+}
+
+async function runOnce(
+  fixture: TranscriptFixture,
+  llm: LlmClient,
+  embed: (texts: string[]) => Promise<number[][]>,
+  model: string,
+  opts: RunOptions,
 ): Promise<RunResult> {
   const clock = new VirtualClock();
   const deps = memoryDeps(clock, embed);
@@ -344,10 +400,12 @@ export function score(run: RunResult): Score {
     );
   }
 
+  const metricOnly = (c: Check) => (ex.metricsOnly ?? []).some((m) => c.name === m || c.name.startsWith(`${m} `));
+  for (const c of checks) if (metricOnly(c)) c.name = `${c.name} (metric only)`;
   const minutes = run.durationMs / 60_000;
   return {
     id: run.fixture.id,
-    pass: checks.every((c) => c.pass),
+    pass: checks.every((c) => c.pass || c.name.endsWith('(metric only)')),
     checks,
     topics: topics.length,
     nodesPerMin: minutes > 0 ? topics.length / minutes : 0,

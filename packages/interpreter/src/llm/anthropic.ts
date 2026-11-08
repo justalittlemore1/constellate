@@ -13,11 +13,14 @@ export interface AnthropicClientOptions {
   client?: Anthropic;
 }
 
-function tuning(
+/** Request settings per model; part of the eval recording key so a settings change is never served stale answers. */
+export function tuning(
   model: string,
 ): Pick<Anthropic.MessageCreateParamsNonStreaming, 'max_tokens' | 'thinking' | 'output_config'> {
   if (model === MODELS.interpreter.anthropic) {
-    return { max_tokens: 2_000, thinking: { type: 'disabled' }, output_config: { effort: 'low' } };
+    // adaptive thinking at low effort: thinking off made level and revisit judgements unreliable,
+    // and latency stays well inside the 3 s gate (see eval reports)
+    return { max_tokens: 4_000, thinking: { type: 'adaptive' }, output_config: { effort: 'low' } };
   }
   return { max_tokens: 16_000, output_config: { effort: 'medium' } };
 }

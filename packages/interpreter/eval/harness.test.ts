@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MODELS } from '@constellate/shared';
-import { createReplayClient, createReplayEmbedder, newReplayStore } from '../src/llm';
+import { tuning } from '../src/llm/anthropic';
+import { createReplayClient, createReplayEmbedder, llmFile, newReplayStore } from '../src/llm';
 import { bagEmbed, dec, scriptedLlm, windowIdsOf } from '../src/test-utils';
 import type { Decision } from '../src/decision';
 import { loadFixtures, outline, renderReport, runFixture, score } from './harness';
@@ -133,17 +133,14 @@ describe('eval harness scoring', () => {
   });
 });
 
-// Deterministic replay of the committed recordings (no API keys). Runs in CI via `pnpm test`.
+// Replays the committed recordings with no network (AGENTS.md: CI never calls a real API).
 describe('eval replay', () => {
-  const models = [MODELS.interpreter.anthropic].filter((m) =>
-    existsSync(join(RECORDINGS, m.replace(/[^a-zA-Z0-9._-]/g, '_'))),
-  );
-  // Visible as "todo" in the test output until the first live `pnpm eval` commits recordings.
-  if (models.length === 0) it.todo('replays committed recordings (none yet: run `pnpm eval` with API keys)');
+  const models = [MODELS.interpreter.anthropic].filter((m) => existsSync(llmFile(RECORDINGS, m)));
+  if (models.length === 0) it.todo('replays committed recordings (none yet: run `pnpm eval`)');
   for (const model of models) {
     it(`replays every fixture for ${model} with no LLM or embedding cache miss`, async () => {
       const store = newReplayStore();
-      const llm = createReplayClient(null, RECORDINGS, 'replay', store);
+      const llm = createReplayClient(null, RECORDINGS, 'replay', store, tuning);
       const emb = createReplayEmbedder(null, RECORDINGS, 'replay', store);
       for (const f of loadFixtures()) {
         const run = await runFixture(f, llm, emb, model);
@@ -203,5 +200,23 @@ describe('eval scoring: proximity and one-to-one matching', () => {
       },
     };
     expect(score(twice).checks.find((x) => x.name === 'commitments')!.pass).toBe(false);
+  });
+});
+
+describe('batched passes', () => {
+  it('re-runs a fixture after embedding its misses, with the pass-specific LLM client', async () => {
+    const [f01] = loadFixtures(['01']);
+    const passes: number[] = [];
+    const flushes = [1, 0];
+    const llm = oracle({ u1: topic('Canucks Game', 'u1'), u6: topic('Friday Concert', 'u6') });
+    const run = await runFixture(f01!, llm, embed, 'test', {
+      flushEmbeddings: async () => flushes.shift() ?? 0,
+      llmForPass: (pass) => {
+        passes.push(pass);
+        return llm;
+      },
+    });
+    expect(passes).toEqual([1, 2]);
+    expect(score(run).pass).toBe(true);
   });
 });

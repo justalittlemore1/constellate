@@ -102,6 +102,7 @@ describe('embed a node only when created', () => {
       await interp.idle();
     }
     expect(llm.calls).toHaveLength(3);
+    await interp.stop(); // queued node embeddings go out in the final batch
     const nodeTexts = embedded.flat().filter((t) => t.startsWith('Hockey.'));
     expect(nodeTexts).toEqual(['Hockey. s']);
     expect(Object.values(deps.state.nodes)[0]!.summary).toBe('a refined one-liner');
@@ -119,7 +120,7 @@ describe('Gemini embedder', () => {
         },
       },
     } as unknown as GoogleGenAI;
-    const vs = await createGeminiEmbedder({ ai })(['a', 'b', 'c']);
+    const vs = await createGeminiEmbedder({ ai, cap: null })(['a', 'b', 'c']);
     expect(vs).toHaveLength(3);
     expect(calls).toHaveLength(1);
     expect((calls[0] as { contents: unknown[] }).contents).toEqual([
@@ -138,7 +139,7 @@ describe('Gemini embedder', () => {
         },
       },
     } as unknown as GoogleGenAI;
-    await expect(createGeminiEmbedder({ ai })(['a'])).rejects.toThrow(/429/);
+    await expect(createGeminiEmbedder({ ai, cap: null })(['a'])).rejects.toThrow(/429/);
     expect(geminiUsage()[MODELS.embed]).toEqual({ requests: 1, items: 1, throttled: 1 });
   });
 });

@@ -18,6 +18,8 @@ import { createLlmClient, interpreterModel, providerFromEnv } from './llm';
 import { withTimeout } from './llm/errors';
 import type { LlmClient } from './llm/types';
 import {
+  cleanLabel,
+  cleanSummary,
   emptyMemory,
   effectiveActiveId,
   parkOps,
@@ -76,6 +78,9 @@ export function livePrompt(): string {
   return cachedPrompt;
 }
 
+/** The text a node is embedded with. */
+export const nodeText = (label: string, summary: string) => `${label}. ${summary}`;
+
 export function cosine(a: readonly number[], b: readonly number[]): number {
   let dot = 0;
   for (let i = 0; i < a.length && i < b.length; i++) dot += a[i]! * b[i]!;
@@ -85,12 +90,15 @@ export function cosine(a: readonly number[], b: readonly number[]): number {
 export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOptions = {}): TestableInterpreter {
   const provider = opts.provider ?? providerFromEnv();
   if (provider === 'gemini') {
-    deps.log?.('interpreter.provider.ignored', { requested: 'gemini', using: 'anthropic' });
+    deps.log?.('interpreter.provider.ignored', {
+      requested: 'gemini',
+      using: 'anthropic',
+      reason: 'Gemini text models are off-budget',
+    });
   }
   const model = opts.model ?? interpreterModel(provider);
-  if (model.startsWith('gemini')) {
+  if (model.startsWith('gemini'))
     throw new Error(`refusing Gemini text model ${model}: reasoning runs on Claude (AGENTS.md › API budget)`);
-  }
   let llm = opts.llm ?? null;
   const getLlm = () => (llm ??= createLlmClient(provider));
   const scheduler = opts.scheduler ?? realScheduler;
@@ -103,7 +111,12 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
   let memory: GateMemory = emptyMemory();
   let rollingSummary = '';
   const creations: NodeCreation[] = [];
+  /** node id → embedding of `label. summary` (also saved through deps.saveEmbedding) */
   const embeddings = new Map<string, number[]>();
+  /** node texts waiting to ride along with the next embedding request (AGENTS.md › API budget) */
+  const pendingEmbeds = new Map<string, string>();
+  /** text → vector, so no text is ever embedded twice in a session */
+  const memo = new Map<string, number[]>();
   const tasks = new Set<Promise<unknown>>();
 
   let running: Promise<void> | null = null;
@@ -142,12 +155,52 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
     }, ms);
   }
 
+  /**
+   * One embedding request for `extra` plus every queued node text (deduplicated, memoised), then
+   * save the node vectors. Returns the vectors for `extra`, or null if the request failed (e.g. a
+   * 429): the caller degrades and the queued nodes wait for the next request.
+   */
+  async function embedBatch(extra: string[]): Promise<number[][] | null> {
+    const queued = [...pendingEmbeds];
+    const texts = [...new Set([...extra, ...queued.map(([, t]) => t)])].filter((t) => !memo.has(t));
+    try {
+      if (texts.length > 0) {
+        const vs = await deps.embed(texts);
+        texts.forEach((t, i) => {
+          const v = vs[i];
+          if (v) memo.set(t, v);
+        });
+      }
+      await Promise.all(
+        queued.map(async ([id, t]) => {
+          const v = memo.get(t);
+          if (!v || pendingEmbeds.get(id) !== t) return;
+          pendingEmbeds.delete(id);
+          embeddings.set(id, v);
+          await deps.saveEmbedding(id, v);
+        }),
+      );
+      return extra.map((t) => memo.get(t) ?? []);
+    } catch (e) {
+      log('interpreter.embed.error', { message: String(e), texts: texts.length, degraded: true });
+      return null;
+    }
+  }
+
+  function queueEmbeds(state: GraphState, ids: string[]) {
+    for (const id of ids) {
+      const n = state.nodes[id];
+      if (n) pendingEmbeds.set(id, nodeText(n.label, n.summary));
+    }
+  }
+
   async function revisitCandidates(state: GraphState, batch: Utterance[]) {
     const topics = Object.values(state.nodes).filter((n) => n.kind === 'topic');
     if (topics.length < 2) return [];
     try {
-      const [v] = await deps.embed([batch.map((u) => u.text).join(' ')]);
-      if (!v) return [];
+      const vs = await embedBatch([batch.map((u) => u.text).join(' ')]);
+      const v = vs?.[0];
+      if (!v || v.length === 0) return [];
       const exclude = effectiveActiveId(state, memory) ?? undefined;
       const matches = await deps.matchNodes(v, INTERPRETER.revisitCandidateK, exclude);
       return matches.filter(
@@ -161,40 +214,20 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
 
   async function autoResolve(state: GraphState, d: Decision): Promise<string[]> {
     if (d.action !== 'new_topic' || !d.new_topic) return [];
-    const open = Object.values(state.nodes).filter(
-      (n) => n.kind !== 'topic' && n.status === 'active' && embeddings.has(n.id),
-    );
-    if (open.length === 0) return [];
+    const open = () => Object.values(state.nodes).filter((n) => n.kind !== 'topic' && n.status === 'active');
+    if (open().length === 0) return [];
     try {
-      const [v] = await deps.embed([`${d.new_topic.label}. ${d.new_topic.summary}`]);
-      if (!v) return [];
-      return open.filter((n) => cosine(v, embeddings.get(n.id)!) >= INTERPRETER.pendingAutoResolveMin).map((n) => n.id);
+      // same text the new node will be embedded with, so this vector is reused (memo) afterwards
+      const vs = await embedBatch([nodeText(cleanLabel(d.new_topic.label), cleanSummary(d.new_topic.summary))]);
+      const v = vs?.[0];
+      if (!v || v.length === 0) return [];
+      return open()
+        .filter((n) => embeddings.has(n.id) && cosine(v, embeddings.get(n.id)!) >= INTERPRETER.pendingAutoResolveMin)
+        .map((n) => n.id);
     } catch (e) {
       log('interpreter.autoresolve.error', { message: String(e) });
       return [];
     }
-  }
-
-  function embedNodes(state: GraphState, ids: string[]) {
-    const nodes = ids.map((id) => state.nodes[id]).filter((n) => n !== undefined);
-    if (nodes.length === 0) return;
-    void track(
-      (async () => {
-        try {
-          const vs = await deps.embed(nodes.map((n) => `${n.label}. ${n.summary}`));
-          await Promise.all(
-            nodes.map(async (n, i) => {
-              const v = vs[i];
-              if (!v) return;
-              embeddings.set(n.id, v);
-              await deps.saveEmbedding(n.id, v);
-            }),
-          );
-        } catch (e) {
-          log('interpreter.embed.error', { message: String(e) });
-        }
-      })(),
-    );
   }
 
   async function run(reason: TriggerReason): Promise<void> {
@@ -304,7 +337,7 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       record.opCount = result.ops.length;
       record.warnings = result.warnings;
       if (result.ops.length > 0) deps.emit(result.ops);
-      embedNodes(deps.getState(), result.touched);
+      queueEmbeds(deps.getState(), result.touched);
     } catch (e) {
       record.error = e instanceof Error ? e.message : String(e);
       log('interpreter.error', { message: record.error });
@@ -342,7 +375,7 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       const r = parkOps(deps.getState(), memory, text, atMs, deps.newId);
       memory = r.memory;
       deps.emit(r.ops);
-      embedNodes(deps.getState(), [r.nodeId]);
+      queueEmbeds(deps.getState(), [r.nodeId]);
     },
     async stop() {
       if (pauseTimer !== null) scheduler.clearTimeout(pauseTimer);
@@ -355,6 +388,8 @@ export function createInterpreter(deps: InterpreterDeps, opts: InterpreterOption
       const r = stopOps(deps.getState(), memory, endMs, deps.newId);
       memory = r.memory;
       if (r.ops.length > 0) deps.emit(r.ops);
+      // every node needs an embedding (revisits next time, the Brain build): one final batch
+      if (pendingEmbeds.size > 0) await embedBatch([]);
     },
     idle,
   };
