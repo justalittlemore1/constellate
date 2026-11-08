@@ -154,7 +154,7 @@ test.describe('Main loop: Mock mode E2E', () => {
     await expect(parkDialog).toBeVisible();
   });
 
-  test('Step 5: Stop recording and see summary before exit', async ({ page }) => {
+  test('Step 5: Stop recording and land on the diary', async ({ page }) => {
     await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
 
     const placeholder = page.getByText(/Placeholder — built by A6 \+ A3/i);
@@ -169,10 +169,12 @@ test.describe('Main loop: Mock mode E2E', () => {
 
     const stopButton = page.getByRole('button', { name: 'Stop', exact: true });
     const hasStopBtn = await stopButton.isVisible().catch(() => false);
-    test.fixme(!hasStopBtn, 'Owned by A6: Stop recording and Before you go banner not yet implemented');
+    test.fixme(!hasStopBtn, 'Owned by A6: Stop recording button not found');
 
     await stopButton.click();
-    await expect(page.getByText(/before you go/i)).toBeVisible();
+    await expect(page).toHaveURL(/diary=1/, { timeout: 15_000 });
+    const diaryDialog = page.getByRole('dialog', { name: 'Diary' });
+    await expect(diaryDialog).toBeVisible({ timeout: 10_000 });
   });
 
   test('Step 6: Reopen saved conversation map at /c/:id', async ({ page }) => {
