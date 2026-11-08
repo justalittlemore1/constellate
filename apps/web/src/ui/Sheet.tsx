@@ -18,6 +18,12 @@ export interface SheetProps {
   testId?: string;
 }
 
+/**
+ * A bottom sheet is attached to the bottom edge and never taller than this share of the phone
+ * (the PhoneFrame on desktop, the viewport on phones); longer content scrolls inside it.
+ */
+export const BOTTOM_SHEET_MAX_HEIGHT = '58%';
+
 /** The PhoneFrame provides `#overlay-root` so sheets stay inside the phone on desktop. */
 export function overlayRoot(): HTMLElement {
   return document.getElementById('overlay-root') ?? document.body;
@@ -64,9 +70,11 @@ export function Sheet({ open, onClose, title, side = 'bottom', header, children,
           // star-chart frame: square corners, --thread top hairline, corner ticks (see ui/StarFrame)
           'surface star-frame absolute flex flex-col text-ink outline-none',
           side === 'bottom'
-            ? 'sheet-up inset-x-0 bottom-0 max-h-[88%] pb-[env(safe-area-inset-bottom)]'
+            ? 'sheet-up inset-x-0 bottom-0 pb-[env(safe-area-inset-bottom)]'
             : 'sheet-left inset-y-0 left-0 w-[86%] max-w-[360px] border-r border-r-line pt-[env(safe-area-inset-top)]',
         )}
+        style={side === 'bottom' ? { maxHeight: BOTTOM_SHEET_MAX_HEIGHT } : undefined}
+        data-side={side}
       >
         <div className="flex items-center justify-between gap-2 border-b border-line px-5 pt-3 pb-2">
           <h2 id={titleId} className="min-w-0 truncate text-xl font-semibold tracking-wide">
@@ -77,9 +85,20 @@ export function Sheet({ open, onClose, title, side = 'bottom', header, children,
           </IconButton>
         </div>
         {header && <div className="px-5 py-3">{header}</div>}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pt-4 pb-8">{children}</div>
+        <div data-sheet-body className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-8">
+          {children}
+        </div>
       </div>
     </div>,
     container,
   );
+}
+
+/**
+ * The bottom sheet (A6: consent, Before you go, flag note): attached to the bottom, capped at
+ * `BOTTOM_SHEET_MAX_HEIGHT` with its content scrolling inside, star-chart frame, scrim tap or
+ * Escape to close, focus trapped and returned to the opener.
+ */
+export function BottomSheet(props: Omit<SheetProps, 'side'>) {
+  return <Sheet {...props} side="bottom" />;
 }

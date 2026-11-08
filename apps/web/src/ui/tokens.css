@@ -10,6 +10,8 @@
   /* editorial hairline: --text at ~15 % alpha */
   --border: rgba(232, 236, 248, 0.15);
   --hairline: 1px solid var(--border);
+  /* the one hover / press effect app-wide (ui: .hover-wash): a grey wash, ~7.5 % white on dark */
+  --fill-ghost-hover: rgba(255, 255, 255, 0.075);
   --text: #e8ecf8;
   --text-2: #a3acc8;
 
@@ -19,9 +21,9 @@
   --highlight: #ffd84d; /* highlighted nodes and branches */
   --flag: #ff7a90; /* flag pins */
 
-  --font: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font: 'Fraunces Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   /* display face for headings and canvas labels (A3's map reads it); self-hosted, see main.tsx */
-  --font-display: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  --font-display: 'Fraunces Variable', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
   /* star-chart frame (ui/StarFrame): top hairline and corner ticks in --thread at ~60 % */
   --frame-line: rgba(255, 196, 107, 0.6);
   --frame-tick: 10px;

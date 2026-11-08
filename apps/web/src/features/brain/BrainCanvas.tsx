@@ -112,7 +112,9 @@ export function BrainCanvas({
     charge?.strength?.(-60);
     let nodes: N[] = [];
     const collide = Object.assign(
-      (alpha: number) => separateFootprints(nodes, (n) => footprints.get(String(n.id))!, Math.min(1, alpha * 4)),
+      (alpha: number) =>
+        // keep a floor so labels still separate as the simulation cools
+        separateFootprints(nodes, (n) => footprints.get(String(n.id))!, Math.max(0.35, Math.min(1, alpha * 4))),
       { initialize: (ns: N[]) => void (nodes = ns) },
     );
     g.d3Force('collide', collide);

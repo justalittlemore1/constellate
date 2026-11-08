@@ -99,7 +99,7 @@ importers:
       '@constellate/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@fontsource/cormorant-garamond':
+      '@fontsource-variable/fraunces':
         specifier: ^5.3.0
         version: 5.3.0
       '@supabase/supabase-js':
@@ -1024,8 +1024,8 @@ packages:
   '@fastify/websocket@11.3.7':
     resolution: {integrity: sha512-fkkS87CkAOY/MzvJrB94S729RxvIbLHXv2LNGkPifli4/q4IdeicpcFoxgJ3oVmIRVNSi4W6FZai5AmRhzhhTw==}
 
-  '@fontsource/cormorant-garamond@5.3.0':
-    resolution: {integrity: sha512-weuGsCirGVWBWqpt6YUp0yLThTe4G8YO45noq8wxeJCRvEpq5lFrxNMFSTxcyOyV5k5otzJ8guDzYegdYlcLMQ==}
+  '@fontsource-variable/fraunces@5.3.0':
+    resolution: {integrity: sha512-9BYGySn4AHEJdgp9Z28tQ3X+laJMEOITXkQarZXeloWQZDq5oOvXJ3kDA8c7MGIfpogIaZfjrQBqmda8POOCKA==}
 
   '@google/genai@3.0.0':
     resolution: {integrity: sha512-0o2uBXPWBNUu0jWg2Id5iBtCnsd7lnxKPQfnijKvNublG/zj40CToERvz/eyfNjzzXt2kwuvxpouLUrRCZ2WUQ==}
@@ -4612,7 +4612,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@fontsource/cormorant-garamond@5.3.0': {}
+  '@fontsource-variable/fraunces@5.3.0': {}
 
   '@google/genai@3.0.0':
     dependencies:

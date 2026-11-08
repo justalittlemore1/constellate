@@ -37,6 +37,9 @@ export const UI_FLAG_DEFAULTS = {
   /** Brain: the regenerate icon in the header (replaced by the on-page Generate button) */
   brainHeaderRegenerate: false,
 
+  /** Brain: wave 2's comet trail / line / stardust links (replaced by classic constellation lines) */
+  brainCometLinks: false,
+
   /** Diary: recall cards */
   diaryRecallCards: false,
 } as const;
