@@ -7,10 +7,10 @@ import { renderApp } from '../test/render';
 
 // Stand in for A3's SavedMap and record the controlled props this screen passes it
 // (`view` / `onViewChange` / `revealHold`, being added in A3's PR).
-const calls: { view?: string; revealHold?: boolean; onViewChange?: (v: 'map' | 'outline') => void }[] = [];
+const calls: { view?: string; revealHold?: boolean; onViewChange?: (v: 'map' | 'list') => void }[] = [];
 vi.mock('../features/map', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../features/map')>()),
-  SavedMap: (props: { view?: string; revealHold?: boolean; onViewChange?: (v: 'map' | 'outline') => void }) => {
+  SavedMap: (props: { view?: string; revealHold?: boolean; onViewChange?: (v: 'map' | 'list') => void }) => {
     calls.push(props);
     return <div data-testid="saved-map" data-view={props.view} data-hold={String(props.revealHold)} />;
   },
@@ -43,7 +43,7 @@ describe('/c/:id "Text view" button (as on the Brain)', () => {
     expect(textView).toHaveClass('size-11', 'hover-wash');
   });
 
-  it('opens the nodes as a list (A3’s outline) and toggles back to the map', async () => {
+  it('opens the nodes as a list (A3’s view="list", the outline) and toggles back to the map', async () => {
     const user = userEvent.setup();
     renderApp({ route: `/c/${demo.conversation.id}` });
     await screen.findByTestId('saved-map');
@@ -52,7 +52,7 @@ describe('/c/:id "Text view" button (as on the Brain)', () => {
     expect(map()).toHaveAttribute('data-view', 'map');
     await user.click(textView);
     expect(textView).toHaveAttribute('aria-pressed', 'true');
-    expect(map()).toHaveAttribute('data-view', 'outline');
+    expect(map()).toHaveAttribute('data-view', 'list');
     await user.click(textView);
     expect(map()).toHaveAttribute('data-view', 'map');
   });
@@ -61,7 +61,7 @@ describe('/c/:id "Text view" button (as on the Brain)', () => {
     renderApp({ route: `/c/${demo.conversation.id}` });
     await screen.findByTestId('saved-map');
     const { act } = await import('@testing-library/react');
-    act(() => calls.at(-1)!.onViewChange!('outline'));
+    act(() => calls.at(-1)!.onViewChange!('list'));
     expect(screen.getByRole('button', { name: 'Text view' })).toHaveAttribute('aria-pressed', 'true');
   });
 });

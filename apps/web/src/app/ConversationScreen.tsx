@@ -4,21 +4,24 @@ import { useState, type ComponentType } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { DiarySheet } from '../features/library/DiarySheet';
 import { useGraph } from '../features/library/queries';
-import { SavedMap, type MapView } from '../features/map';
+import { SavedMap } from '../features/map';
 import { formatDate, formatDuration } from '../lib/format';
 import { uiFlag } from '../lib/uiFlags';
 import { IconButton, ScreenHeader } from '../ui';
 
 /**
- * Local adapter for A3's controlled `SavedMap` props (being added in A3's PR): `view` /
- * `onViewChange` (map ↔ outline, the names `ConversationMap` already uses) and `revealHold` (an
- * empty sky until it flips to false, then the one-by-one reveal). Until A3's PR lands, the
- * current `SavedMap` ignores them; once it does they take effect with no change here.
+ * Local adapter for A3's controlled `SavedMap` props (A3 PR #72): `view` / `onViewChange`
+ * (`'map' | 'list'`, A3's `SavedMapView`; `'list'` shows the outline, and A3's own focus-only Text
+ * view link reports through `onViewChange` too) and `revealHold` (an empty sky while true; the
+ * reveal starts from the beginning when it flips to false). Until #72 lands the current
+ * `SavedMap` ignores them; then switch to A3's exported type and turn on
+ * `uiFlags.conversationTextView`.
  */
+type SavedMapView = 'map' | 'list';
 type SavedMapControls = {
   graph: GraphState;
-  view?: MapView;
-  onViewChange?: (view: MapView) => void;
+  view?: SavedMapView;
+  onViewChange?: (view: SavedMapView) => void;
   revealHold?: boolean;
 };
 const ControlledSavedMap = SavedMap as ComponentType<SavedMapControls>;
@@ -37,7 +40,7 @@ export function ConversationScreen() {
   // after a recording (A6 sends you to ?diary=1) the constellation waits until the diary is closed
   // the first time; arriving without the diary reveals at once; reopening it never re-hides the map
   const [revealedOnce, setRevealedOnce] = useState(!arrivedWithDiary);
-  const [view, setView] = useState<MapView>('map');
+  const [view, setView] = useState<SavedMapView>('map');
   const closeDiary = () => {
     setDiaryOpen(false);
     setRevealedOnce(true);
@@ -72,10 +75,10 @@ export function ConversationScreen() {
             {uiFlag('conversationTextView') && (
               <IconButton
                 label="Text view"
-                aria-pressed={view === 'outline'}
+                aria-pressed={view === 'list'}
                 disabled={!g}
-                onClick={() => setView(view === 'outline' ? 'map' : 'outline')}
-                className={view === 'outline' ? 'text-thread' : 'text-ink-2'}
+                onClick={() => setView(view === 'list' ? 'map' : 'list')}
+                className={view === 'list' ? 'text-thread' : 'text-ink-2'}
               >
                 <List aria-hidden size={20} />
               </IconButton>
