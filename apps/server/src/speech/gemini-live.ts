@@ -1,4 +1,5 @@
-import { GoogleGenAI, Modality, type LiveServerMessage, type Session } from '@google/genai';
+import { Modality, type LiveServerMessage, type Session } from '@google/genai';
+import { isRateLimit, type GeminiGateway } from '../ai/gemini';
 import { AUDIO_SAMPLE_RATE, MODELS, type Ms } from '@constellate/shared';
 import type { SpeechSegment } from './types';
 import type { Upstream } from './rotating';
@@ -52,7 +53,8 @@ export class LiveUtteranceTimer {
 }
 
 export interface GeminiLiveOptions {
-  ai: GoogleGenAI;
+  /** the shared, counting client (never a raw GoogleGenAI) */
+  gateway: Pick<GeminiGateway, 'liveConnect' | 'noteRateLimited'>;
   nowMs(): Ms;
   log?(event: string, data?: Record<string, unknown>): void;
   /** how long stop() waits for the final of an open utterance */
@@ -74,8 +76,7 @@ export class GeminiLiveUpstream implements Upstream {
 
   async start(onSegment: (s: SpeechSegment) => void, onClosed: (reason: string) => void): Promise<void> {
     this.onSegment = onSegment;
-    this.session = await this.opts.ai.live.connect({
-      model: MODELS.sttLive,
+    this.session = await this.opts.gateway.liveConnect({
       config: {
         responseModalities: [Modality.TEXT],
         inputAudioTranscription: {},
@@ -86,6 +87,8 @@ export class GeminiLiveUpstream implements Upstream {
         onclose: (e) => {
           this.open = false;
           this.finalWaiter?.();
+          // a quota close starts the shared cool-down, so the reconnect backs off instead of retrying hot
+          if (isRateLimit({ code: e?.code, reason: e?.reason })) this.opts.gateway.noteRateLimited(MODELS.sttLive, e);
           if (!this.stopping) onClosed(e?.reason || 'closed');
         },
       },

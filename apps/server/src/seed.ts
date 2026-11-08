@@ -11,7 +11,7 @@
 import type { ServerMsg } from '@constellate/shared';
 import { rebuildBrain, type RebuildResult } from './brain/rebuild';
 import { createDefaultDeps, type ServerDeps } from './deps';
-import { loadEnv, type Env } from './env';
+import { forceClaudeReasoning, loadEnv, type Env } from './env';
 import { Finalizer, type FinalizeOutcome } from './finalize/finalizer';
 import { LiveSession, type LiveDeps, type Log } from './live/session';
 
@@ -29,6 +29,7 @@ export function createRuntime(
   const log: Log = (event, data) => {
     if (env.LOG_LEVEL !== 'silent') console.log(event, data ?? {});
   };
+  forceClaudeReasoning(env, (msg) => console.warn(msg));
   const deps = createDefaultDeps(env, log, overrides);
   return { deps, finalizer: new Finalizer({ ...deps, log }), log };
 }

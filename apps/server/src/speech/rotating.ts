@@ -53,6 +53,9 @@ export class RotatingSpeechAdapter implements SpeechAdapter {
   private stopping = false;
   private onSegment: (s: SpeechSegment) => void = () => {};
   private readonly limits: RotationLimits;
+  private unloggedDrop = 0;
+  private lastDropLog = 0;
+  private wake: (() => void) | null = null;
   droppedBytes = 0;
   rotations = 0;
 
@@ -81,7 +84,14 @@ export class RotatingSpeechAdapter implements SpeechAdapter {
     }
     if (dropped) {
       this.droppedBytes += dropped;
-      this.opts.log?.('speech.backpressure.drop', { droppedMs: dropped / AUDIO_BYTES_PER_MS });
+      this.unloggedDrop += dropped;
+      const now = Date.now();
+      if (now - this.lastDropLog >= 1_000) {
+        // at most once a second, with the total since the last line
+        this.opts.log?.('speech.backpressure.drop', { droppedMs: this.unloggedDrop / AUDIO_BYTES_PER_MS });
+        this.unloggedDrop = 0;
+        this.lastDropLog = now;
+      }
     }
     this.drain();
     this.maybeRotate();
@@ -89,6 +99,7 @@ export class RotatingSpeechAdapter implements SpeechAdapter {
 
   async stop(): Promise<void> {
     this.stopping = true;
+    this.wake?.();
     if (this.rotation) await this.rotation;
     this.drain();
     const up = this.current;
@@ -140,6 +151,7 @@ export class RotatingSpeechAdapter implements SpeechAdapter {
       this.opts.onReconnecting?.();
     }, this.opts.reconnectNoticeMs ?? 1_000);
     const delays = this.opts.retryDelaysMs ?? [250, 500, 1_000, 2_000, 4_000];
+    let rateLimitNoticeSent = false;
     try {
       for (let attempt = 0; ; attempt++) {
         const next = this.opts.factory();
@@ -147,12 +159,23 @@ export class RotatingSpeechAdapter implements SpeechAdapter {
           await next.start(this.onSegment, (reason) => this.handleClosed(next, reason));
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
+          const retryAfterMs = (err as { retryAfterMs?: unknown }).retryAfterMs;
+          if (typeof retryAfterMs === 'number' && !this.stopping) {
+            // quota: back off as told and keep trying (the old upstream, if any, keeps transcribing)
+            if (!rateLimitNoticeSent) this.opts.onError?.('speech provider is rate-limited; retrying', false);
+            rateLimitNoticeSent = true;
+            this.opts.log?.('speech.upstream.rate_limited', { retryAfterMs });
+            await this.sleep(retryAfterMs);
+            if (this.stopping) return;
+            attempt--;
+            continue;
+          }
           this.opts.log?.('speech.upstream.open_failed', { attempt, message });
           if (attempt >= delays.length || this.stopping) {
             this.opts.onError?.(`speech provider unavailable: ${message}`, false);
             return;
           }
-          await new Promise((r) => setTimeout(r, delays[attempt]));
+          await this.sleep(delays[attempt]!);
           continue;
         }
         const old = this.current;
@@ -168,5 +191,20 @@ export class RotatingSpeechAdapter implements SpeechAdapter {
       clearTimeout(notice);
       if (noticed) this.opts.onRecovered?.();
     }
+  }
+
+  /** setTimeout that `stop()` cuts short */
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => {
+      const t = setTimeout(() => {
+        this.wake = null;
+        resolve();
+      }, ms);
+      this.wake = () => {
+        clearTimeout(t);
+        this.wake = null;
+        resolve();
+      };
+    });
   }
 }

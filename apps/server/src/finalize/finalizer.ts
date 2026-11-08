@@ -3,7 +3,7 @@ import type { GraphCell, GraphHub } from '../graph/hub';
 import type { Log } from '../live/session';
 import type { Store } from '../store/types';
 import { remapEvidence } from './remap';
-import { MAX_DIARIZED_MS, type FileTranscriber } from './transcribe';
+import { MAX_DIARIZED_MS, SttFileUnavailableError, type FileTranscriber } from './transcribe';
 
 export interface FinalizerDeps {
   store: Store;
@@ -155,7 +155,10 @@ export class Finalizer {
       if (ops.length) this.commit(cell, ops);
       return { kind: 'diarized', utterances: fresh };
     } catch (err) {
-      deps.log('finalize.transcription_failed', { conversationId: cid, message: errText(err) });
+      // unavailable model, 429/quota, or any provider error: keep the live transcript (speakers stay empty)
+      const event =
+        err instanceof SttFileUnavailableError ? 'finalize.diarization_unavailable' : 'finalize.transcription_failed';
+      deps.log(event, { conversationId: cid, message: errText(err) });
       return { kind: 'live', utterances: live };
     }
   }

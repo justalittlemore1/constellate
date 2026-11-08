@@ -1,5 +1,6 @@
-import { createPartFromUri, type GoogleGenAI, type Part } from '@google/genai';
-import { MODELS, type Ms } from '@constellate/shared';
+import type { Part } from '@google/genai';
+import type { Ms } from '@constellate/shared';
+import type { GeminiGateway } from '../ai/gemini';
 
 /** One speaker turn from the post-recording transcript. */
 export interface FileSegment {
@@ -53,26 +54,27 @@ export function partsToSegments(parts: readonly Part[]): FileSegment[] {
   return out;
 }
 
-/** `MODELS.sttFile` with diarization + word timestamps (verbatim mode, required for both). */
-export function geminiFileTranscriber(ai: GoogleGenAI): FileTranscriber {
+/** `MODELS.sttFile` with diarization + word timestamps, through the shared counting client. */
+export function geminiFileTranscriber(gateway: Pick<GeminiGateway, 'transcribeFile'>): FileTranscriber {
   return async (audio, mimeType) => {
-    const file = await ai.files.upload({
-      file: new Blob([new Uint8Array(audio)], { type: mimeType }),
-      config: { mimeType },
-    });
-    if (!file.uri) throw new Error('file upload returned no uri');
-    try {
-      const res = await ai.models.generateContent({
-        model: MODELS.sttFile,
-        contents: [createPartFromUri(file.uri, file.mimeType ?? mimeType)],
-        config: { audioTranscriptionConfig: { diarization: true, wordTimestamp: true, mode: 'VERBATIM' as never } },
-      });
-      const parts = res.candidates?.[0]?.content?.parts ?? [];
-      const segments = partsToSegments(parts);
-      if (!segments.length) throw new Error('transcription returned no segments');
-      return segments;
-    } finally {
-      if (file.name) await ai.files.delete({ name: file.name }).catch(() => {});
-    }
+    const segments = partsToSegments(await gateway.transcribeFile(audio, mimeType));
+    if (!segments.length) throw new Error('transcription returned no segments');
+    return segments;
+  };
+}
+
+/** MODELS.sttFile is not available to the key (startup `models.list` probe), so it was never called. */
+export class SttFileUnavailableError extends Error {
+  constructor() {
+    super('file transcription model is not available to this key');
+    this.name = 'SttFileUnavailableError';
+  }
+}
+
+/** Calls `inner` only once the startup probe has confirmed MODELS.sttFile exists. */
+export function gatedTranscriber(available: Promise<boolean>, inner: FileTranscriber): FileTranscriber {
+  return async (audio, mimeType) => {
+    if (!(await available)) throw new SttFileUnavailableError();
+    return inner(audio, mimeType);
   };
 }
