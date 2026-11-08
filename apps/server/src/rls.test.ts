@@ -14,7 +14,9 @@ import { createClient, type SupabaseClient, type User } from '@supabase/supabase
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// In CI and SETUP.md, the client anon secret is named SUPABASE_ANON_KEY (fallback to VITE_SUPABASE_ANON_KEY).
+// Never use SUPABASE_SERVICE_ROLE_KEY for clients A and B: the service role bypasses RLS.
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const userAEmail = process.env.TEST_USER_A_EMAIL || '';
 const userAPassword = process.env.TEST_USER_A_PASSWORD || '';
 const userBEmail = process.env.TEST_USER_B_EMAIL || '';
@@ -22,7 +24,7 @@ const userBPassword = process.env.TEST_USER_B_PASSWORD || '';
 
 const hasCredentials = Boolean(
   supabaseUrl &&
-    supabaseKey &&
+    supabaseAnonKey &&
     userAEmail &&
     userAPassword &&
     userBEmail &&
@@ -46,8 +48,8 @@ describe.skipIf(!hasCredentials)('Supabase Row Level Security (RLS) Isolation', 
   let storageFilePath = '';
 
   beforeAll(async () => {
-    clientA = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-    clientB = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+    clientA = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+    clientB = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
 
     const authA = await clientA.auth.signInWithPassword({
       email: userAEmail,

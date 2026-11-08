@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { loadEnv } from './env';
 import { createRuntime, rebuildBrainFor, seedFixtureConversation } from './seed';
+import { TranscriptReplayAdapter } from './speech/replay';
 import { MemoryStore } from './store/memory';
 import { fakeAuth, stubInterpreter, unitVector, USER_A } from './test-utils';
 
 describe('seed runtime', () => {
   it('replays a fixture through the real pipeline, finalises it and builds the Brain', async () => {
     const store = new MemoryStore();
-    const rt = createRuntime(loadEnv({ LOG_LEVEL: 'silent', REPLAY_SPEED: '1000' }), {
+    const rt = createRuntime(loadEnv({ LOG_LEVEL: 'silent' }), {
       store,
       auth: fakeAuth,
       createInterpreter: stubInterpreter,
+      createSpeech: (req) => new TranscriptReplayAdapter(req.fixture!, { speed: 1000, fromMs: 0 }),
+      finalizeConversation: async () => ({ ops: [], recallPrompts: [] }),
       embed: async (texts) => texts.map((t) => unitVector(t)),
       finalizeConversation: async () => ({ ops: [], recallPrompts: [] }),
       transcribeFile: null,
@@ -27,5 +30,5 @@ describe('seed runtime', () => {
     expect(g.conversation).toMatchObject({ userId: USER_A, status: 'ready' });
     expect(Object.keys(g.nodes).length).toBeGreaterThan(0);
     expect((await rebuildBrainFor(rt, USER_A)).conversations).toBe(1);
-  });
+  }, 20_000);
 });

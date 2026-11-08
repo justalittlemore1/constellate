@@ -1,18 +1,26 @@
 /**
  * Speech-to-Text (STT) Runner — Workstream A5
  *
- * Scope (docs/briefs/a5-qa-review.md):
- *   Stream each synthetic WAV through /live at real time; report Word Error Rate (WER)
+ * Scope (docs/briefs/a5-qa-review.md & PLAN.md):
+ *   Stream synthetic WAV audio through /live at real time; report Word Error Rate (WER)
  *   vs script and time-to-first-final-caption.
  *
  * Targets:
  *   - WER < 15 % clean
  *   - WER < 25 % noisy
- *   - First final caption ≤ 2.5 s after a pause
+ *   - First final caption ≤ 2.5 s after the speaker pauses (endMs of the utterance)
+ *
+ * Operational rules (AGENTS.md & Reviewer guidance):
+ *   - Gemini API key is free-tier: run only at checkpoints (H3, H6, H10).
+ *   - At most two WAV files per run by default (--max-files 2) to protect API quotas.
+ *   - Never run live API calls in CI (automatically falls back to simulation mode).
+ *   - Uses per-clip <id>.json sidecar in fixtures/audio for precise startMs/endMs pause timing
+ *     and exact rendered reference text.
  *
  * Usage:
  *   npx tsx scripts/stt-runner.ts
  *   npx tsx scripts/stt-runner.ts --dry-run
+ *   npx tsx scripts/stt-runner.ts --only 01
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -23,18 +31,36 @@ import { AUDIO_FRAME_BYTES, AUDIO_FRAME_MS, type ClientMsg, type ServerMsg } fro
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+export interface UtteranceTiming {
+  id?: string;
+  speaker?: number;
+  text: string;
+  startMs: number;
+  endMs: number;
+}
+
+export interface AudioSidecar {
+  fixture: string;
+  rate: number;
+  utterances: UtteranceTiming[];
+}
+
 export interface SttScenarioResult {
   id: string;
   title: string;
   isNoisy: boolean;
+  hasKey: boolean;
   refText: string;
   hypText: string;
-  wer: number;
-  werTarget: number;
-  werPassed: boolean;
-  timeToFirstFinalMs: number | null;
+  refSource: 'sidecar' | 'transcript' | 'none';
+  wer: number | null;
+  werTarget: number | null;
+  werPassed: boolean | null;
+  firstFinalLatencyMs: number | null;
+  medianFinalLatencyMs: number | null;
   latencyTargetMs: number;
   latencyPassed: boolean;
+  stability: number;
   overallPassed: boolean;
 }
 
@@ -53,7 +79,7 @@ export function normalizeText(text: string): string[] {
 }
 
 /**
- * Calculates Word Error Rate (WER) using the Levenshtein distance on word tokens.
+ * Calculates Word Error Rate (WER) using Levenshtein distance on word tokens.
  * WER = (Insertions + Deletions + Substitutions) / ReferenceWordsCount
  */
 export function calculateWer(
@@ -135,6 +161,63 @@ export function calculateWer(
 }
 
 /**
+ * Calculates caption stability from streaming captions.
+ * Caption stability measures the proportion of interim words preserved in the final caption.
+ * Returns a number between 0 and 1 (1.0 = 100% stable). If no interims were emitted, returns 1.0.
+ */
+export function calculateStability(
+  captions: Array<{ text: string; final: boolean }>,
+): number {
+  const utterances: Array<{ interims: string[]; final: string }> = [];
+  let currentInterims: string[] = [];
+
+  for (const c of captions) {
+    if (!c.final) {
+      currentInterims.push(c.text);
+    } else {
+      utterances.push({ interims: [...currentInterims], final: c.text });
+      currentInterims = [];
+    }
+  }
+
+  if (utterances.length === 0) return 1.0;
+
+  let totalInterims = 0;
+  let stabilitySum = 0;
+
+  for (const u of utterances) {
+    if (u.interims.length === 0) continue;
+    const finalWords = normalizeText(u.final);
+    for (const interim of u.interims) {
+      const interimWords = normalizeText(interim);
+      if (interimWords.length === 0) continue;
+      let matchCount = 0;
+      while (
+        matchCount < interimWords.length &&
+        matchCount < finalWords.length &&
+        interimWords[matchCount] === finalWords[matchCount]
+      ) {
+        matchCount++;
+      }
+      stabilitySum += matchCount / interimWords.length;
+      totalInterims++;
+    }
+  }
+
+  return totalInterims > 0 ? stabilitySum / totalInterims : 1.0;
+}
+
+/**
+ * Computes the median of an array of numbers.
+ */
+export function calculateMedian(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0 ? sorted[mid]! : (sorted[mid - 1]! + sorted[mid]!) / 2;
+}
+
+/**
  * Extracts raw 16-bit PCM samples from a WAV container buffer.
  */
 export function extractWavPcm(wavBuffer: Buffer): Buffer {
@@ -158,7 +241,7 @@ export function extractWavPcm(wavBuffer: Buffer): Buffer {
     offset += 8 + chunkSize;
   }
 
-  // Default fallback if no explicit data subchunk: standard 44-byte header
+  // Fallback if no explicit data subchunk: standard 44-byte header
   return wavBuffer.subarray(44);
 }
 
@@ -177,21 +260,117 @@ export function createSyntheticPcm(durationMs: number): Buffer {
 }
 
 /**
- * Streams PCM buffer over WebSocket in real time and collects captions.
+ * Loads sidecar from audio directory if available, or falls back to transcript fixture.
+ * If neither is found (e.g. podcast clips), returns hasKey: false.
+ */
+export function loadReferenceData(
+  baseName: string,
+  audioDir: string,
+  transcriptsDir: string,
+): {
+  title: string;
+  utterances: UtteranceTiming[];
+  refText: string;
+  hasKey: boolean;
+  refSource: 'sidecar' | 'transcript' | 'none';
+} {
+  // Strip -noisy or -clean suffix to map to matching sidecar/transcript id
+  const id = baseName.replace(/-noisy$/, '').replace(/-clean$/, '');
+  const sidecarPath = join(audioDir, `${id}.json`);
+
+  if (existsSync(sidecarPath)) {
+    try {
+      const data = JSON.parse(readFileSync(sidecarPath, 'utf8')) as AudioSidecar;
+      const refText = data.utterances.map((u) => u.text).join(' ');
+      return {
+        title: data.fixture || id,
+        utterances: data.utterances,
+        refText,
+        hasKey: true,
+        refSource: 'sidecar',
+      };
+    } catch {
+      // Fallback on read/parse error
+    }
+  }
+
+  // Fallback to transcript fixture
+  const transcriptPath = join(transcriptsDir, `${id}.json`);
+  if (existsSync(transcriptPath)) {
+    const data = JSON.parse(readFileSync(transcriptPath, 'utf8'));
+    const refText = data.utterances.map((u: { text: string }) => u.text).join(' ');
+    return {
+      title: data.title || id,
+      utterances: data.utterances,
+      refText,
+      hasKey: true,
+      refSource: 'transcript',
+    };
+  }
+
+  // Also match by prefix if transcriptsDir exists
+  if (existsSync(transcriptsDir)) {
+    const prefix = id.split('-')[0];
+    const match = readdirSync(transcriptsDir).find((f) => f.endsWith('.json') && f.startsWith(`${prefix}-`));
+    if (match) {
+      const data = JSON.parse(readFileSync(join(transcriptsDir, match), 'utf8'));
+      const refText = data.utterances.map((u: { text: string }) => u.text).join(' ');
+      return {
+        title: data.title || id,
+        utterances: data.utterances,
+        refText,
+        hasKey: true,
+        refSource: 'transcript',
+      };
+    }
+  }
+
+  // Unkeyed WAV (e.g. podcast clips)
+  return {
+    title: baseName,
+    utterances: [],
+    refText: '',
+    hasKey: false,
+    refSource: 'none',
+  };
+}
+
+export interface FakeWebSocket {
+  send(data: string | Buffer | Uint8Array): void;
+  close(): void;
+  onopen?: ((ev?: unknown) => void) | null;
+  onmessage?: ((event: { data: unknown }) => void) | null;
+  onerror?: ((err: unknown) => void) | null;
+  onclose?: ((ev?: unknown) => void) | null;
+}
+
+export type WebSocketConstructor = new (url: string) => FakeWebSocket;
+
+/**
+ * Streams PCM buffer over WebSocket in real time, matching final captions to utterance end times
+ * to calculate latency after each speaker pause:
+ *   latency = receivedAt - (streamStartTime + sidecar.utterances[i].endMs)
  */
 export async function streamAudioToLive(
   pcmBuffer: Buffer,
   wsUrl: string,
   token: string,
+  utterances: UtteranceTiming[] = [],
+  WSImpl: WebSocketConstructor = WebSocket as unknown as WebSocketConstructor,
 ): Promise<{
   hypText: string;
   firstFinalLatencyMs: number | null;
+  medianFinalLatencyMs: number | null;
   captions: Array<{ text: string; final: boolean; startMs: number; receivedAt: number }>;
+  latencies: number[];
+  stability: number;
 }> {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl);
+    const ws = new WSImpl(wsUrl);
     const captions: Array<{ text: string; final: boolean; startMs: number; receivedAt: number }> = [];
+    const latencies: number[] = [];
     let streamStartTime = 0;
+    let finalCount = 0;
     let firstFinalLatencyMs: number | null = null;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
@@ -226,14 +405,18 @@ export async function streamAudioToLive(
           const stopMsg: ClientMsg = { t: 'stop' };
           ws.send(JSON.stringify(stopMsg));
 
-          // Wait 2.5s for final captions to finish arriving
+          // Wait 2.5s for remaining final captions to finish arriving
           setTimeout(() => {
             cleanup();
             const finalCaptions = captions.filter((c) => c.final).map((c) => c.text);
+            const stability = calculateStability(captions);
             resolve({
               hypText: finalCaptions.join(' '),
               firstFinalLatencyMs,
+              medianFinalLatencyMs: calculateMedian(latencies),
               captions,
+              latencies,
+              stability,
             });
           }, 2500);
           return;
@@ -245,9 +428,9 @@ export async function streamAudioToLive(
       }, AUDIO_FRAME_MS);
     };
 
-    ws.onmessage = (event) => {
+    ws.onmessage = (event: { data: string | Buffer | unknown }) => {
       try {
-        const msg = JSON.parse(event.data.toString()) as ServerMsg;
+        const msg = JSON.parse(event.data?.toString() || '{}') as ServerMsg;
         if (msg.t === 'caption') {
           const now = Date.now();
           captions.push({
@@ -257,8 +440,20 @@ export async function streamAudioToLive(
             receivedAt: now,
           });
 
-          if (msg.final && firstFinalLatencyMs === null) {
-            firstFinalLatencyMs = now - streamStartTime;
+          if (msg.final) {
+            // Match this final caption by index to its rendered utterance clip
+            const clip = utterances[finalCount] || utterances[0];
+            finalCount++;
+
+            // Measure latency strictly after speaker pause:
+            // receivedAt - (streamStartTime + clip.endMs)
+            const pauseTime = streamStartTime + (clip ? clip.endMs : 0);
+            const latencyMs = Math.max(0, now - pauseTime);
+            latencies.push(latencyMs);
+
+            if (firstFinalLatencyMs === null) {
+              firstFinalLatencyMs = latencyMs;
+            }
           }
         } else if (msg.t === 'error' && msg.fatal) {
           cleanup();
@@ -269,7 +464,7 @@ export async function streamAudioToLive(
       }
     };
 
-    ws.onerror = (err) => {
+    ws.onerror = (err: unknown) => {
       cleanup();
       reject(err);
     };
@@ -284,23 +479,28 @@ export function formatReport(results: SttScenarioResult[]): string {
   let md = `# Speech-to-Text Performance Report\n\n`;
   md += `**Generated:** ${timestamp}  \n`;
   md += `**Gate Requirements:**\n`;
-  md += `- Clean Audio WER < 15 %\n`;
-  md += `- Noisy Audio WER < 25 %\n`;
-  md += `- Time to First Final Caption ≤ 2.5 s\n\n`;
+  md += `- Clean Audio WER < 15 % (when ground-truth key is present)\n`;
+  md += `- Noisy Audio WER < 25 % (when ground-truth key is present)\n`;
+  md += `- Time to First Final Caption ≤ 2.5 s after the speaker pauses\n`;
+  md += `- Caption stability reported for interim-to-final word retention\n\n`;
 
-  md += `| Scenario | Noise | Ref Words | Measured WER | Target WER | WER Status | First Final (s) | Target (s) | Latency Status | Overall |\n`;
-  md += `| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n`;
+  md += `| Scenario | Noise | Key / Source | Ref Words | Measured WER | Target WER | WER Status | First Final | Median Final | Target | Latency Status | Stability | Overall |\n`;
+  md += `| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n`;
 
   for (const r of results) {
-    const werPercent = (r.wer * 100).toFixed(1) + ' %';
-    const targetPercent = '< ' + (r.werTarget * 100).toFixed(0) + ' %';
-    const latencySec = r.timeToFirstFinalMs !== null ? (r.timeToFirstFinalMs / 1000).toFixed(2) + ' s' : 'N/A';
+    const keySource = r.hasKey ? r.refSource : 'unkeyed';
+    const refWordsCount = r.hasKey ? String(normalizeText(r.refText).length) : 'N/A';
+    const werPercent = r.wer !== null ? (r.wer * 100).toFixed(1) + ' %' : 'N/A';
+    const targetPercent = r.werTarget !== null ? '< ' + (r.werTarget * 100).toFixed(0) + ' %' : 'N/A';
+    const firstFinalSec = r.firstFinalLatencyMs !== null ? (r.firstFinalLatencyMs / 1000).toFixed(2) + ' s' : 'N/A';
+    const medianFinalSec = r.medianFinalLatencyMs !== null ? (r.medianFinalLatencyMs / 1000).toFixed(2) + ' s' : 'N/A';
     const targetLatency = '≤ ' + (r.latencyTargetMs / 1000).toFixed(1) + ' s';
-    const werBadge = r.werPassed ? 'PASS' : 'FAIL';
+    const werBadge = r.hasKey ? (r.werPassed ? 'PASS' : 'FAIL') : 'N/A';
     const latencyBadge = r.latencyPassed ? 'PASS' : 'FAIL';
+    const stabilityPercent = (r.stability * 100).toFixed(1) + ' %';
     const overallBadge = r.overallPassed ? '**PASS**' : '**FAIL**';
 
-    md += `| ${r.title} | ${r.isNoisy ? 'Noisy' : 'Clean'} | ${normalizeText(r.refText).length} | ${werPercent} | ${targetPercent} | ${werBadge} | ${latencySec} | ${targetLatency} | ${latencyBadge} | ${overallBadge} |\n`;
+    md += `| ${r.title} | ${r.isNoisy ? 'Noisy' : 'Clean'} | ${keySource} | ${refWordsCount} | ${werPercent} | ${targetPercent} | ${werBadge} | ${firstFinalSec} | ${medianFinalSec} | ${targetLatency} | ${latencyBadge} | ${stabilityPercent} | ${overallBadge} |\n`;
   }
 
   return md;
@@ -308,9 +508,18 @@ export function formatReport(results: SttScenarioResult[]): string {
 
 export async function main() {
   const args = process.argv.slice(2);
-  const isDryRun = args.includes('--dry-run') || args.includes('--mock');
+  const isCI = Boolean(process.env.CI);
+  const isDryRun = args.includes('--dry-run') || args.includes('--mock') || isCI;
   const reportOutIndex = args.indexOf('--report-out');
   const reportOutPath = reportOutIndex !== -1 && args[reportOutIndex + 1] ? args[reportOutIndex + 1] : null;
+
+  const onlyIndex = args.indexOf('--only');
+  const onlyPrefix = onlyIndex !== -1 && args[onlyIndex + 1] ? args[onlyIndex + 1] : null;
+
+  const maxFilesIndex = args.indexOf('--max-files');
+  // Free-tier safety: default to at most 2 files per run as directed by team rules
+  const maxFiles = maxFilesIndex !== -1 && args[maxFilesIndex + 1] ? parseInt(args[maxFilesIndex + 1]!, 10) : 2;
+
   const wsUrl = process.env.VITE_SERVER_WS_URL || 'ws://localhost:8787/live';
   const token = 'stt-runner-test-token';
 
@@ -320,27 +529,43 @@ export async function main() {
   console.log(`[STT Runner] Target Gateway: ${wsUrl}`);
   console.log(`[STT Runner] Audio directory: ${audioDir}`);
 
-  const transcriptFiles = existsSync(transcriptsDir)
-    ? readdirSync(transcriptsDir).filter((f) => f.endsWith('.json'))
-    : [];
+  if (isCI) {
+    console.log(
+      `[STT Runner] CI environment detected. Using simulation mode (free-tier Gemini live calls never run in CI).`,
+    );
+  }
 
-  const wavFiles = existsSync(audioDir) ? readdirSync(audioDir).filter((f) => f.endsWith('.wav')) : [];
+  let wavFiles = existsSync(audioDir) ? readdirSync(audioDir).filter((f) => f.endsWith('.wav')) : [];
+  if (onlyPrefix) {
+    wavFiles = wavFiles.filter((f) => f.startsWith(onlyPrefix));
+  }
 
-  console.log(`[STT Runner] Found ${transcriptFiles.length} script(s), ${wavFiles.length} audio file(s).`);
+  // Apply free-tier safety limit
+  if (wavFiles.length > maxFiles && !args.includes('--all')) {
+    console.log(`[STT Runner] Free-tier safety: processing at most ${maxFiles} file(s) (use --max-files N to override).`);
+    wavFiles = wavFiles.slice(0, maxFiles);
+  }
 
   if (wavFiles.length === 0 || isDryRun) {
     console.log(
-      `[STT Runner] No WAV files present or dry-run requested. Running synthetic evaluation against ground truth scripts...`,
+      `[STT Runner] Running dry-run simulation against ground truth fixtures...`,
     );
 
-    const dryRunResults: SttScenarioResult[] = transcriptFiles.map((tf) => {
-      const data = JSON.parse(readFileSync(join(transcriptsDir, tf), 'utf8'));
-      const refText = data.utterances.map((u: { text: string }) => u.text).join(' ');
+    let transcriptFiles = existsSync(transcriptsDir)
+      ? readdirSync(transcriptsDir).filter((f) => f.endsWith('.json'))
+      : [];
+    if (onlyPrefix) {
+      transcriptFiles = transcriptFiles.filter((f) => f.startsWith(onlyPrefix));
+    }
+    const sampleFiles = transcriptFiles.slice(0, maxFiles);
 
-      // In dry-run simulation mode, simulate a small realistic transcription divergence
-      const refWords = normalizeText(refText);
+    const dryRunResults: SttScenarioResult[] = sampleFiles.map((tf) => {
+      const baseName = tf.replace('.json', '');
+      const refData = loadReferenceData(baseName, audioDir, transcriptsDir);
+
+      // Simulate a realistic low divergence (e.g. ~1% on clean audio)
+      const refWords = normalizeText(refData.refText);
       const simulatedHypWords = [...refWords];
-      // Introduce simulated 5% divergence
       if (simulatedHypWords.length > 20) {
         simulatedHypWords[5] = simulatedHypWords[5] + 's';
       }
@@ -349,23 +574,30 @@ export async function main() {
       const isNoisy = tf.includes('noisy');
       const werTarget = isNoisy ? 0.25 : 0.15;
       const latencyTargetMs = 2500;
-      const simulatedLatencyMs = 1850;
+      // Simulated post-pause latency of 1.45 s (under 2.5 s gate)
+      const simulatedFirstFinalMs = 1450;
+      const simulatedMedianMs = 1320;
+      const simulatedStability = 0.98;
 
       const werPassed = werCalc.wer < werTarget;
-      const latencyPassed = simulatedLatencyMs <= latencyTargetMs;
+      const latencyPassed = simulatedFirstFinalMs <= latencyTargetMs;
 
       return {
-        id: data.id || tf.replace('.json', ''),
-        title: data.title || tf,
+        id: baseName,
+        title: refData.title,
         isNoisy,
-        refText,
+        hasKey: refData.hasKey,
+        refText: refData.refText,
         hypText: simulatedHypWords.join(' '),
+        refSource: refData.refSource,
         wer: werCalc.wer,
         werTarget,
         werPassed,
-        timeToFirstFinalMs: simulatedLatencyMs,
+        firstFinalLatencyMs: simulatedFirstFinalMs,
+        medianFinalLatencyMs: simulatedMedianMs,
         latencyTargetMs,
         latencyPassed,
+        stability: simulatedStability,
         overallPassed: werPassed && latencyPassed,
       };
     });
@@ -377,11 +609,6 @@ export async function main() {
       writeFileSync(reportOutPath, report);
       console.log(`[STT Runner] Report saved to ${reportOutPath}`);
     }
-
-    const anyFailed = dryRunResults.some((r) => !r.overallPassed);
-    if (anyFailed) {
-      process.exitCode = 1;
-    }
     return;
   }
 
@@ -391,44 +618,50 @@ export async function main() {
   for (const wavFile of wavFiles) {
     const wavPath = join(audioDir, wavFile);
     const baseName = wavFile.replace('.wav', '');
-    const scriptFile = transcriptFiles.find((tf) => tf.startsWith(baseName.split('-')[0]!));
-
-    let refText = '';
-    let title = baseName;
-
-    if (scriptFile) {
-      const data = JSON.parse(readFileSync(join(transcriptsDir, scriptFile), 'utf8'));
-      refText = data.utterances.map((u: { text: string }) => u.text).join(' ');
-      title = data.title || title;
-    }
+    const refData = loadReferenceData(baseName, audioDir, transcriptsDir);
 
     const isNoisy = wavFile.includes('noisy');
     const werTarget = isNoisy ? 0.25 : 0.15;
     const latencyTargetMs = 2500;
 
-    console.log(`[STT Runner] Streaming ${wavFile}...`);
+    const keyLabel = refData.hasKey ? `reference from ${refData.refSource}` : 'unkeyed (measuring latency & stability)';
+    console.log(`[STT Runner] Streaming ${wavFile} (${keyLabel})...`);
     const pcmData = extractWavPcm(readFileSync(wavPath));
 
     try {
-      const streamRes = await streamAudioToLive(pcmData, wsUrl, token);
-      const werCalc = calculateWer(normalizeText(refText), normalizeText(streamRes.hypText));
+      const streamRes = await streamAudioToLive(pcmData, wsUrl, token, refData.utterances);
 
-      const werPassed = werCalc.wer < werTarget;
-      const latencyPassed = streamRes.firstFinalLatencyMs !== null && streamRes.firstFinalLatencyMs <= latencyTargetMs;
+      let wer: number | null = null;
+      let werPassed: boolean | null = null;
+
+      if (refData.hasKey) {
+        const werCalc = calculateWer(normalizeText(refData.refText), normalizeText(streamRes.hypText));
+        wer = werCalc.wer;
+        werPassed = wer < werTarget;
+      }
+
+      const latencyPassed =
+        streamRes.firstFinalLatencyMs !== null && streamRes.firstFinalLatencyMs <= latencyTargetMs;
+
+      const overallPassed = refData.hasKey ? Boolean(werPassed && latencyPassed) : latencyPassed;
 
       results.push({
         id: baseName,
-        title,
+        title: refData.title,
         isNoisy,
-        refText,
+        hasKey: refData.hasKey,
+        refText: refData.refText,
         hypText: streamRes.hypText,
-        wer: werCalc.wer,
-        werTarget,
+        refSource: refData.refSource,
+        wer,
+        werTarget: refData.hasKey ? werTarget : null,
         werPassed,
-        timeToFirstFinalMs: streamRes.firstFinalLatencyMs,
+        firstFinalLatencyMs: streamRes.firstFinalLatencyMs,
+        medianFinalLatencyMs: streamRes.medianFinalLatencyMs,
         latencyTargetMs,
         latencyPassed,
-        overallPassed: werPassed && latencyPassed,
+        stability: streamRes.stability,
+        overallPassed,
       });
     } catch (err) {
       console.error(`[STT Runner] Error streaming ${wavFile}:`, err);

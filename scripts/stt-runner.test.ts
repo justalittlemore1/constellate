@@ -1,11 +1,17 @@
 import { describe, expect, test } from 'vitest';
 import {
+  calculateMedian,
+  calculateStability,
   calculateWer,
   createSyntheticPcm,
   extractWavPcm,
+  FakeWebSocket,
   formatReport,
+  loadReferenceData,
   normalizeText,
+  streamAudioToLive,
   type SttScenarioResult,
+  type UtteranceTiming,
 } from './stt-runner';
 
 describe('STT Runner Utilities', () => {
@@ -64,6 +70,36 @@ describe('STT Runner Utilities', () => {
     });
   });
 
+  describe('calculateStability', () => {
+    test('returns 1.0 when no interims were emitted or interims match final prefix', () => {
+      expect(calculateStability([])).toBe(1.0);
+      expect(
+        calculateStability([
+          { text: 'did you', final: false },
+          { text: 'did you catch the game', final: true },
+        ]),
+      ).toBe(1.0);
+    });
+
+    test('penalizes words that are retracted or changed before finalization', () => {
+      const stability = calculateStability([
+        { text: 'did you see', final: false }, // "see" is not matching "catch"
+        { text: 'did you catch the game', final: true },
+      ]);
+      // "did you see" has 3 words, 2 matched prefix ("did you"), so 2/3 = ~0.67
+      expect(stability).toBeCloseTo(2 / 3, 2);
+    });
+  });
+
+  describe('calculateMedian', () => {
+    test('computes median for odd and even number of items', () => {
+      expect(calculateMedian([])).toBeNull();
+      expect(calculateMedian([100])).toBe(100);
+      expect(calculateMedian([300, 100, 200])).toBe(200);
+      expect(calculateMedian([400, 100, 300, 200])).toBe(250);
+    });
+  });
+
   describe('extractWavPcm', () => {
     test('throws on short or invalid buffer', () => {
       expect(() => extractWavPcm(Buffer.alloc(10))).toThrow();
@@ -102,6 +138,25 @@ describe('STT Runner Utilities', () => {
     });
   });
 
+  describe('loadReferenceData', () => {
+    test('falls back gracefully to transcript when sidecar not present', () => {
+      const res = loadReferenceData('01-simple-shift', 'non-existent-dir', 'packages/shared/fixtures/transcripts');
+      expect(res.title).toContain('Simple shift');
+      expect(res.hasKey).toBe(true);
+      expect(res.refSource).toBe('transcript');
+      expect(res.utterances.length).toBeGreaterThan(0);
+      expect(res.refText.length).toBeGreaterThan(0);
+    });
+
+    test('handles unkeyed audio files gracefully (podcasts)', () => {
+      const res = loadReferenceData('podcast-clip-01', 'non-existent-dir', 'packages/shared/fixtures/transcripts');
+      expect(res.hasKey).toBe(false);
+      expect(res.refSource).toBe('none');
+      expect(res.refText).toBe('');
+      expect(res.utterances).toEqual([]);
+    });
+  });
+
   describe('formatReport', () => {
     test('formats markdown report with target comparisons and badges', () => {
       const sampleResults: SttScenarioResult[] = [
@@ -109,14 +164,36 @@ describe('STT Runner Utilities', () => {
           id: '01-simple-shift',
           title: 'Hockey to music',
           isNoisy: false,
+          hasKey: true,
           refText: 'Did you catch the game',
           hypText: 'Did you catch the game',
+          refSource: 'sidecar',
           wer: 0,
           werTarget: 0.15,
           werPassed: true,
-          timeToFirstFinalMs: 1400,
+          firstFinalLatencyMs: 1400,
+          medianFinalLatencyMs: 1350,
           latencyTargetMs: 2500,
           latencyPassed: true,
+          stability: 0.98,
+          overallPassed: true,
+        },
+        {
+          id: 'podcast-clip',
+          title: 'Podcast Interview',
+          isNoisy: false,
+          hasKey: false,
+          refText: '',
+          hypText: 'Welcome to the show everyone',
+          refSource: 'none',
+          wer: null,
+          werTarget: null,
+          werPassed: null,
+          firstFinalLatencyMs: 1200,
+          medianFinalLatencyMs: 1100,
+          latencyTargetMs: 2500,
+          latencyPassed: true,
+          stability: 0.95,
           overallPassed: true,
         },
       ];
@@ -126,7 +203,103 @@ describe('STT Runner Utilities', () => {
       expect(report).toContain('Hockey to music');
       expect(report).toContain('0.0 %');
       expect(report).toContain('1.40 s');
+      expect(report).toContain('1.35 s');
+      expect(report).toContain('98.0 %');
+      expect(report).toContain('unkeyed');
+      expect(report).toContain('95.0 %');
       expect(report).toContain('**PASS**');
+    });
+  });
+
+  describe('streamAudioToLive with FakeWebSocket', () => {
+    test('calculates first-final and median latency after speaker pauses', async () => {
+      // Fake socket that responds to client streaming
+      class MockSocket implements FakeWebSocket {
+        onopen?: () => void;
+        onmessage?: (event: { data: unknown }) => void;
+        onerror?: (err: unknown) => void;
+        onclose?: () => void;
+
+        private streamStartTime = 0;
+
+        constructor(_url: string) {
+          setTimeout(() => {
+            this.streamStartTime = Date.now();
+            this.onopen?.();
+          }, 10);
+        }
+
+        send(data: string | Buffer | Uint8Array) {
+          if (typeof data === 'string') {
+            const parsed = JSON.parse(data);
+            if (parsed.t === 'hello') {
+              // Immediately respond with ready
+              this.onmessage?.({
+                data: JSON.stringify({ t: 'ready', conversationId: 'conv-mock' }),
+              });
+
+              // Simulate speaker speaking until endMs = 200ms, then pausing.
+              // At endMs + 500ms (700ms after stream start), caption arrives:
+              setTimeout(() => {
+                this.onmessage?.({
+                  data: JSON.stringify({
+                    t: 'caption',
+                    text: 'Did you catch the game',
+                    final: true,
+                    startMs: 0,
+                  }),
+                });
+              }, 700);
+
+              // Simulate second utterance: endMs = 1200ms, caption arrives at 1200 + 400ms = 1600ms
+              setTimeout(() => {
+                this.onmessage?.({
+                  data: JSON.stringify({
+                    t: 'caption',
+                    text: 'That overtime was unreal',
+                    final: true,
+                    startMs: 800,
+                  }),
+                });
+              }, 1600);
+            }
+          }
+        }
+
+        close() {
+          this.onclose?.();
+        }
+      }
+
+      // 300 ms of synthetic PCM = 3 frames
+      const pcmBuffer = createSyntheticPcm(300);
+
+      const utterances: UtteranceTiming[] = [
+        { text: 'Did you catch the game', startMs: 0, endMs: 200 },
+        { text: 'That overtime was unreal', startMs: 800, endMs: 1200 },
+      ];
+
+      const result = await streamAudioToLive(
+        pcmBuffer,
+        'ws://fake-gateway/live',
+        'mock-token',
+        utterances,
+        MockSocket,
+      );
+
+      expect(result.hypText).toBe('Did you catch the game That overtime was unreal');
+      expect(result.captions.length).toBe(2);
+
+      // Clip 0 ends at 200ms. Caption arrived at ~700ms after stream start.
+      // Latency after pause = 700 - 200 = ~500ms (well under the 2500ms gate).
+      expect(result.firstFinalLatencyMs).not.toBeNull();
+      expect(result.firstFinalLatencyMs!).toBeGreaterThanOrEqual(400);
+      expect(result.firstFinalLatencyMs!).toBeLessThanOrEqual(700);
+
+      // Median latency should also be measured around 400-550ms
+      expect(result.medianFinalLatencyMs).not.toBeNull();
+      expect(result.medianFinalLatencyMs!).toBeGreaterThanOrEqual(350);
+      expect(result.medianFinalLatencyMs!).toBeLessThanOrEqual(650);
     });
   });
 });
