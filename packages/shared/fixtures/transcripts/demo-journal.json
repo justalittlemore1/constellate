@@ -1,0 +1,27 @@
+{
+  "id": "demo-journal",
+  "title": "Friday night journal",
+  "description": "Demo conversation (synthetic, for the demo account). Alex records a late-night voice journal about the week, moving from the job decision to that morning's run, a Stoic idea from coffee with Priya, and missing family, before coming back to the job decision.",
+  "speakers": ["Alex"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 10200, "text": "Okay. Friday, it's almost midnight. I said I'd do these more often, so here I am, talking to my phone in the dark like a normal person." },
+    { "speaker": 0, "startMs": 10600, "endMs": 23000, "text": "Big thing this week is obviously the studio offer. I countered on Wednesday, like Dana said. Excited, specific number, then shut up. The silence was horrible. Maybe four seconds, and it felt like a minute." },
+    { "speaker": 0, "startMs": 23600, "endMs": 30600, "text": "They said they'd get back to me Monday. So now I just wait. Which I'm bad at." },
+    { "speaker": 0, "startMs": 33900, "endMs": 50400, "text": "Anyway. Different thing. The run this morning was actually good? Jordan sent the plan, like they said they would, and today was supposed to be an easy six k. And I kept it easy. Like actually slow. And my knee didn't do the sharp thing at all." },
+    { "speaker": 0, "startMs": 51300, "endMs": 63000, "text": "I did the step-downs and the glute bridges after, which, wow, my legs were shaking on the step-downs. Very humbling. But it's the first time in weeks running hasn't felt like a fight." },
+    { "speaker": 0, "startMs": 63500, "endMs": 68500, "text": "Rest day tomorrow. Jordan's voice in my head saying rest days are training." },
+    { "speaker": 0, "startMs": 71000, "endMs": 80800, "text": "The other thing I keep coming back to is the coffee with Priya on Tuesday. The Stoic thing. What's up to me and what isn't." },
+    { "speaker": 0, "startMs": 81400, "endMs": 93100, "text": "Because I realized this week I spend most of my energy on the second list. The claims team, my manager, whether the studio says yes on Monday. None of that is mine." },
+    { "speaker": 0, "startMs": 93900, "endMs": 105400, "text": "What's mine is, did I do good work today. Did I say the hard thing early. Did I treat people okay. And honestly, on those, this week was fine. Better than fine." },
+    { "speaker": 0, "startMs": 106100, "endMs": 116500, "text": "There's a Seneca line I looked up after, something like, we suffer more in imagination than in reality. Which is basically my whole four a.m. routine." },
+    { "speaker": 0, "startMs": 119800, "endMs": 131700, "text": "I miss my family. That's sort of out of nowhere, but it's true. Mom called on Wednesday and I was in the middle of something and I said I'd call back and I didn't." },
+    { "speaker": 0, "startMs": 132500, "endMs": 141800, "text": "It's her birthday in two weeks. I should actually go home for it instead of just sending flowers. Flights are not that expensive if I book soon." },
+    { "speaker": 0, "startMs": 142700, "endMs": 155700, "text": "I think part of it is talking to Sam about church, and Sam saying they'd been lonely. I didn't realize how much I'd stopped calling people. Even my brother. We used to text every day." },
+    { "speaker": 0, "startMs": 156400, "endMs": 159400, "text": "Okay. Call Mom tomorrow. Actually call, not text." },
+    { "speaker": 0, "startMs": 163000, "endMs": 173400, "text": "So, back to the job. If I'm honest with myself, I think I've already decided. If they meet me even halfway on the money, I'm going to take it." },
+    { "speaker": 0, "startMs": 174200, "endMs": 182700, "text": "It's scary. I've never designed anything you can walk around. But Dana's right, feeling out of my depth is probably the point." },
+    { "speaker": 0, "startMs": 183300, "endMs": 193400, "text": "And if they say no on Monday, then that's on the not-up-to-me list. I'll still know I want to do work I'm proud of. That's the part I keep." },
+    { "speaker": 0, "startMs": 194200, "endMs": 196800, "text": "Okay. That's it. Go to sleep, Alex." }
+  ],
+  "expect": {}
+}
