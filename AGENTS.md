@@ -44,6 +44,17 @@ Database: never edit an applied migration. Add `supabase/migrations/000N_descrip
 6. **Accessibility is a requirement**, not polish: labelled controls, visible focus, 44 px targets, `prefers-reduced-motion`, never colour alone for meaning (see the design section of the plan).
 7. **Ambiguity**: choose the simpler option, write the question in your PR, keep moving. Stuck 20 minutes on one thing? Write the blocker in the PR and move to your next task.
 
+## API budget: the Gemini key is free-tier
+
+The Gemini key has tight daily limits. The Claude key has plenty of credit.
+
+- **Gemini is used ONLY for** live transcription (`MODELS.sttLive`), file transcription (`MODELS.sttFile`), embeddings (`MODELS.embed`) and test audio (`MODELS.tts`). **All reasoning runs on Claude**: `INTERPRETER_PROVIDER=anthropic`, plus refine and Brain on `MODELS.refine`/`MODELS.brain`. Don't call Gemini text models.
+- **Unit tests and CI never call any real API.** Use fakes or recorded responses.
+- **Cache every Gemini response** by a hash of its input (`eval/.cache/` for the eval; an in-memory + on-disk cache on the server for embeddings), so repeat runs cost nothing. **Batch embeddings** (many texts per request), and embed a node only when it's created or its label changes.
+- **Develop with transcript replay** (no speech-to-text). Use the microphone or WAV replay only for deliberate speech tests. Render each TTS fixture once and share the WAV; never re-render in a loop.
+- **On HTTP 429, back off and degrade, never crash**: keep captions flowing, skip revisit candidates for that window, and log it.
+- Every Gemini call goes through one shared client that counts requests per model and logs the running totals, so the humans can see usage.
+
 ## Commands
 
 ```bash
