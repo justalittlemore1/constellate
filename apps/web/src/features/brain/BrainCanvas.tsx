@@ -2,7 +2,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject } from 'react-force-graph-2d';
 import type { BrainPayload } from '../../lib/api';
 import { usePrefs } from '../../lib/prefs';
-import { linkDistance, RELATION_DASH, toGalaxy, topConceptIds, type GalaxyLink, type GalaxyNode } from './brainLayout';
+import {
+  aspectPull,
+  footprint,
+  LABEL_GAP,
+  pullToCentreLine,
+  linkDistance,
+  RELATION_DASH,
+  separateFootprints,
+  toGalaxy,
+  topConceptIds,
+  type Footprint,
+  type GalaxyLink,
+  type GalaxyNode,
+} from './brainLayout';
 
 type N = NodeObject<GalaxyNode>;
 type L = LinkObject<GalaxyNode, GalaxyLink>;
@@ -25,6 +38,16 @@ export interface BrainCanvasProps {
 }
 
 /** force-graph replaces link ends with node objects once the simulation starts */
+/** Label width at `px` font size, measured when a canvas is available (estimated otherwise). */
+function labelWidth(name: string, px: number): number {
+  const ctx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+  if (!ctx) return name.length * px * 0.58;
+  ctx.font = `600 ${px}px Inter, system-ui, sans-serif`;
+  return ctx.measureText(name).width;
+}
+
+const LABEL_PX = 12;
+
 function endId(end: unknown): string {
   return typeof end === 'object' && end !== null ? String((end as { id: unknown }).id) : String(end);
 }
@@ -70,11 +93,39 @@ export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCan
     return () => ro?.disconnect();
   }, []);
 
+  // Labels are drawn at a constant on-screen size; their footprints are sized for zoom 1 and
+  // the fit never zooms out below 1 for a small Brain, so separated labels stay separated.
+  const footprints = useMemo(() => {
+    const m = new Map<string, Footprint>();
+    for (const n of data.nodes) {
+      m.set(n.id, footprint(n.radius, labelled.has(n.id) ? labelWidth(n.name, LABEL_PX * textSize) : null));
+    }
+    return m;
+  }, [data, labelled, textSize]);
+
   useEffect(() => {
-    const link = fg.current?.d3Force('link') as { distance?: (fn: (l: L) => number) => unknown } | undefined;
+    const g = fg.current;
+    if (!g) return;
+    const link = g.d3Force('link') as { distance?: (fn: (l: L) => number) => unknown } | undefined;
     link?.distance?.((l) => linkDistance(l.weight ?? 0));
-    fg.current?.d3ReheatSimulation();
-  }, [data]);
+    const charge = g.d3Force('charge') as { strength?: (v: number) => unknown } | undefined;
+    charge?.strength?.(-60);
+    let nodes: N[] = [];
+    const collide = Object.assign(
+      (alpha: number) => separateFootprints(nodes, (n) => footprints.get(String(n.id))!, Math.min(1, alpha * 4)),
+      { initialize: (ns: N[]) => void (nodes = ns) },
+    );
+    g.d3Force('collide', collide);
+    const k = aspectPull(size.w, size.h);
+    let pulled: N[] = [];
+    g.d3Force(
+      'portrait',
+      Object.assign((alpha: number) => pullToCentreLine(pulled, k, alpha), {
+        initialize: (ns: N[]) => void (pulled = ns),
+      }),
+    );
+    g.d3ReheatSimulation();
+  }, [data, footprints, size.w, size.h]);
 
   const glow = lowStim ? 0.35 : 1;
 
@@ -99,10 +150,10 @@ export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCan
           warmupTicks={reduced ? 300 : 0}
           cooldownTicks={reduced ? 0 : 200}
           enableNodeDrag={!reduced}
-          // a small Brain shouldn't zoom to giant planets when fitted
           minZoom={0.3}
-          maxZoom={2.2}
-          onEngineStop={() => fg.current?.zoomToFit(reduced ? 0 : 400, 40)}
+          maxZoom={3}
+          // fill the view: padding leaves room for the labels drawn under the outermost nodes
+          onEngineStop={() => fg.current?.zoomToFit(reduced ? 0 : 400, 64)}
           onNodeClick={(n) => onSelect(String(n.id))}
           onNodeHover={(n) => setHoverId(n ? String(n.id) : null)}
           onBackgroundClick={() => onSelect(null)}
@@ -147,12 +198,18 @@ export function BrainCanvas({ payload, selectedId, onSelect, reduced }: BrainCan
 
             const showLabel = labelled.has(id) || id === hoverId || (lit?.has(id) ?? false);
             if (showLabel) {
-              const px = (12 * textSize) / scale;
+              const px = (LABEL_PX * textSize) / scale;
+              const ty = y + n.radius + LABEL_GAP / scale;
               ctx.font = `600 ${px}px Inter, system-ui, sans-serif`;
               ctx.textAlign = 'center';
               ctx.textBaseline = 'top';
+              // dark halo so labels stay readable over links and glow
+              ctx.lineJoin = 'round';
+              ctx.lineWidth = 4 / scale;
+              ctx.strokeStyle = 'rgba(7,10,23,0.9)';
+              ctx.strokeText(n.name, x, ty);
               ctx.fillStyle = C.label;
-              ctx.fillText(n.name, x, y + n.radius + 3 / scale);
+              ctx.fillText(n.name, x, ty);
             }
             ctx.globalAlpha = 1;
           }}

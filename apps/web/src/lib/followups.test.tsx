@@ -1,14 +1,18 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { PhoneFrame } from '../app/PhoneFrame';
+import { installFlowDomStubs } from '../features/map/testing';
 import { renderApp } from '../test/render';
 import { Button, Sheet, ToastProvider, useToast } from '../ui';
 import { createMockApi, type Api } from './api';
 import { missingConfig } from './env';
 import { loadDemoGraph } from './fixtures';
 import { usePrefs } from './prefs';
+
+// /c/:id renders A3's React Flow map, which needs these jsdom stubs
+beforeAll(() => installFlowDomStubs());
 
 describe('production config', () => {
   it('a real production build must name its server and Supabase project', () => {
@@ -77,7 +81,9 @@ describe('promises outside mock mode', () => {
     const api: Api = { ...base, capabilities: { editCommitments: false } };
     const user = userEvent.setup();
     renderApp({ route: `/c/${loadDemoGraph().conversation.id}`, api });
-    await user.click(await screen.findByRole('button', { name: 'Open diary' }));
+    const open = await screen.findByRole('button', { name: 'Open diary' });
+    await waitFor(() => expect(open).toBeEnabled());
+    await user.click(open);
     const section = screen.getByRole('region', { name: 'Promises' });
     expect(section).toHaveTextContent('When ___, I will send Sam the reading list');
     expect(section).toHaveTextContent('Not done yet');
