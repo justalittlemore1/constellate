@@ -595,15 +595,26 @@ describe('bottom bar and pocket mode polish', () => {
     await advance(5_000);
   }
 
-  it('Flag and Stop are ~48 px, 16 px text, one line with the icon after the text, named "Flag" / "Stop"', async () => {
+  it('Flag and Stop are compact (120–160 px), centred together, 48 px tall, base text, icon after the text', async () => {
     await live();
     const bar = screen.getByRole('navigation', { name: 'Recording controls' });
+    // centred together with a modest gap, not stretched across the bar
+    expect(bar.className).toMatch(/\bflex\b/);
+    expect(bar.className).toContain('justify-center');
+    expect(bar.className).toContain('gap-3');
+    expect(bar.className).not.toMatch(/\bgrid\b|grid-cols/);
     for (const name of ['Flag', 'Stop']) {
       const b = within(bar).getByRole('button', { name });
       expect(b).toHaveAccessibleName(name);
       expect(b.className).toMatch(/\bmin-h-12\b/); // 48 px (never below the 44 px target)
       expect(b.className).not.toMatch(/min-h-\[56px\]/);
-      expect(b.className).toContain('text-[16px]');
+      expect(b.className).toContain('text-base'); // A4's base size (17 px), follows the Text size setting
+      expect(b.className).not.toContain('text-[16px]');
+      // content width, bounded: at least 120 px, at most 160 px (10rem), never stretched
+      expect(b.className).toContain('min-w-[7.5rem]');
+      expect(b.className).toContain('max-w-40');
+      expect(b.className).not.toMatch(/\bw-full\b|flex-1/);
+      expect(b.className).toContain('hover-wash');
       expect(b.className).not.toContain('flex-col'); // one line
       const svg = b.querySelector('svg')!;
       expect(svg).toHaveAttribute('aria-hidden', 'true');
