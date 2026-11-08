@@ -60,7 +60,13 @@ NEW UTTERANCES:
 Output:
 
 ```json
-{"action":"continue","continue":{"summary_update":"Whether a sourdough starter is worth the effort compared with commercial yeast"},"intentions":[],"resolved_thread_ids":[],"rolling_summary":"Two friends talk about home cooking: they started on sourdough baking and are debating whether a starter beats commercial yeast."}
+{
+  "action": "continue",
+  "continue": { "summary_update": "Whether a sourdough starter is worth the effort compared with commercial yeast" },
+  "intentions": [],
+  "resolved_thread_ids": [],
+  "rolling_summary": "Two friends talk about home cooking: they started on sourdough baking and are debating whether a starter beats commercial yeast."
+}
 ```
 
 ### Example 2 — a child idea (drilling into a specific question)
@@ -79,7 +85,20 @@ NEW UTTERANCES:
 Output:
 
 ```json
-{"action":"new_topic","new_topic":{"label":"Dough Hydration","summary":"How much water to use so the loaf holds its shape","level":2,"relation":"child_of_active","starts_at_utterance":"u13","explicit_shift":false},"intentions":[],"resolved_thread_ids":[],"rolling_summary":"Two friends talk about home cooking: sourdough starters versus commercial yeast, now narrowing to dough hydration and shaping."}
+{
+  "action": "new_topic",
+  "new_topic": {
+    "label": "Dough Hydration",
+    "summary": "How much water to use so the loaf holds its shape",
+    "level": 2,
+    "relation": "child_of_active",
+    "starts_at_utterance": "u13",
+    "explicit_shift": false
+  },
+  "intentions": [],
+  "resolved_thread_ids": [],
+  "rolling_summary": "Two friends talk about home cooking: sourdough starters versus commercial yeast, now narrowing to dough hydration and shaping."
+}
 ```
 
 ### Example 3 — a revisit (and a deferred topic)
@@ -101,5 +120,15 @@ NEW UTTERANCES:
 Output:
 
 ```json
-{"action":"revisit","revisit":{"node_id":"n1","starts_at_utterance":"u16","summary":"Whether the class let students keep their knives"},"intentions":[{"kind":"deferred_topic","label":"Main Street Restaurant","quote_utterance":"u17"}],"resolved_thread_ids":[],"rolling_summary":"Friends caught up about a knife skills class, then a brother's upcoming visit, then went back to the knife class. One wants to tell the other about a restaurant on Main Street."}
+{
+  "action": "revisit",
+  "revisit": {
+    "node_id": "n1",
+    "starts_at_utterance": "u16",
+    "summary": "Whether the class let students keep their knives"
+  },
+  "intentions": [{ "kind": "deferred_topic", "label": "Main Street Restaurant", "quote_utterance": "u17" }],
+  "resolved_thread_ids": [],
+  "rolling_summary": "Friends caught up about a knife skills class, then a brother's upcoming visit, then went back to the knife class. One wants to tell the other about a restaurant on Main Street."
+}
 ```
