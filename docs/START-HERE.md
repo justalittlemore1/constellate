@@ -67,6 +67,14 @@ Open the agent **inside that folder** (Claude Code / Codex / Gemini: run it in t
 
 > You are workstream A5 (tests) on Constellate. Read AGENTS.md, docs/PLAN.md (Testing and quality gates) and docs/briefs/a5-qa-review.md in full. Write Playwright end-to-end, accessibility, keyboard and reduced-motion specs in mock mode first, marking steps for unbuilt features `test.fixme` with the owning workstream. Then the RLS test and the STT runner. Owned paths only, `pnpm verify` before each commit, a PR at least every 90 minutes.
 
+## Keys and quotas (decided 2026-11-07, 11:59 pm)
+
+- **Claude does all the thinking** (Ultra plan's $200/month API credit): `INTERPRETER_PROVIDER=anthropic`.
+- **Gemini (free tier) only does** live transcription (unlimited) and embeddings (1,000/day). Gemini text models are 20/day: never used. File transcription with speaker labels isn't available: finalisation keeps the live transcript. Text-to-speech isn't used.
+- **Test audio comes from you**: record the interpreter's six scripts, or use ElevenLabs or podcast clips. Put WAVs in `packages/shared/fixtures/audio/` named after the scripts and share them via Google Drive.
+- `main` requires a PR and green CI; required approvals are **0** (GitHub won't let you approve PRs opened under your own login).
+- Full rules: AGENTS.md → API budget.
+
 ## 3. Your loop as humans (every ~30 min)
 
 1. `gh pr list` → for PRs the Reviewer marked **Ready for human approval** with green CI: skim the diff and the evidence (screenshot or eval report), then approve and squash-merge.

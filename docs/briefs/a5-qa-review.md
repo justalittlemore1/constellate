@@ -15,5 +15,5 @@ Read first: `docs/PLAN.md` → Testing and quality gates (all tables), Risks. PR
 ## Phase 2 (H6–H10): real stack
 
 - [ ] `E2E_REAL=1` runs of the main loop against the deployed server and Supabase.
-- [ ] STT runner (`scripts/stt-runner.ts`, coordinate path with A2): stream each synthetic WAV through `/live` at real time; report WER vs script and time-to-first-final-caption. Targets: WER < 15 % clean, < 25 % noisy; first final ≤ 2.5 s after a pause. Run at H3 (if audio exists), H6, H10; post the report in a PR.
+- [ ] STT runner (`scripts/stt-runner.ts`): stream each WAV in `packages/shared/fixtures/audio/` (supplied by the humans: their own recordings, ElevenLabs renders or podcast clips; git-ignored) through `/live` at real time. A WAV named after a transcript fixture (e.g. `03-return-revisit.wav`) has an answer key: report WER against that fixture's text (a `.json` sidecar with timings is optional). A WAV with no matching fixture (podcasts) has no key: report only time-to-first-final-caption and caption stability. Never commit or upload audio. Targets: WER < 15 % clean, < 25 % noisy; first final ≤ 2.5 s after a pause. Run at H3 (if audio exists), H6, H10; post the report in a PR.
 - [ ] Before H10: a written bug list ordered by demo impact, posted as a GitHub issue.
