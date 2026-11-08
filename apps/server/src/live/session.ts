@@ -189,6 +189,8 @@ export class LiveSession {
   private speech: SpeechAdapter | null = null;
   private interpreter!: LiveInterpreter;
   private uttCount = 0;
+  /** end of the last final utterance delivered: where a resumed replay picks up */
+  private lastFinalEndMs: Ms = 0;
   private stage: LiveStage = 'listening';
   private stopping: Promise<void> | null = null;
   private abandonTimer: NodeJS.Timeout | null = null;
@@ -243,6 +245,7 @@ export class LiveSession {
     if (resuming) {
       const existing = await deps.store.listUtterances(conversationId);
       s.uttCount = existing.reduce((m, u) => Math.max(m, Number(u.id.slice(1)) || 0), 0);
+      s.lastFinalEndMs = existing.reduce((m, u) => Math.max(m, u.endMs), 0);
     }
     s.interpreter = deps.createInterpreter({
       conversationId,
@@ -275,9 +278,7 @@ export class LiveSession {
       onPersistError: (message) => s.send(errorMsg('db', `could not save: ${message}`, false)),
     });
     deps.registry.sessions.set(conversationId, s);
-    // a fresh conversation's clock starts at 0 when speech starts, not when the session was built
-    // (in replay mode setup time would otherwise count as audio and skip the first utterances)
-    await s.attach(sink, hello.resumeAtMs ?? (resuming ? undefined : 0), resuming);
+    await s.attach(sink, hello.resumeAtMs, resuming);
     return s;
   }
 
@@ -294,8 +295,14 @@ export class LiveSession {
     }
     await this.stopSpeech();
     this.sink = sink;
-    if (resumeAtMs !== undefined) this.clock.rebase(resumeAtMs);
-    else this.clock.rebase(this.clock.nowMs());
+    // Where speech starts on the audio clock. Never read from a running wall clock: in transcript
+    // replay that clock runs at REPLAY_SPEED, so any setup delay (or the time a dropped socket was
+    // away) would count as audio and the replay adapter would silently skip those utterances.
+    //  - fresh conversation: 0
+    //  - resume: the client's resumeAtMs; without one, replay continues after the last utterance
+    //    it delivered, and the mic continues from the audio received so far (a byte count)
+    const startAt =
+      resumeAtMs ?? (!resuming ? 0 : this.source === 'replay-transcript' ? this.lastFinalEndMs : this.clock.nowMs());
 
     let speech: SpeechAdapter;
     try {
@@ -303,7 +310,7 @@ export class LiveSession {
         source: this.source,
         fixture: this.fixture,
         nowMs: () => this.clock.nowMs(),
-        fromMs: this.clock.nowMs(),
+        fromMs: startAt,
         events: {
           onReconnecting: () => this.send({ t: 'status', stage: 'reconnecting-stt' }),
           onRecovered: () => this.send({ t: 'status', stage: this.stage }),
@@ -319,6 +326,8 @@ export class LiveSession {
     this.speech = speech;
     this.send({ t: 'ready', conversationId: this.conversationId });
     this.send({ t: 'status', stage: this.stage });
+    // the clock starts counting from startAt only now, as the adapter starts
+    this.clock.rebase(startAt);
     try {
       await speech.start((seg) => this.onSegment(seg));
     } catch (err) {
@@ -483,6 +492,7 @@ export class LiveSession {
       endMs: Math.round(Math.max(seg.endMs, seg.startMs)),
       text: seg.text,
     };
+    this.lastFinalEndMs = Math.max(this.lastFinalEndMs, u.endMs);
     void this.cell.enqueue(`utterance ${u.id}`, () => this.deps.store.insertUtterance(this.userId, u)).catch(() => {});
     this.send({ t: 'caption', text: u.text, final: true, utteranceId: u.id, startMs: u.startMs });
     try {
