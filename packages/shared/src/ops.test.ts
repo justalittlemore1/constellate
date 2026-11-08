@@ -165,6 +165,43 @@ describe('applyOps', () => {
     expect(s.annotations).toEqual([{ ...ann, text: 'two' }]);
   });
 
+  it('commitment.update edits text and done of an existing commitment only', () => {
+    const commitment = {
+      id: 'k1',
+      conversationId: 'c0000000-0000-4000-8000-000000000001',
+      nodeId: 'a',
+      text: 'Send Sam the paper',
+      speaker: 0,
+      atMs: 1_000,
+      done: false,
+    };
+    let s = applyOps(twoNodes(), batch(2, [{ op: 'commitment.add', commitment }]));
+    s = applyOps(s, batch(3, [{ op: 'commitment.update', id: 'k1', patch: { done: true } }], 'user'));
+    expect(s.commitments).toEqual([{ ...commitment, done: true }]);
+    s = applyOps(s, batch(4, [{ op: 'commitment.update', id: 'k1', patch: { text: 'Send Sam the Camus essay' } }], 'user'));
+    expect(s.commitments).toEqual([{ ...commitment, done: true, text: 'Send Sam the Camus essay' }]);
+    // an empty patch changes nothing; other fields are never touched
+    s = applyOps(s, batch(5, [{ op: 'commitment.update', id: 'k1', patch: {} }], 'user'));
+    expect(s.commitments[0]).toMatchObject({ nodeId: 'a', speaker: 0, atMs: 1_000 });
+  });
+
+  it('commitment.update rejects an unknown id and leaves the whole batch unapplied', () => {
+    const s = twoNodes();
+    const bad = batch(2, [
+      { op: 'node.update', id: 'a', patch: { label: 'Changed' } },
+      { op: 'commitment.update', id: 'missing', patch: { done: true } },
+    ]);
+    expect(() => applyOps(s, bad)).toThrow(OpError);
+    try {
+      applyOps(s, bad);
+    } catch (e) {
+      expect((e as OpError).code).toBe('unknown_commitment');
+      expect((e as OpError).opIndex).toBe(1);
+    }
+    expect(s.nodes.a?.label).toBe('a');
+    expect(s.lastSeq).toBe(1);
+  });
+
   it('conversation.update merges the patch', () => {
     const s = applyOps(makeGraph(), batch(1, [{ op: 'conversation.update', patch: { title: 'Hi', status: 'ready' } }]));
     expect(s.conversation.title).toBe('Hi');

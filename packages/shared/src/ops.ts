@@ -14,6 +14,8 @@ import type {
 
 export type NodePatch = Partial<Omit<TopicNode, 'id' | 'conversationId' | 'seq'>>;
 export type ConversationPatch = Partial<Omit<Conversation, 'id' | 'userId'>>;
+/** the user-editable fields of a commitment */
+export type CommitmentPatch = { text?: string; done?: boolean };
 
 export type GraphOp =
   | { op: 'node.add'; node: TopicNode }
@@ -27,6 +29,8 @@ export type GraphOp =
   | { op: 'active.set'; nodeId: string | null }
   | { op: 'flag.add'; flag: Flag }
   | { op: 'commitment.add'; commitment: Commitment }
+  /** edit or tick off an existing commitment (rejected if the id is unknown) */
+  | { op: 'commitment.update'; id: string; patch: CommitmentPatch }
   | { op: 'annotation.upsert'; annotation: Annotation }
   | { op: 'conversation.update'; patch: ConversationPatch };
 
@@ -51,7 +55,8 @@ export type OpErrorCode =
   | 'not_provisional'
   | 'self_loop'
   | 'layout_locked'
-  | 'invalid_merge';
+  | 'invalid_merge'
+  | 'unknown_commitment';
 
 export class OpError extends Error {
   constructor(
@@ -228,6 +233,17 @@ function applyOne(s: GraphState, op: GraphOp, source: OpSource, i: number): void
     case 'commitment.add': {
       requireOptionalNode(s, op.commitment.nodeId, i);
       if (!s.commitments.some((c) => c.id === op.commitment.id)) s.commitments.push({ ...op.commitment });
+      return;
+    }
+    case 'commitment.update': {
+      const idx = s.commitments.findIndex((c) => c.id === op.id);
+      if (idx === -1) throw new OpError('unknown_commitment', `commitment ${op.id} does not exist`, i);
+      const prev = s.commitments[idx]!;
+      s.commitments[idx] = {
+        ...prev,
+        ...(op.patch.text !== undefined ? { text: op.patch.text } : {}),
+        ...(op.patch.done !== undefined ? { done: op.patch.done } : {}),
+      };
       return;
     }
     case 'annotation.upsert': {
