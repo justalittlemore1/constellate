@@ -3,6 +3,7 @@
   "title": "Road trip planning with Sam",
   "description": "Demo conversation (synthetic, for the demo account). Alex and Sam plan their summer coast road trip, covering route, budget and where to sleep; Sam's camping gear question is deferred and picked up at the end, while a story about Sam's cousin's wedding is never told.",
   "speakers": ["Alex", "Sam"],
+  "daysAgo": 13,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 4300, "text": "Okay, I brought snacks and a map. An actual paper map." },
     { "speaker": 0, "startMs": 4800, "endMs": 11200, "text": "Who even sells those anymore? Okay, coast road trip. Last week of July, like we said." },

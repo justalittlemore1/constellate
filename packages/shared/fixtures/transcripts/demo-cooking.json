@@ -3,6 +3,7 @@
   "title": "Risotto night with Priya",
   "description": "Demo conversation (synthetic, for the demo account). Alex and Priya cook risotto together, talking stock and stirring technique, then plan meal prep for Alex's half marathon training, while Priya's dinner party idea is deferred and never discussed.",
   "speakers": ["Alex", "Priya"],
+  "daysAgo": 14,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 6000, "text": "Okay, chef. Why is the stock on the stove? I thought we just pour it in." },
     { "speaker": 0, "startMs": 6400, "endMs": 13500, "text": "It has to be warm. If you add cold stock, the rice stops cooking every time and it goes gluey." },

@@ -3,6 +3,7 @@
   "title": "Long run debrief with Jordan",
   "description": "Demo conversation (synthetic, for the demo account). After a Saturday sixteen-kilometer long run, Alex and Jordan go over Alex's pacing, the knee and strength work, recovery with sleep and the new running playlist, and a race plan for the half marathon.",
   "speakers": ["Alex", "Jordan"],
+  "daysAgo": 10,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 4100, "text": "Sixteen k! Your longest run ever. How do you feel?" },
     { "speaker": 0, "startMs": 4900, "endMs": 9000, "text": "Like a folding chair someone sat on wrong. But happy." },

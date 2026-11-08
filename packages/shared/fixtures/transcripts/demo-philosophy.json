@@ -3,6 +3,7 @@
   "title": "Coffee with Priya",
   "description": "Demo conversation (synthetic, for the demo account). Alex and Priya go from free will and determinism to Stoicism, detour into a podcast they both follow, then return to Stoicism as a way to handle Alex's job stress.",
   "speakers": ["Alex", "Priya"],
+  "daysAgo": 20,
   "utterances": [
     { "speaker": 0, "startMs": 0, "endMs": 4000, "text": "Okay, I ordered the oat latte again. Every single time." },
     { "speaker": 1, "startMs": 4800, "endMs": 15300, "text": "See, that's my whole point from the other night. Did you actually choose the oat latte, or was it chosen for you like ten years ago?" },

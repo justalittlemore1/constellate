@@ -3,6 +3,7 @@
   "title": "Friday night journal",
   "description": "Demo conversation (synthetic, for the demo account). Alex records a late-night voice journal about the week, moving from the job decision to that morning's run, a Stoic idea from coffee with Priya, and missing family, before coming back to the job decision.",
   "speakers": ["Alex"],
+  "daysAgo": 17,
   "utterances": [
     { "speaker": 0, "startMs": 0, "endMs": 10200, "text": "Okay. Friday, it's almost midnight. I said I'd do these more often, so here I am, talking to my phone in the dark like a normal person." },
     { "speaker": 0, "startMs": 10600, "endMs": 23000, "text": "Big thing this week is obviously the studio offer. I countered on Wednesday, like Dana said. Excited, specific number, then shut up. The silence was horrible. Maybe four seconds, and it felt like a minute." },

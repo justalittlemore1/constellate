@@ -6,6 +6,7 @@
  * The humans run the real mode ONCE, at H10, against the shared database. Agents only use --dry-run.
  */
 import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { MODELS } from '../packages/shared/src/config';
 import type { CreateLiveInterpreter, TranscriptFixture } from '../packages/shared/src/interpreter';
 import { createFinalizer, type FinalizeOutput } from '../packages/interpreter/src/finalize';
@@ -22,21 +23,45 @@ import type { ServerDeps } from '../apps/server/src/deps';
 import { SpeechUnavailableError } from '../apps/server/src/live/session';
 import type { SpeechAdapter, SpeechSegment } from '../apps/server/src/speech/types';
 
-/** The demo account's conversations, in seeding order (the first five, then the newer seven). */
+/** The demo account's conversations, oldest first (each fixture's `daysAgo` places it in the last ~3 weeks). */
 export const DEMO_FIXTURES = [
+  'demo-fitness',
   'demo-philosophy',
   'demo-religion',
-  'demo-fitness',
   'demo-career',
   'demo-journal',
   'demo-book-club',
-  'demo-travel',
   'demo-concert',
   'demo-cooking',
+  'demo-travel',
   'demo-stoicism-again',
   'demo-startup',
   'demo-run-debrief',
+  'demo-first-week',
+  'demo-money-talk',
+  'demo-guitar',
+  'demo-bread',
+  'demo-trip-recap',
+  'demo-reading-slump',
+  'demo-prototype-feedback',
+  'demo-tune-up-race',
 ];
+
+const TRANSCRIPTS = fileURLToPath(new URL('../packages/shared/fixtures/transcripts/', import.meta.url));
+const DAY_MS = 24 * 60 * 60_000;
+
+/**
+ * `daysAgo` (optional, top level in a demo fixture; the fixture schema ignores it): how many days
+ * before the seed run the conversation took place, so the library and Brain show varied dates.
+ */
+export function fixtureDaysAgo(fixtureId: string): number | null {
+  try {
+    const raw = JSON.parse(readFileSync(`${TRANSCRIPTS}${fixtureId}.json`, 'utf8')) as { daysAgo?: unknown };
+    return typeof raw.daysAgo === 'number' && raw.daysAgo >= 0 ? raw.daysAgo : null;
+  } catch {
+    return null;
+  }
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,20 +69,42 @@ export interface SeedArgs {
   dryRun: boolean;
   userId: string | null;
   confirmH10: boolean;
+  /** --skip-existing: leave out fixtures the demo user already has a ready conversation from */
+  skipExisting: boolean;
+  /** --only a,b: seed just these fixtures (null = all) */
+  only: string[] | null;
+  /** --estimate: no network, like --dry-run */
+  estimate: boolean;
 }
 
 export function parseArgs(argv: readonly string[]): SeedArgs {
   const i = argv.indexOf('--user');
+  const o = argv.indexOf('--only');
+  const only =
+    o >= 0
+      ? (argv[o + 1] ?? '')
+          .split(',')
+          .map((x) => x.trim())
+          .filter(Boolean)
+      : null;
   return {
     dryRun: argv.includes('--dry-run'),
     userId: i >= 0 ? (argv[i + 1] ?? null) : null,
     confirmH10: argv.includes('--confirm-h10'),
+    skipExisting: argv.includes('--skip-existing'),
+    only,
+    estimate: argv.includes('--estimate'),
   };
 }
 
 /** Why the real run must not start, or null. The dry run has no requirements. */
 export function refusal(args: SeedArgs, env: Record<string, string | undefined>): string | null {
-  if (args.dryRun) return null;
+  if (args.only) {
+    const unknown = args.only.filter((id) => !DEMO_FIXTURES.includes(id));
+    if (args.only.length === 0) return 'refusing: --only needs fixture ids, e.g. --only demo-guitar,demo-bread';
+    if (unknown.length) return `refusing: unknown fixture(s) for --only: ${unknown.join(', ')}`;
+  }
+  if (args.dryRun || args.estimate) return null;
   if (env.EMBEDDINGS !== 'gemini') {
     return 'refusing: set EMBEDDINGS=gemini — demo data needs real embeddings (counts toward the 500/day server cap)';
   }
@@ -129,6 +176,8 @@ export function embedRequests(rt: SeedRuntime): { thisRun: number; today: number
 }
 
 export interface SeedSummary {
+  /** fixtures left out by --skip-existing, with the ready conversation that already has them */
+  skipped: { fixture: string; conversationId: string }[];
   conversations: { fixture: string; conversationId: string; utterances: number; status: string; nodes: number }[];
   brainConversations: number;
   embeddings: { thisRun: number; today: number; cap: number | null; evalCacheHits: number; sentToGemini: number };
@@ -190,6 +239,35 @@ function withStepTimeout<T>(p: Promise<T>, ms: number | undefined, progress: Pro
   return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
 }
 
+/**
+ * Which of `fixtures` the user already has, keyed by fixture id. A seeded conversation keeps the live
+ * transcript (file transcription is off on our key), so its first utterance is the fixture's first
+ * utterance — titles can't be used, finalisation rewrites them. Reads only; no API calls.
+ */
+export async function existingFixtures(
+  rt: SeedRuntime,
+  userId: string,
+  fixtures: readonly string[],
+): Promise<Map<string, { conversationId: string; status: string; ready: boolean }>> {
+  const byFirstLine = new Map<string, string>();
+  for (const id of fixtures) {
+    const fx = await rt.deps.loadFixture(id);
+    const first = fx.utterances[0]?.text;
+    if (first) byFirstLine.set(first, id);
+  }
+  const found = new Map<string, { conversationId: string; status: string; ready: boolean }>();
+  for (const { conversation } of await rt.deps.store.listConversations(userId)) {
+    const [first] = await rt.deps.store.listUtterances(conversation.id);
+    const id = first ? byFirstLine.get(first.text) : undefined;
+    if (!id) continue;
+    const ready = conversation.status === 'ready';
+    const prev = found.get(id);
+    if (!prev || (ready && !prev.ready))
+      found.set(id, { conversationId: conversation.id, status: conversation.status, ready });
+  }
+  return found;
+}
+
 export async function seedDemo(
   rtIn: SeedRuntime,
   userId: string,
@@ -201,18 +279,35 @@ export async function seedDemo(
     stepTimeoutMs?: number;
     /** called before each conversation, and with "the Brain" before the Brain build */
     onFixture?: (fixture: string) => void;
+    /** the seed run's "now" (dates are placed `daysAgo` before it) */
+    now?: Date;
+    /** leave out fixtures the user already has a ready conversation from */
+    skipExisting?: boolean;
   } = {},
 ): Promise<SeedSummary> {
   const log = opts.log ?? ((m: string) => console.log(m));
   const progress: Progress = { fixture: '', step: 'replay' };
   const rt = instrument(rtIn, progress);
   const conversations: SeedSummary['conversations'] = [];
+  const skipped: SeedSummary['skipped'] = [];
+  const existing = opts.skipExisting ? await existingFixtures(rt, userId, opts.fixtures ?? DEMO_FIXTURES) : new Map();
   for (const fixture of opts.fixtures ?? DEMO_FIXTURES) {
+    const found = existing.get(fixture);
+    if (found?.ready) {
+      skipped.push({ fixture, conversationId: found.conversationId });
+      log(`[seed] ${fixture}: skipped, already seeded (conversation ${found.conversationId})`);
+      continue;
+    }
+    if (found) {
+      log(
+        `[seed] ${fixture}: found an incomplete conversation ${found.conversationId} (${found.status}); seeding it again (delete the old one if you like)`,
+      );
+    }
     progress.fixture = fixture;
     progress.step = 'replay';
     opts.onFixture?.(fixture);
     const r = await withStepTimeout(seedFixtureConversation(rt, userId, fixture), opts.stepTimeoutMs, progress);
-    await correctDuration(rt, r.conversationId, fixture);
+    await correctTimes(rt, r.conversationId, fixture, opts.now ?? new Date());
     const g = await rt.deps.store.loadGraph(r.conversationId).catch(() => null);
     const nodes = g ? Object.values(g.nodes).filter((n) => n.kind === 'topic').length : 0;
     conversations.push({
@@ -239,7 +334,11 @@ export async function seedDemo(
     `[seed] embedding requests: ${e.thisRun} this run; today ${e.today}${e.cap ? `/${e.cap}` : ''} on the server cap; ` +
       `${embeddings.evalCacheHits} text(s) reused from the eval recordings, ${embeddings.sentToGemini} passed to the server embedder (its disk cache may answer some)`,
   );
-  return { conversations, brainConversations: brain.conversations, embeddings };
+  if (opts.skipExisting)
+    log(
+      `[seed] skipped ${skipped.length} already-seeded fixture(s)${skipped.length ? `: ${skipped.map((x) => x.fixture).join(', ')}` : ''}`,
+    );
+  return { skipped, conversations, brainConversations: brain.conversations, embeddings };
 }
 
 // ── dry run: the real pipeline code with fakes, no network, no database ────────────────────────
@@ -365,18 +464,25 @@ function pacedSpeechFactory(pacer: Pacer): ServerDeps['createSpeech'] {
 }
 
 /**
- * The live session stamps `durationMs` from its wall clock, which means nothing under paced replay;
- * set it to the conversation's real length (its last utterance's end) through the normal graph path.
+ * The live session stamps `durationMs` from its wall clock (meaningless under paced replay) and dates
+ * the conversation at seeding time. Set the real length (last utterance end) and, when the fixture has
+ * `daysAgo`, `startedAt`/`endedAt` that many days before `now` — through the normal graph commit path
+ * (A1's store persists started_at, ended_at and duration_ms from conversation patches).
  */
-async function correctDuration(rt: SeedRuntime, conversationId: string, fixtureId: string): Promise<void> {
+async function correctTimes(rt: SeedRuntime, conversationId: string, fixtureId: string, now: Date): Promise<void> {
   const fixture = await rt.deps.loadFixture(fixtureId);
   const durationMs = Math.max(0, ...fixture.utterances.map((u) => u.endMs));
+  const daysAgo = fixtureDaysAgo(fixtureId);
+  const patch: { durationMs: number; startedAt?: string; endedAt?: string } = { durationMs };
+  if (daysAgo !== null) {
+    const started = new Date(now.getTime() - daysAgo * DAY_MS);
+    patch.startedAt = started.toISOString();
+    patch.endedAt = new Date(started.getTime() + durationMs).toISOString();
+  }
   const cell = await rt.deps.hub.acquire(conversationId);
   if (!cell) return;
   try {
-    if (cell.state.conversation.durationMs !== durationMs) {
-      await cell.commit([{ op: 'conversation.update', patch: { durationMs } }], 'user').persisted;
-    }
+    await cell.commit([{ op: 'conversation.update', patch }], 'user').persisted;
     await cell.flush();
   } finally {
     rt.deps.hub.release(cell);

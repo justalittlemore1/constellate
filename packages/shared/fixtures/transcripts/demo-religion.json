@@ -3,6 +3,7 @@
   "title": "Sam and church",
   "description": "Demo conversation (synthetic, for the demo account). Sam explains why they started going to church, the two get into the historical Jesus and how the gospels were written, then talk about meaning without religion via Camus, deferring the summer road trip until the very end.",
   "speakers": ["Alex", "Sam"],
+  "daysAgo": 19,
   "utterances": [
     { "speaker": 0, "startMs": 0, "endMs": 5800, "text": "Okay, so I have to ask. Your story on Sunday was literally a church bulletin. Since when?" },
     { "speaker": 1, "startMs": 6200, "endMs": 10300, "text": "Ha, yeah. I knew someone would ask. Like six weeks now?" },

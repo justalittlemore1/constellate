@@ -3,6 +3,7 @@
   "title": "Run with Jordan",
   "description": "Demo conversation (synthetic, for the demo account). After a run, Alex and Jordan talk half-marathon training, Alex's knee pain and strength work, and sleep and recovery, with a quick joke aside and Jordan promising to send a training plan.",
   "speakers": ["Alex", "Jordan"],
+  "daysAgo": 21,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 3000, "text": "Okay, that last kilometer was rough. You good?" },
     { "speaker": 0, "startMs": 3700, "endMs": 7300, "text": "Yeah, just dying a little. What was that, eight k?" },

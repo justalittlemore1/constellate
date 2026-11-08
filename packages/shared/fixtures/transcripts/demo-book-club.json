@@ -3,6 +3,7 @@
   "title": "Book club with Mia",
   "description": "Demo conversation (synthetic, for the demo account). Alex and Mia discuss Marcus Aurelius' Meditations, pick Camus' The Stranger for next month, compare reading on a phone versus paper, then return to Meditations.",
   "speakers": ["Alex", "Mia"],
+  "daysAgo": 16,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 5000, "text": "Okay, official book club, meeting number two. Two members, one cheese plate." },
     { "speaker": 0, "startMs": 5700, "endMs": 8900, "text": "Very exclusive. So, Meditations. Did you finish it?" },
