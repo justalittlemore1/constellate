@@ -9,7 +9,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { MODELS } from '../packages/shared/src/config';
 import type { CreateLiveInterpreter, TranscriptFixture } from '../packages/shared/src/interpreter';
 import { createFinalizer, type FinalizeOutput } from '../packages/interpreter/src/finalize';
-import { createInterpreter, type Scheduler } from '../packages/interpreter/src/live';
+import { createInterpreter, type Scheduler, type TestableInterpreter } from '../packages/interpreter/src/live';
 import type { LlmClient, LlmJsonArgs } from '../packages/interpreter/src/llm/types';
 import { dequantise, embeddingsFile, requestKey } from '../packages/interpreter/src/llm/replay';
 import { bagEmbed, windowIdsOf } from '../packages/interpreter/src/test-utils';
@@ -22,7 +22,21 @@ import type { ServerDeps } from '../apps/server/src/deps';
 import { SpeechUnavailableError } from '../apps/server/src/live/session';
 import type { SpeechAdapter, SpeechSegment } from '../apps/server/src/speech/types';
 
-export const DEMO_FIXTURES = ['demo-philosophy', 'demo-religion', 'demo-fitness', 'demo-career', 'demo-journal'];
+/** The demo account's conversations, in seeding order (the first five, then the newer seven). */
+export const DEMO_FIXTURES = [
+  'demo-philosophy',
+  'demo-religion',
+  'demo-fitness',
+  'demo-career',
+  'demo-journal',
+  'demo-book-club',
+  'demo-travel',
+  'demo-concert',
+  'demo-cooking',
+  'demo-stoicism-again',
+  'demo-startup',
+  'demo-run-debrief',
+];
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -185,6 +199,8 @@ export async function seedDemo(
     log?: (m: string) => void;
     /** fail with the stuck step's name when a conversation (or the Brain build) takes longer */
     stepTimeoutMs?: number;
+    /** called before each conversation, and with "the Brain" before the Brain build */
+    onFixture?: (fixture: string) => void;
   } = {},
 ): Promise<SeedSummary> {
   const log = opts.log ?? ((m: string) => console.log(m));
@@ -194,7 +210,9 @@ export async function seedDemo(
   for (const fixture of opts.fixtures ?? DEMO_FIXTURES) {
     progress.fixture = fixture;
     progress.step = 'replay';
+    opts.onFixture?.(fixture);
     const r = await withStepTimeout(seedFixtureConversation(rt, userId, fixture), opts.stepTimeoutMs, progress);
+    await correctDuration(rt, r.conversationId, fixture);
     const g = await rt.deps.store.loadGraph(r.conversationId).catch(() => null);
     const nodes = g ? Object.values(g.nodes).filter((n) => n.kind === 'topic').length : 0;
     conversations.push({
@@ -208,6 +226,7 @@ export async function seedDemo(
   }
   progress.fixture = 'the Brain';
   progress.step = 'brain';
+  opts.onFixture?.('the Brain');
   const brain = await withStepTimeout(rebuildBrainFor(rt, userId), opts.stepTimeoutMs, progress);
   const e = embedRequests(rt);
   const embeddings = {
@@ -281,19 +300,30 @@ const emptyFinalize: FinalizeOutput = {
 };
 
 /**
- * Dry-run speech: every fixture utterance, in order, with no timers. It deliberately ignores the
- * session's replay clock: A1's TranscriptReplayAdapter starts from `fromMs` = a wall clock running
- * at REPLAY_SPEED, so a few milliseconds of CI load at 1000× skipped the first utterances and the
- * seed then waited forever for their captions (the intermittent CI hang).
+ * Replay pacing for seeding (dry run AND the real run). A1's TranscriptReplayAdapter starts from
+ * `fromMs` = a wall clock running at REPLAY_SPEED, so under load it skips the first utterances and
+ * the seed waits forever for their captions (#63). And a fully instant replay would hand the real
+ * Claude interpreter almost the whole conversation in its second window. So utterances are emitted
+ * one at a time, each after the session's interpreter is idle again, with the interpreter's clock at
+ * the last utterance's end — exactly how the eval drives the interpreter.
  */
-export function instantReplaySpeech(fixture: TranscriptFixture): SpeechAdapter {
+export interface Pacer {
+  interpreter: TestableInterpreter | null;
+  lastEndMs: number;
+}
+
+export const newPacer = (): Pacer => ({ interpreter: null, lastEndMs: 0 });
+
+/** Every fixture utterance, in order, with no timers; waits for `pacer`'s interpreter between them. */
+export function pacedReplaySpeech(fixture: TranscriptFixture, pacer: Pacer | null = null): SpeechAdapter {
   let stopped = false;
   return {
     async start(onSegment: (s: SpeechSegment) => void) {
       for (const u of fixture.utterances) {
         if (stopped) return;
-        await Promise.resolve(); // let the session process each utterance in turn
+        await Promise.resolve();
         onSegment({ text: u.text, final: true, startMs: u.startMs, endMs: u.endMs, speaker: null });
+        if (pacer?.interpreter) await pacer.interpreter.idle();
       }
     },
     push() {},
@@ -303,8 +333,64 @@ export function instantReplaySpeech(fixture: TranscriptFixture): SpeechAdapter {
   };
 }
 
-/** The interpreter's silence timers never fire in the dry run; stop() flushes the last window. */
+/** Back-compat name used by tests: the unpaced variant. */
+export const instantReplaySpeech = (fixture: TranscriptFixture) => pacedReplaySpeech(fixture, null);
+
+/** The interpreter's silence timers never fire while seeding; stop() flushes the last window. */
 export const inertScheduler: Scheduler = { setTimeout: () => null, clearTimeout: () => {} };
+
+/** The real interpreter (Claude unless `llm` is given), clocked by the replayed utterances. */
+export function pacedInterpreter(pacer: Pacer, llm?: LlmClient): CreateLiveInterpreter {
+  return (deps) => {
+    pacer.lastEndMs = 0;
+    const interp = createInterpreter({ ...deps, nowMs: () => pacer.lastEndMs }, { llm, scheduler: inertScheduler });
+    pacer.interpreter = interp;
+    return {
+      pushUtterance(u) {
+        pacer.lastEndMs = Math.max(pacer.lastEndMs, u.endMs);
+        interp.pushUtterance(u);
+      },
+      park: (text, atMs) => interp.park(text, atMs),
+      stop: () => interp.stop(),
+    };
+  };
+}
+
+function pacedSpeechFactory(pacer: Pacer): ServerDeps['createSpeech'] {
+  return (req) => {
+    if (req.source !== 'replay-transcript' || !req.fixture)
+      throw new SpeechUnavailableError('seeding replays fixtures only');
+    return pacedReplaySpeech(req.fixture, pacer);
+  };
+}
+
+/**
+ * The live session stamps `durationMs` from its wall clock, which means nothing under paced replay;
+ * set it to the conversation's real length (its last utterance's end) through the normal graph path.
+ */
+async function correctDuration(rt: SeedRuntime, conversationId: string, fixtureId: string): Promise<void> {
+  const fixture = await rt.deps.loadFixture(fixtureId);
+  const durationMs = Math.max(0, ...fixture.utterances.map((u) => u.endMs));
+  const cell = await rt.deps.hub.acquire(conversationId);
+  if (!cell) return;
+  try {
+    if (cell.state.conversation.durationMs !== durationMs) {
+      await cell.commit([{ op: 'conversation.update', patch: { durationMs } }], 'user').persisted;
+    }
+    await cell.flush();
+  } finally {
+    rt.deps.hub.release(cell);
+  }
+}
+
+/** The real run's runtime: A1's server dependencies (.env, Supabase, capped Gemini, Claude) with paced replay. */
+export function realRuntime(): SeedRuntime {
+  const pacer = newPacer();
+  return createRuntime(undefined, {
+    createSpeech: pacedSpeechFactory(pacer),
+    createInterpreter: pacedInterpreter(pacer),
+  });
+}
 
 export function dryRunRuntime(overrides: Partial<ServerDeps> = {}): SeedRuntime {
   // no shared on-disk state: no usage ledger, no embedding cache, no Gemini client, memory store
@@ -315,19 +401,14 @@ export function dryRunRuntime(overrides: Partial<ServerDeps> = {}): SeedRuntime 
     GEMINI_USAGE_FILE: 'off',
     EMBED_CACHE_FILE: 'off',
   });
-  const llm = fakeDecisions();
-  const createInterp: CreateLiveInterpreter = (deps) => createInterpreter(deps, { llm, scheduler: inertScheduler });
+  const pacer = newPacer();
   return createRuntime(env, {
     store: new MemoryStore(),
     auth: { verifyToken: async () => null },
     gemini: null,
     embed: async (texts) => texts.map((t) => bagEmbed(t, MODELS.embedDims)),
-    createInterpreter: createInterp,
-    createSpeech: (req) => {
-      if (req.source !== 'replay-transcript' || !req.fixture)
-        throw new SpeechUnavailableError('dry run replays fixtures only');
-      return instantReplaySpeech(req.fixture);
-    },
+    createInterpreter: pacedInterpreter(pacer, fakeDecisions()),
+    createSpeech: pacedSpeechFactory(pacer),
     finalizeConversation: createFinalizer({
       llm: { json: async <T>() => ({ data: emptyFinalize as T, ms: 1, inTok: 0, outTok: 0 }) },
     }),
@@ -336,6 +417,49 @@ export function dryRunRuntime(overrides: Partial<ServerDeps> = {}): SeedRuntime 
     waitForRecordingMs: 0,
     ...overrides,
   });
+}
+
+export interface EmbeddingEstimate {
+  conversations: number;
+  /** distinct texts that would be embedded (the server caches by text) */
+  distinctTexts: number;
+  /** expected Gemini embedding requests: one per embed call that has an uncached text, chunks of 100 */
+  requests: number;
+  perConversation: { fixture: string; requests: number; texts: number }[];
+}
+
+/**
+ * --estimate: the dry run (no network) with a counting embedder that mirrors the server's
+ * text-keyed cache, so repeated texts cost nothing. Interpreter decisions are the dry run's stand-ins
+ * (a new topic every third window), which is close to the real ~1 node/minute density.
+ */
+export async function estimateEmbeddings(fixtures = DEMO_FIXTURES): Promise<EmbeddingEstimate> {
+  const seen = new Set<string>();
+  let requests = 0;
+  let current: { requests: number; texts: number } = { requests: 0, texts: 0 };
+  const embed = async (texts: string[]) => {
+    const fresh = [...new Set(texts)].filter((t) => !seen.has(t));
+    if (fresh.length > 0) {
+      const n = Math.ceil(fresh.length / 100);
+      requests += n;
+      current.requests += n;
+      current.texts += fresh.length;
+      fresh.forEach((t) => seen.add(t));
+    }
+    return texts.map((t) => bagEmbed(t, MODELS.embedDims));
+  };
+  const rt = dryRunRuntime({ embed });
+  const perConversation: EmbeddingEstimate['perConversation'] = [];
+  await seedDemo(rt, DRY_RUN_USER, {
+    fixtures,
+    log: () => {},
+    onFixture: (fixture) => {
+      const bucket = { fixture, requests: 0, texts: 0 };
+      perConversation.push(bucket);
+      current = bucket;
+    },
+  });
+  return { conversations: fixtures.length, distinctTexts: seen.size, requests, perConversation };
 }
 
 export const DRY_RUN_USER = 'd0000000-0000-4000-8000-0000000000d1';

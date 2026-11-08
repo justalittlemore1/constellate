@@ -2,6 +2,9 @@
  * Seed the demo account with the five demo-* conversations through the real pipeline
  * (A1's seed.ts: replay → interpreter → persistence → finalisation → Brain build).
  *
+ *   pnpm tsx scripts/seed-demo.ts --estimate
+ *       no network: the dry run with a counting embedder → distinct texts and expected requests
+ *
  *   pnpm tsx scripts/seed-demo.ts --dry-run
  *       fakes only (in-memory store, stand-in model answers, offline vectors): no network, no database
  *
@@ -10,16 +13,37 @@
  *       to a few hundred Gemini embedding requests (the server's 500/day cap applies). Reuses the eval
  *       recordings and the server's embedding cache where texts match, and prints the requests used.
  *
+ * Replay is paced and clock-free in both modes (seed-demo-lib: pacedReplaySpeech): speech-to-text is
+ * skipped in transcript replay anyway, and everything after it is the real interpreter → finalisation
+ * → Brain pipeline. A1's wall-clock replay could drop opening utterances under load (#63).
+ *
  * A PID file stops a second run from starting, and a hard timeout (30 min) ends a stuck run
  * (AGENTS.md › API budget: interrupting a command does not stop the process it started).
  */
 import { join } from 'node:path';
 import { guardProcess } from '../packages/interpreter/eval/guard';
 import { RECORDINGS } from '../packages/interpreter/eval/recordings-path';
-import { createRuntime } from '../apps/server/src/seed';
-import { DRY_RUN_USER, dryRunRuntime, parseArgs, refusal, seedDemo, withEvalCache } from './seed-demo-lib';
+import {
+  DRY_RUN_USER,
+  dryRunRuntime,
+  estimateEmbeddings,
+  parseArgs,
+  realRuntime,
+  refusal,
+  seedDemo,
+  withEvalCache,
+} from './seed-demo-lib';
 
 async function main() {
+  if (process.argv.includes('--estimate')) {
+    const e = await estimateEmbeddings();
+    for (const c of e.perConversation)
+      console.log(`[estimate] ${c.fixture}: ${c.requests} request(s), ${c.texts} new text(s)`);
+    console.log(
+      `[estimate] ${e.conversations} conversations: ${e.distinctTexts} distinct texts, about ${e.requests} embedding requests (batched; no network used for this estimate)`,
+    );
+    return;
+  }
   const args = parseArgs(process.argv.slice(2));
   const why = refusal(args, process.env);
   if (why) {
@@ -33,7 +57,7 @@ async function main() {
     console.log(`[seed] dry run done: ${summary.conversations.length} conversations, no network, nothing persisted`);
     return;
   }
-  const { rt, stats } = withEvalCache(createRuntime());
+  const { rt, stats } = withEvalCache(realRuntime());
   await seedDemo(rt, args.userId!, { evalStats: stats });
 }
 

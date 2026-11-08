@@ -13,8 +13,12 @@ import {
   DRY_RUN_USER,
   dryRunRuntime,
   evalCacheEmbedder,
+  estimateEmbeddings,
   instantReplaySpeech,
+  newPacer,
+  pacedReplaySpeech,
   parseArgs,
+  realRuntime,
   refusal,
   SeedStepTimeout,
   seedDemo,
@@ -55,7 +59,8 @@ describe('seed-demo guards', () => {
 });
 
 describe('seed-demo dry run', () => {
-  it('seeds all five demo conversations through the real pipeline with fakes and makes no API request', async () => {
+  it('seeds all twelve demo conversations through the real pipeline with fakes and makes no API request', async () => {
+    expect(DEMO_FIXTURES).toHaveLength(12);
     const logs: string[] = [];
     const summary = await seedDemo(dryRunRuntime(), DRY_RUN_USER, { log: (m) => logs.push(m), stepTimeoutMs: STEP_MS });
     expect(summary.conversations.map((c) => c.fixture)).toEqual(DEMO_FIXTURES);
@@ -64,7 +69,7 @@ describe('seed-demo dry run', () => {
       expect(c.nodes).toBeGreaterThan(0);
       expect(c.utterances).toBeGreaterThan(10);
     }
-    expect(summary.brainConversations).toBe(5);
+    expect(summary.brainConversations).toBe(DEMO_FIXTURES.length);
     expect(summary.embeddings.thisRun).toBe(0);
     expect(logs.some((l) => l.includes('embedding requests: 0 this run'))).toBe(true);
   }, 120_000);
@@ -133,4 +138,70 @@ describe('seed-demo dry run is deterministic', () => {
     expect(err).toMatchObject({ step: 'finalise' });
     expect(String(err.message)).toContain('stuck in step "finalise"');
   });
+});
+
+describe('seed-demo pacing and budget', () => {
+  it('paced replay emits the next utterance only after the interpreter is idle again', async () => {
+    const fx = demoFixture('demo-journal');
+    const pacer = newPacer();
+    const events: string[] = [];
+    let release: (() => void) | null = null;
+    let auto = false;
+    pacer.interpreter = {
+      pushUtterance() {},
+      park() {},
+      stop: async () => {},
+      idle: () =>
+        new Promise<void>((r) => {
+          events.push('idle?');
+          release = () => {
+            events.push('idle');
+            r();
+          };
+          if (auto) release();
+        }),
+    };
+    const run = pacedReplaySpeech(fx, pacer).start((seg) => events.push(seg.text.slice(0, 12)));
+    for (let i = 0; i < 3; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+      release!();
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    expect(events.slice(0, 7)).toEqual([
+      fx.utterances[0]!.text.slice(0, 12),
+      'idle?',
+      'idle',
+      fx.utterances[1]!.text.slice(0, 12),
+      'idle?',
+      'idle',
+      fx.utterances[2]!.text.slice(0, 12),
+    ]);
+    auto = true;
+    release!(); // the pending fourth wait; later ones resolve at once
+    await run;
+  });
+
+  it('the real run replays through the paced adapter, never the wall-clock replay (#63)', async () => {
+    const rt = realRuntime();
+    const fx = demoFixture('demo-journal');
+    const finals: string[] = [];
+    const speech = rt.deps.createSpeech({
+      source: 'replay-transcript',
+      fixture: fx,
+      nowMs: () => 10 * 60_000,
+      fromMs: 10 * 60_000, // a running clock far ahead must not drop anything
+      events: { onReconnecting() {}, onRecovered() {}, onError() {}, log() {} },
+    });
+    await speech.start((seg) => seg.final && finals.push(seg.text));
+    expect(finals).toHaveLength(fx.utterances.length);
+  });
+
+  it('--estimate reports distinct texts and batched requests for all twelve, within the 350 target', async () => {
+    const e = await estimateEmbeddings();
+    expect(e.conversations).toBe(12);
+    expect(e.perConversation.map((c) => c.fixture)).toEqual([...DEMO_FIXTURES, 'the Brain']);
+    expect(e.distinctTexts).toBeGreaterThan(0);
+    expect(e.requests).toBeGreaterThan(0);
+    expect(e.requests).toBeLessThanOrEqual(350);
+  }, 120_000);
 });
