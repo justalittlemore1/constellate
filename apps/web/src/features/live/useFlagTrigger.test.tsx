@@ -28,14 +28,16 @@ function setup(enabled = true) {
 }
 
 describe('gates', () => {
-  it('createFlagGate lets one flag through per window', () => {
+  it('createFlagGate lets one accepted flag through per window', () => {
     let t = 0;
     const gate = createFlagGate(1000, () => t);
-    expect(gate()).toBe(true);
+    expect(gate.open()).toBe(true);
+    expect(gate.open()).toBe(true); // asking does not consume the window
+    gate.accept();
     t = 999;
-    expect(gate()).toBe(false);
+    expect(gate.open()).toBe(false);
     t = 1000;
-    expect(gate()).toBe(true);
+    expect(gate.open()).toBe(true);
   });
 
   it('createDoublePress needs the same key twice within the window, and resets after a hit', () => {
@@ -126,6 +128,18 @@ describe('useFlagTrigger: debounce', () => {
     expect(onFlag).toHaveBeenCalledTimes(1);
     wait(FLAG_DEBOUNCE_MS);
     act(() => void hook.result.current.flag('button'));
+    expect(onFlag).toHaveBeenCalledTimes(2);
+  });
+
+  it('a rejected flag (e.g. not live yet) does not swallow the next gesture', () => {
+    const onFlag = vi.fn(() => false);
+    const { result } = renderHook(() => useFlagTrigger(onFlag, { enabled: true }));
+    act(() => void result.current.flag('button'));
+    onFlag.mockReturnValue(true);
+    wait(100); // well inside the debounce window
+    let ok = false;
+    act(() => void (ok = result.current.flag('button')));
+    expect(ok).toBe(true);
     expect(onFlag).toHaveBeenCalledTimes(2);
   });
 

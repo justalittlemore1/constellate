@@ -64,7 +64,7 @@ describe('LiveScreen on the mock server', () => {
     expect(screen.getByTestId('captions').textContent).not.toBe('');
 
     fireEvent.click(screen.getByRole('button', { name: /^Flag/ }));
-    expect(screen.getByRole('status')).toHaveTextContent('Moment flagged');
+    expect(screen.getByText('Moment flagged')).toHaveAttribute('role', 'status');
     await advance(1);
     expect(server.state.flags.some((f) => f.source === 'button')).toBe(true);
     expect(within(topics).getAllByText(/⚑ flagged/).length).toBeGreaterThan(0);
@@ -174,5 +174,119 @@ describe('LiveNodeList', () => {
     fireEvent.click(chip);
     expect(screen.queryByRole('button', { name: 'Jump to now' })).not.toBeInTheDocument();
     expect(scroller.scrollTop).toBe(1000);
+  });
+});
+
+describe('LiveScreen accessibility', () => {
+  let server: MockLiveServer;
+  let deps: LiveDeps;
+  beforeEach(() => {
+    ({ server, deps } = mockDeps({ speed: 4 }));
+  });
+  afterEach(() => server.dispose());
+
+  const press = (key: string, el: Element = document.activeElement ?? document.body) =>
+    act(() => {
+      fireEvent.keyDown(el, { key });
+    });
+
+  async function startDemo() {
+    const utils = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
+    await advance(20_000);
+    return utils;
+  }
+
+  it('the consent sheet takes focus, makes the screen behind it inert, and Escape cancels', async () => {
+    const { onCancel } = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
+    await advance(0);
+    const dialog = screen.getByRole('dialog', { name: 'Play the demo conversation' });
+    expect(screen.getByRole('button', { name: 'Start the demo' })).toHaveFocus();
+    expect(screen.getByTestId('live-content')).toHaveAttribute('inert');
+    press('Escape');
+    expect(onCancel).toHaveBeenCalled();
+    expect(dialog).toBeInTheDocument(); // the route leaves; nothing was started
+    expect(server.received).toHaveLength(0);
+  });
+
+  it('Park traps focus, ignores F typed in its field, closes on Escape and returns focus to the opener', async () => {
+    await startDemo();
+    expect(screen.getByTestId('live-content')).not.toHaveAttribute('inert');
+    const opener = screen.getByRole('button', { name: 'Park a thought' });
+    opener.focus();
+    fireEvent.click(opener);
+    const dialog = screen.getByRole('dialog', { name: 'Park a thought' });
+    const input = within(dialog).getByLabelText(/two words is enough/);
+    expect(input).toHaveFocus();
+    expect(screen.getByTestId('live-content')).toHaveAttribute('inert');
+
+    // double F inside the real field types text, never flags
+    press('f', input);
+    press('f', input);
+    fireEvent.change(input, { target: { value: 'ff' } });
+    await advance(10);
+    expect(server.received.some((m) => m.t === 'flag')).toBe(false);
+
+    // Tab from the last control wraps to the first inside the dialog
+    const buttons = within(dialog).getAllByRole('button');
+    const last = buttons.at(-1)!;
+    last.focus();
+    press('Tab', last);
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).not.toBe(last);
+
+    press('Escape');
+    expect(screen.queryByRole('dialog', { name: 'Park a thought' })).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+    expect(server.received.some((m) => m.t === 'park')).toBe(false);
+  });
+
+  it('pocket mode is a dialog: focus moves to Exit, Escape exits and focus returns', async () => {
+    await startDemo();
+    const opener = screen.getByRole('button', { name: /Pocket mode/ });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(screen.getByRole('dialog', { name: 'Pocket mode' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Exit pocket mode' })).toHaveFocus();
+    expect(screen.getByTestId('live-content')).toHaveAttribute('inert');
+    press('Escape');
+    expect(screen.queryByRole('dialog', { name: 'Pocket mode' })).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
+  });
+
+  it('Before you go takes focus and Escape leaves for the saved map', async () => {
+    const { onDone } = await startDemo();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    await advance(0);
+    const dialog = screen.getByRole('dialog', { name: 'Before you go' });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    press('Escape');
+    expect(onDone).toHaveBeenCalledWith(server.conversationId);
+  });
+
+  it('does not announce every stage change, only lost connections', async () => {
+    await startDemo();
+    act(() => server.drop());
+    const regions = screen.getAllByRole('status');
+    expect(regions.some((r) => r.textContent === 'Connection lost. Reconnecting…')).toBe(true);
+    expect(screen.getByText('Reconnecting…').closest('[aria-live]')).toBeNull();
+    await advance(1000);
+    expect(screen.getByText('Listening').closest('[aria-live]')).toBeNull();
+    expect(regions.every((r) => !r.textContent?.includes('Listening'))).toBe(true);
+  });
+});
+
+describe('LiveScreen without a conversation id', () => {
+  it('stopping before the server answered goes home instead of trapping the user', async () => {
+    const f = fakeDeps();
+    const { onCancel, onDone } = renderScreen(f.deps);
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Everyone agrees — start' }));
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' })); // still connecting: no ready yet
+    await advance(0);
+    expect(onDone).not.toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalled();
   });
 });

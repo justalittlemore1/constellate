@@ -15,14 +15,17 @@ export const DOUBLE_PRESS_MS = 400;
 export const FLAG_DEBOUNCE_MS = 1200;
 export const MEDIA_ACTIONS = ['nexttrack', 'play', 'pause'] as const;
 
-/** Lets one flag through per `windowMs`. */
+/**
+ * One accepted flag per `windowMs`: `open()` says whether a flag may fire now, `accept()`
+ * starts the window. A rejected attempt (e.g. not live yet) does not consume it.
+ */
 export function createFlagGate(windowMs = FLAG_DEBOUNCE_MS, now: () => number = Date.now) {
   let last = Number.NEGATIVE_INFINITY;
-  return (): boolean => {
-    const t = now();
-    if (t - last < windowMs) return false;
-    last = t;
-    return true;
+  return {
+    open: (): boolean => now() - last >= windowMs,
+    accept: (): void => {
+      last = now();
+    },
   };
 }
 
@@ -108,9 +111,12 @@ export function useFlagTrigger(onFlag: (source: FlagSource) => boolean, opts: Fl
 
   const flag = useCallback(
     (source: FlagSource): boolean => {
-      if (!gate()) return false;
+      if (!gate.open()) return false;
       const ok = onFlagRef.current(source);
-      if (ok) navigator.vibrate?.(60);
+      if (ok) {
+        gate.accept();
+        navigator.vibrate?.(60);
+      }
       return ok;
     },
     [gate],

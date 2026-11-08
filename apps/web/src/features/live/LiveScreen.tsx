@@ -5,6 +5,7 @@
 import type { GraphState, LiveStage } from '@constellate/shared';
 import { Flag, Moon, NotebookPen, Square, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useFocusTrap } from '../../ui';
 import type { LiveController, LiveDeps, LiveSourceSpec } from './controller';
 import { LiveNodeList } from './LiveNodeList';
 import { formatClock, openThreads } from './openThreads';
@@ -111,13 +112,21 @@ function LiveSessionView({
   const ending = phase === 'stopping' || phase === 'stopped';
   const conversationId = s.conversationId;
 
+  /** to the saved map, or home if the server never assigned a conversation */
+  const leave = useCallback(() => {
+    if (conversationId) onDone(conversationId);
+    else onCancel();
+  }, [conversationId, onDone, onCancel]);
+
   // nothing left open: go straight to the saved map once everything is stored
   useEffect(() => {
     if (phase !== 'stopped' || threads.length > 0) return;
-    if (!conversationId) return onCancel();
-    const t = setTimeout(() => onDone(conversationId), AUTO_LEAVE_MS);
+    const t = setTimeout(leave, conversationId ? AUTO_LEAVE_MS : 0);
     return () => clearTimeout(t);
-  }, [phase, threads.length, conversationId, onDone, onCancel]);
+  }, [phase, threads.length, conversationId, leave]);
+
+  const pocketPanel = useRef<HTMLDivElement>(null);
+  useFocusTrap(pocketPanel, trigger.pocket, () => trigger.setPocket(false));
 
   if (phase === 'error' && (s.error?.code === 'mic-denied' || s.error?.code === 'mic-unavailable')) {
     return (
@@ -176,8 +185,15 @@ function LiveSessionView({
   const sourceLabel =
     source.kind === 'transcript' ? 'Demo replay' : source.kind === 'wav' ? `Replaying ${source.name ?? 'audio file'}` : null;
 
+  const consenting = phase === 'consenting' || phase === 'idle';
+  const overlayOpen = consenting || parking || ending || trigger.pocket;
+
   return (
-    <div className="relative flex h-full flex-col" data-testid="live-screen">
+    <div className="relative h-full" data-testid="live-screen">
+      <p className="sr-only" role="status">
+        {s.reconnecting ? 'Connection lost. Reconnecting…' : ''}
+      </p>
+      <div className="flex h-full flex-col" inert={overlayOpen} data-testid="live-content">
       {/* top bar: elapsed time on the audio clock, recording indicator (dot + word), stage */}
       <header className="flex min-h-[56px] items-center gap-3 border-b border-white/10 px-4">
         <span className="flex items-center gap-2 text-[13px] font-semibold">
@@ -190,7 +206,7 @@ function LiveSessionView({
         <span role="timer" aria-label="Elapsed time" className="tabular-nums text-[15px] font-semibold">
           {formatClock(clockMs)}
         </span>
-        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 truncate text-[13px] text-ink-2" aria-live="polite">
+        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 truncate text-[13px] text-ink-2">
           {s.reconnecting && <WifiOff aria-hidden size={14} />}
           {stageText}
         </span>
@@ -254,6 +270,7 @@ function LiveSessionView({
           Stop
         </button>
       </nav>
+      </div>
 
       {toast && (
         <div
@@ -265,40 +282,42 @@ function LiveSessionView({
         </div>
       )}
 
-      {(phase === 'consenting' || phase === 'idle') && (
-        <ConsentSheet
-          demo={source.kind === 'transcript'}
-          onAgree={() => void controller?.consent()}
-          onCancel={onCancel}
-        />
-      )}
+      <ConsentSheet
+        open={consenting}
+        demo={source.kind === 'transcript'}
+        onAgree={() => void controller?.consent()}
+        onCancel={onCancel}
+      />
 
-      {parking && (
-        <ParkSheet
-          onClose={() => setParking(false)}
-          onPark={(text) => {
-            if (controller?.park(text)) show(`Parked: ${text.trim().slice(0, 40)}`);
-            setParking(false);
-          }}
-        />
-      )}
+      <ParkSheet
+        open={parking}
+        onClose={() => setParking(false)}
+        onPark={(text) => {
+          if (controller?.park(text)) show(`Parked: ${text.trim().slice(0, 40)}`);
+          setParking(false);
+        }}
+      />
 
-      {ending && (
-        <BeforeYouGo snapshot={s} threads={threads} onOpenMap={() => conversationId && onDone(conversationId)} />
-      )}
+      <BeforeYouGo open={ending} snapshot={s} threads={threads} onOpenMap={leave} onLeave={leave} />
 
       {trigger.pocket && (
         <div
+          ref={pocketPanel}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pocket mode"
+          tabIndex={-1}
           data-testid="pocket-mode"
           onPointerUp={trigger.onPocketTap}
-          className="absolute inset-0 z-40 flex touch-manipulation select-none flex-col items-center justify-center gap-6 bg-black/95 px-8 text-center"
+          className="absolute inset-0 z-40 flex touch-manipulation select-none flex-col items-center justify-center gap-6 bg-black/95 px-8 text-center outline-none"
         >
           <p className="text-[15px] text-ink-2">
-            Pocket mode. Double-tap anywhere to flag a moment.
+            Pocket mode. Double-tap anywhere to flag a moment. Escape or the button below exits.
             <br />
             <span className="tabular-nums">{formatClock(clockMs)}</span>
           </p>
           <button
+            data-autofocus
             type="button"
             onPointerUp={(e) => e.stopPropagation()}
             onClick={() => trigger.setPocket(false)}
