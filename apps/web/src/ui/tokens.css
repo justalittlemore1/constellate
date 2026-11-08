@@ -18,9 +18,14 @@
   --flag: #ff7a90; /* flag pins */
 
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --text-size: 1; /* user setting 1–1.5, applied to canvas labels too */
+  /* user setting 1–1.5 (Settings → Text size), applied to the root font size and canvas labels */
+  --text-size: 1;
   --touch: 44px;
   --radius: 16px;
+  /* 1 = full motion; 0 under prefers-reduced-motion or the Reduce motion setting */
+  --motion: 1;
+  /* 1 = normal glow; lower in low-stimulation mode */
+  --glow: 1;
 
   color-scheme: dark;
 }
@@ -29,4 +34,12 @@
   :root {
     --motion: 0;
   }
+}
+
+:root[data-motion='reduce'] {
+  --motion: 0;
+}
+
+:root[data-low-stim='true'] {
+  --glow: 0.35;
 }
