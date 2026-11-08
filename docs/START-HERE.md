@@ -2,15 +2,17 @@
 
 Two humans (**H1** = speech/AI lead, **H2** = product/UI lead), eight agent sessions. Assignments supersede the agent table in `docs/PLAN.md`.
 
-| Session | Tool | Workstream | Human | Starts |
+| Session | Tool + model | Workstream | Human | Starts |
 | --- | --- | --- | --- | --- |
-| 1 | Claude Code | A0 finish → then A1 Server + speech | H1 | now |
-| 2 | Claude Code | A2 Interpreter (the hardest part) | H1 | now (fixtures only until `contracts-v1`) |
-| 3 | Claude Code | R Reviewer | H1 | when the first PR opens |
-| 4 | Codex (seat 1) | A4 Shell + Library + Brain UI | H2 | after `contracts-v1` |
-| 5 | Codex (seat 2) | A6 Live client (mic, audio worklet, WebSocket, flags) | H2 | after `contracts-v1` |
-| 6 | Cursor (Grok 4.7) | A3 Map UI | H2 | after `contracts-v1` |
-| 7 | Gemini CLI | A5 QA tests | H2 | after `contracts-v1` |
+| 1 | Claude Code · Opus 5.5 | A0 finish → then A1 Server + speech | H1 | now |
+| 2 | Claude Code · Opus 5.5 | A2 Interpreter (the hardest part) | H1 | now (fixtures only until `contracts-v1`) |
+| 3 | Claude Code · Opus 5.5 | R Reviewer | H1 | when the first PR opens |
+| 4 | Codex (seat 1) · strongest GPT-6 coding model, reasoning high | A4 Shell + Library + Brain UI | H2 | after `contracts-v1` |
+| 5 | Codex (seat 2) · strongest GPT-6 coding model, reasoning highest | A6 Live client (mic, audio worklet, WebSocket, flags) | H2 | after `contracts-v1` |
+| 6 | Cursor · Grok 4.7, Agent mode | A3 Map UI | H2 | after `contracts-v1` |
+| 7 | Gemini CLI · best model on your plan (3.8 Flash) | A5 QA tests | H2 | after `contracts-v1` |
+
+Branches don't exist yet and you never create them by hand: each `git worktree add … -b ws/…` command below creates its branch.
 
 ## 0. One-time setup (each laptop, ~10 min)
 
