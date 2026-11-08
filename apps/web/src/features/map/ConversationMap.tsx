@@ -1,6 +1,6 @@
 /**
  * <ConversationMap> — the live constellation of a conversation (React Flow). Used by `/c/:id`
- * (A3) and `/live/:id` (A6: `renderMap={(g) => g && <ConversationMap state={g} followLatest />}`).
+ * (A3, through <SavedMap>) and `/live/:id` (A6: `renderMap={(g) => g && <ConversationMap state={g} live />}`).
  *
  * Positions come only from node x/y (never React Flow layout). Pinch / wheel zoom, drag to pan,
  * double-tap empty space to fit, zoom buttons for keyboard and switch users. Tap a node → preview
@@ -10,7 +10,7 @@
  */
 import '@xyflow/react/dist/base.css';
 import './map.css';
-import { nodesInOrder, type GraphState, type TopicNode, type Utterance } from '@constellate/shared';
+import { nodesInOrder, type GraphOp, type GraphState, type TopicNode, type Utterance } from '@constellate/shared';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -19,10 +19,11 @@ import {
   type NodeMouseHandler,
   type OnMoveStart,
 } from '@xyflow/react';
-import { ArrowDown, HelpCircle, List, Map as MapIcon, Maximize2, Minus, Plus } from 'lucide-react';
+import { ArrowDown, HelpCircle, Highlighter, List, Map as MapIcon, Maximize2, Minus, Plus } from 'lucide-react';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useMotionReduced } from '../../lib/prefs';
-import { cx, IconButton } from '../../ui';
+import { Button, cx, IconButton } from '../../ui';
+import { highlightOps, noteOps } from './edits';
 import { toFlowEdges, toFlowNodes, type MapFlowNode } from './flow';
 import { edgeTypes } from './edges';
 import {
@@ -40,7 +41,14 @@ import {
 } from './model';
 import { MapNodeActionsContext, nodeTypes } from './nodes';
 import { OutlineView } from './OutlineView';
-import { LegendSheet, NodeDetailSheet, PathBanner, PreviewCard, QuickActionsSheet } from './panels';
+import {
+  LegendSheet,
+  NodeDetailSheet,
+  PathBanner,
+  PreviewCard,
+  QuickActionsSheet,
+  type NodeEditActions,
+} from './panels';
 import { ensureVisible, fitAll, fitWidth, followY, graphBounds, MAX_ZOOM, MIN_ZOOM, withLaneFrame } from './viewport';
 
 export type MapView = 'map' | 'outline';
@@ -49,12 +57,21 @@ export interface ConversationMapProps {
   state: GraphState;
   /** defaults to `state.activeNodeId` */
   activeNodeId?: string | null;
-  /** live: keep the newest node in view until the user pans away; then show "Jump to now" */
+  /** live map: keep the newest node in view until the user pans away; then show "Jump to now" */
+  live?: boolean;
+  /** @deprecated same as `live` (kept for A6's first integration) */
   followLatest?: boolean;
   /** called when the user selects a node (preview) or clears the selection */
   onNodeSelect?: (node: TopicNode | null) => void;
   /** shows "Play this moment" where given (saved conversations with a recording) */
   onPlaySegment?: (node: TopicNode) => void;
+  /**
+   * User edits (Highlight, highlighter mode, sticky notes) as contract ops. Absent → read-only
+   * (the live screen). The saved map passes `useUserOps(id)`, which applies them optimistically.
+   */
+  onEdit?: (ops: GraphOp[]) => void;
+  /** select and centre this node (deep link `?node=` / `?t=`); re-applied when it changes */
+  focusNodeId?: string | null;
   /** evidence quotes in the detail sheet */
   utterances?: Utterance[];
   /** playback: the node being heard glows */
@@ -117,9 +134,12 @@ function useSize(ref: React.RefObject<HTMLElement | null>) {
 function MapInner({
   state,
   activeNodeId: activeProp,
-  followLatest = false,
+  live = false,
+  followLatest: followLatestProp = false,
   onNodeSelect,
   onPlaySegment,
+  onEdit,
+  focusNodeId = null,
   utterances,
   playingNodeId = null,
   detail: detailProp,
@@ -129,6 +149,7 @@ function MapInner({
   hideToolbar = false,
   className,
 }: ConversationMapProps) {
+  const followLatest = live || followLatestProp;
   const activeNodeId = activeProp === undefined ? state.activeNodeId : activeProp;
   const reduced = useMotionReduced();
   const motion = !reduced;
@@ -148,6 +169,7 @@ function MapInner({
   const [tracedId, setTracedId] = useState<string | null>(null);
   const [legendOpen, setLegendOpen] = useState(false);
   const [following, setFollowing] = useState(true);
+  const [painting, setPainting] = useState(false);
   const [ready, setReady] = useState(false);
   const placed = useRef(false);
   const lastTap = useRef(0);
@@ -236,13 +258,46 @@ function MapInner({
     [followLatest],
   );
 
+  const toggleHighlight = useCallback((n: TopicNode) => onEdit?.(highlightOps(n, !n.highlighted)), [onEdit]);
+  const edit: NodeEditActions | undefined = useMemo(
+    () =>
+      onEdit
+        ? {
+            onToggleHighlight: toggleHighlight,
+            onSaveNote: (n, text, existing) => onEdit(noteOps(state, n, text, existing)),
+          }
+        : undefined,
+    [onEdit, toggleHighlight, state],
+  );
+  const paintingOn = painting && Boolean(onEdit);
+
   const onNodeClick: NodeMouseHandler<MapFlowNode> = useCallback(
     (_e, node) => {
       if (node.type === 'note') return;
+      const n = state.nodes[node.id];
+      if (paintingOn && n) {
+        toggleHighlight(n);
+        return;
+      }
       select(selectedId === node.id ? selectedId : node.id);
     },
-    [select, selectedId],
+    [select, selectedId, paintingOn, toggleHighlight, state.nodes],
   );
+
+  // deep link / external focus: select the node now (preview shows at once) …
+  useEffect(() => {
+    if (focusNodeId && state.nodes[focusNodeId]) select(focusNodeId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the requested node changes
+  }, [focusNodeId]);
+  // … and scroll it into view once the canvas is ready, keeping the width-fit frame
+  useEffect(() => {
+    if (!ready || !focusNodeId || !fullBounds || !size.w || !size.h || view !== 'map') return;
+    const n = state.nodes[focusNodeId];
+    if (!n) return;
+    placed.current = true;
+    void rf.setViewport(followY(fitWidth(fullBounds, size.w, topInset), n.y, size.h, 0.4));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the requested node changes
+  }, [ready, focusNodeId, size.w > 0 && size.h > 0, view]);
 
   const onPaneClick = useCallback(() => {
     const now = Date.now();
@@ -302,7 +357,8 @@ function MapInner({
           break;
         case 'Enter':
         case ' ':
-          if (selectedId === id) setSheetId(id);
+          if (paintingOn) toggleHighlight(state.nodes[id]!);
+          else if (selectedId === id) setSheetId(id);
           else select(id);
           break;
         case 'Escape':
@@ -315,12 +371,12 @@ function MapInner({
       e.preventDefault();
       e.stopPropagation();
     },
-    [state.nodes, order, focusNode, selectedId, select],
+    [state.nodes, order, focusNode, selectedId, select, paintingOn, toggleHighlight],
   );
 
   const actions = useMemo(() => ({ onLongPress: (id: string) => setQuickId(id) }), []);
 
-  const previewId = selectedId ?? hoverId;
+  const previewId = paintingOn ? null : (selectedId ?? hoverId);
   const previewNode = previewId ? (state.nodes[previewId] ?? null) : null;
   const play = onPlaySegment;
   const trace = (n: TopicNode) => {
@@ -396,7 +452,25 @@ function MapInner({
         </MapNodeActionsContext.Provider>
       )}
 
-      {view === 'map' && traced && tracedLabels.length > 0 && (
+      {view === 'map' && paintingOn && (
+        <div className="pointer-events-none absolute inset-x-3 z-10" style={{ top: topInset + 8 }}>
+          <div
+            role="status"
+            data-testid="highlighter-banner"
+            className="surface pointer-events-auto flex items-center gap-2 rounded-[var(--radius)] border border-highlight/60 py-1 pl-3 pr-1 shadow-lg"
+          >
+            <Highlighter aria-hidden size={16} className="shrink-0 text-highlight" />
+            <p className="min-w-0 flex-1 text-[13px] leading-snug">
+              <span className="font-semibold">Highlighter on.</span> Tap topics to paint them gold; tap again to clear.
+            </p>
+            <Button variant="ghost" onClick={() => setPainting(false)}>
+              Done
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {view === 'map' && !paintingOn && traced && tracedLabels.length > 0 && (
         <div className="pointer-events-none absolute inset-x-3 z-10" style={{ top: topInset + 8 }}>
           <PathBanner labels={tracedLabels} onClear={() => setTracedId(null)} />
         </div>
@@ -426,6 +500,19 @@ function MapInner({
               <span />
             )}
             <div className="surface pointer-events-auto flex flex-col rounded-full border border-line">
+              {onEdit && (
+                <IconButton
+                  label="Highlighter: tap topics to paint them gold"
+                  aria-pressed={paintingOn}
+                  className={cx(paintingOn && 'bg-highlight text-bg hover:bg-highlight/90')}
+                  onClick={() => {
+                    setPainting((p) => !p);
+                    select(null);
+                  }}
+                >
+                  <Highlighter aria-hidden size={18} />
+                </IconButton>
+              )}
               <IconButton label="Zoom in" onClick={() => void rf.zoomIn({ duration })}>
                 <Plus aria-hidden size={18} />
               </IconButton>
@@ -457,6 +544,8 @@ function MapInner({
         utterances={utterances}
         onClose={() => setSheetId(null)}
         onPlay={play}
+        isPlaying={Boolean(sheetId && sheetId === playingNodeId)}
+        edit={edit}
         onTrace={(n) => {
           trace(n);
           if (view !== 'map') setView('map');
@@ -471,6 +560,7 @@ function MapInner({
         }}
         onPlay={play}
         onTrace={trace}
+        edit={edit}
       />
       <LegendSheet open={legendOpen} onClose={() => setLegendOpen(false)} />
     </div>

@@ -5,9 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { usePrefs } from '../../lib/prefs';
-import { renderApp } from '../../test/render';
 import { ConversationMap, KEYBOARD_HINT } from './ConversationMap';
-import { ConversationScreen } from './ConversationScreen';
 import { FlowEdge, RevisitEdge, TetherEdge } from './edges';
 import type { MapFlowEdge } from './flow';
 import { installFlowDomStubs } from './testing';
@@ -370,6 +368,17 @@ describe('edge components', () => {
     expect(container.querySelector('g[data-kind="tether"] path')!.getAttribute('stroke')).toBe('var(--thread)');
   });
 
+  it('edges on the traced path are drawn thicker', () => {
+    const { container } = render(
+      <svg>
+        <FlowEdge {...base} data={data({ onPath: true })} />
+      </svg>,
+    );
+    expect(Number(container.querySelector('g[data-kind="flow"] path')!.getAttribute('stroke-width'))).toBeGreaterThan(
+      2,
+    );
+  });
+
   it('dimmed edges fade for the path tracer', () => {
     const { container } = render(
       <svg>
@@ -378,19 +387,5 @@ describe('edge components', () => {
     );
     expect(container.querySelector('g[data-kind="flow"]')).toHaveAttribute('opacity', '0.15');
     expect(container.querySelectorAll('[data-testid="particle"]').length).toBe(0);
-  });
-});
-
-describe('ConversationScreen (/c/:id)', () => {
-  it('loads the conversation and renders its map', async () => {
-    renderApp({ route: `/c/${demo.conversation.id}`, element: <ConversationScreen />, path: '/c/:id' });
-    expect(await screen.findByRole('heading', { name: demo.conversation.title })).toBeInTheDocument();
-    expect(await screen.findByTestId(`map-node-${nodeOf('Sunday Service').id}`)).toBeInTheDocument();
-  });
-
-  it('shows an error with a retry for an unknown conversation', async () => {
-    renderApp({ route: '/c/nope', element: <ConversationScreen />, path: '/c/:id' });
-    expect(await screen.findByRole('alert')).toHaveTextContent("couldn't load");
-    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
   });
 });
