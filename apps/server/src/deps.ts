@@ -4,10 +4,11 @@ import { GoogleGenAI } from '@google/genai';
 import { loadMergeSystemPrompt } from '@constellate/brain';
 import { createLiveInterpreter, finalizeConversation } from '@constellate/interpreter';
 import { MODELS, type CreateLiveInterpreter, type FinalizeConversation } from '@constellate/shared';
-import { cachedEmbedder, EmbeddingCache, embedCacheFile, noEmbedder, type Embedder } from './ai/embed';
+import { DailyUsage, usageFile } from './ai/daily-usage';
+import { cachedEmbedder, EmbeddingCache, embedCacheFile, localEmbedder, noEmbedder, type Embedder } from './ai/embed';
 import { assertRealApisAllowed, createGeminiGateway, GeminiGateway } from './ai/gemini';
 import { anthropicMergeDecider, type MergeDecider } from './brain/merge-llm';
-import { forceClaudeReasoning, type Env } from './env';
+import { embeddingsMode, forceClaudeReasoning, type Env } from './env';
 import { gatedTranscriber, geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
 import { GraphHub } from './graph/hub';
 import { LiveRegistry, SpeechUnavailableError, type LiveDeps, type Log, type SpeechRequest } from './live/session';
@@ -31,6 +32,8 @@ export interface ServerDeps extends Omit<LiveDeps, 'log'> {
   decideMerge: MergeDecider | null;
   /** the one shared Gemini client (null without a key); usage is on GET /health */
   gemini: GeminiGateway | null;
+  /** `gemini` (real, capped) or `local` (offline stand-in) */
+  embeddings: 'gemini' | 'local';
   /** whether MODELS.sttFile can be used (startup `models.list` probe) */
   sttFile: SttFileProbe;
 }
@@ -67,13 +70,19 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
   const store: Store = overrides.store ?? (db ? new SupabaseStore(db) : new MemoryStore());
   const auth: Auth = overrides.auth ?? (db ? supabaseAuth(db) : rejectAllAuth);
   const gemini = overrides.gemini !== undefined ? overrides.gemini : realGemini(env, log);
-  const embed: Embedder = gemini
-    ? cachedEmbedder({
-        fetch: (texts) => gemini.embed(texts),
-        cache: new EmbeddingCache(embedCacheFile(env.EMBED_CACHE_FILE)),
-        log,
-      })
-    : noEmbedder;
+  const embedMode = embeddingsMode(env);
+  if (embedMode === 'local')
+    log('config.embeddings', { mode: 'local', note: 'offline stand-in; set EMBEDDINGS=gemini for real ones' });
+  const embed: Embedder =
+    embedMode === 'local'
+      ? localEmbedder
+      : gemini
+        ? cachedEmbedder({
+            fetch: (texts) => gemini.embed(texts),
+            cache: new EmbeddingCache(embedCacheFile(env.EMBED_CACHE_FILE)),
+            log,
+          })
+        : noEmbedder;
   const replaySpeed = env.REPLAY_SPEED;
   const sttFile = probeSttFile(gemini, env, log);
   // pin reasoning to Claude for the interpreter package (it reads process.env), whoever builds deps
@@ -109,6 +118,7 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
     transcribeFile:
       gemini && sttFile.state !== 'off' ? gatedTranscriber(sttFile.available, geminiFileTranscriber(gemini)) : null,
     sttFile,
+    embeddings: embedMode,
     waitForRecordingMs: 45_000,
     decideMerge:
       overrides.decideMerge !== undefined || !env.ANTHROPIC_API_KEY
@@ -126,6 +136,8 @@ function realGemini(env: Env, log: Log): GeminiGateway | null {
     env.GEMINI_API_KEY,
     log,
     GoogleGenAI as unknown as Parameters<typeof createGeminiGateway>[2],
+    // per-day counts on disk: the 500/day embedding cap survives restarts
+    new DailyUsage(usageFile(env.GEMINI_USAGE_FILE)),
   );
 }
 

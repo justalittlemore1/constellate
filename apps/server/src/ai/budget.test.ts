@@ -96,7 +96,9 @@ describe('GeminiGateway', () => {
     expect(log).toHaveBeenLastCalledWith('gemini.request', {
       model: MODELS.sttLive,
       count: 1,
+      today: 1,
       totals: { [MODELS.embed]: 2, [MODELS.sttLive]: 1 },
+      cap: null,
     });
   });
 

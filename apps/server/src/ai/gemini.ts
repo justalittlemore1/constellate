@@ -19,6 +19,7 @@ import {
   type Session,
 } from '@google/genai';
 import { MODELS } from '@constellate/shared';
+import { DailyUsage } from './daily-usage';
 
 type Log = (event: string, data?: Record<string, unknown>) => void;
 
@@ -51,8 +52,12 @@ export function suggestedRetryMs(err: unknown): number | null {
 }
 
 export interface GeminiUsage {
-  /** requests sent, by model (`files.upload` / `files.delete` counted separately) */
+  /** requests sent by this process, by model (`files.upload` / `files.delete` counted separately) */
   requests: Record<string, number>;
+  /** today's requests (Pacific day), persisted across restarts */
+  today: { day: string; requests: Record<string, number> };
+  /** hard daily caps by model */
+  caps: Record<string, number>;
   /** 429 responses, by model */
   rateLimited: Record<string, number>;
   /** models currently cooling down → ms left */
@@ -65,7 +70,14 @@ export interface GeminiUsage {
  */
 export const LIVE_API_VERSION = 'v1beta';
 
+/** Hard daily cap on embedding requests for this server (AGENTS.md → API budget). */
+export const EMBED_DAILY_CAP = 500;
+
 export interface GatewayOptions {
+  /** per-day counts, persisted so a restart does not reset the caps */
+  daily?: DailyUsage;
+  /** hard per-day request caps by model; default: MODELS.embed → EMBED_DAILY_CAP */
+  dailyCaps?: Record<string, number>;
   /** SDK client for Live sessions when it needs a different API version (see LIVE_API_VERSION) */
   liveAi?: GenAiLike;
   log?: Log;
@@ -92,6 +104,9 @@ export class GeminiGateway {
   private readonly base: number;
   private readonly max: number;
   private readonly liveAi: GenAiLike | undefined;
+  private readonly daily: DailyUsage;
+  private readonly caps: Record<string, number>;
+  private capLoggedFor = '';
 
   constructor(
     private readonly ai: GenAiLike,
@@ -102,6 +117,8 @@ export class GeminiGateway {
     this.base = opts.baseBackoffMs ?? 5_000;
     this.max = opts.maxBackoffMs ?? 5 * 60_000;
     this.liveAi = opts.liveAi;
+    this.daily = opts.daily ?? new DailyUsage(null, this.now);
+    this.caps = opts.dailyCaps ?? { [MODELS.embed]: EMBED_DAILY_CAP };
   }
 
   usage(): GeminiUsage {
@@ -110,14 +127,20 @@ export class GeminiGateway {
     for (const [model, until] of this.cooldownUntil) if (until > now) cooling[model] = until - now;
     return {
       requests: Object.fromEntries(this.requests),
+      today: this.daily.today(),
+      caps: { ...this.caps },
       rateLimited: Object.fromEntries(this.limited),
       coolingDown: cooling,
     };
   }
 
-  /** `MODELS.embed` at `MODELS.embedDims`, many texts per request. Raw (not normalised) vectors. */
+  /**
+   * `MODELS.embed` at `MODELS.embedDims`, many texts per request. Raw (not normalised) vectors.
+   * Past today's cap it returns `[]` without sending anything; callers degrade.
+   */
   async embed(texts: string[]): Promise<number[][]> {
     if (texts.length === 0) return [];
+    if (this.capReached(MODELS.embed)) return [];
     const res = await this.call(MODELS.embed, () =>
       this.ai.models.embedContent({
         model: MODELS.embed,
@@ -183,13 +206,34 @@ export class GeminiGateway {
     return new GeminiRateLimitedError(model, wait);
   }
 
+  /** True once today's hard cap for `model` is used up (logged once per day). */
+  capReached(model: string): boolean {
+    const cap = this.caps[model];
+    if (cap === undefined) return false;
+    const today = this.daily.today();
+    if ((today.requests[model] ?? 0) < cap) return false;
+    const key = `${today.day}|${model}`;
+    if (this.capLoggedFor !== key) {
+      this.capLoggedFor = key;
+      this.log('gemini.daily_cap_reached', { model, cap, day: today.day });
+    }
+    return true;
+  }
+
   private async call<T>(model: string, fn: () => Promise<T>): Promise<T> {
     const until = this.cooldownUntil.get(model) ?? 0;
     const left = until - this.now();
     if (left > 0) throw new GeminiRateLimitedError(model, left);
     const n = (this.requests.get(model) ?? 0) + 1;
     this.requests.set(model, n);
-    this.log('gemini.request', { model, count: n, totals: Object.fromEntries(this.requests) });
+    const today = this.daily.add(model);
+    this.log('gemini.request', {
+      model,
+      count: n,
+      today,
+      totals: Object.fromEntries(this.requests),
+      cap: this.caps[model] ?? null,
+    });
     try {
       const out = await fn();
       this.strikes.delete(model);
@@ -219,9 +263,11 @@ export function createGeminiGateway(
   apiKey: string,
   log: Log,
   GenAI: new (opts: { apiKey: string; httpOptions?: { apiVersion?: string } }) => GenAiLike,
+  daily?: DailyUsage,
 ): GeminiGateway {
   return new GeminiGateway(new GenAI({ apiKey }), {
     log,
+    daily,
     liveAi: new GenAI({ apiKey, httpOptions: { apiVersion: LIVE_API_VERSION } }),
   });
 }

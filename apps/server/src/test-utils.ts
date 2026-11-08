@@ -152,6 +152,7 @@ export async function makeHarness(over: Partial<ServerDeps> = {}): Promise<Harne
     decideMerge: null,
     gemini: null,
     sttFile: { state: 'off', available: Promise.resolve(false) },
+    embeddings: 'local',
     waitForRecordingMs: 0,
     ...over,
   };

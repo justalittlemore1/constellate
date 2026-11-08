@@ -30,11 +30,22 @@ export function brainRoutes(app: FastifyInstance, deps: ServerDeps, log: Log): v
     if (!userId) return;
     const q = (req.query.q ?? '').trim().slice(0, 200);
     if (!q) return reply.code(400).send({ error: 'invalid', message: 'q is required' });
-    let embedding: number[];
+    let embedding: number[] | undefined;
     try {
-      [embedding] = (await deps.embed([q])) as [number[]];
+      [embedding] = await deps.embed([q]);
     } catch (err) {
       return reply.code(503).send({ error: 'embed', message: err instanceof Error ? err.message : 'unavailable' });
+    }
+    if (!embedding) {
+      // daily embedding cap reached: fall back to a plain name search
+      const concepts = await deps.store.listConcepts(userId);
+      const needle = q.toLowerCase();
+      return {
+        degraded: 'embeddings unavailable today; matching by name',
+        results: concepts
+          .filter((c) => c.mentionCount > 0 && c.name.toLowerCase().includes(needle))
+          .map((c) => ({ id: c.id, name: c.name, similarity: null })),
+      };
     }
     const [matches, concepts] = await Promise.all([
       deps.store.matchConcepts(userId, embedding, 10),
