@@ -1,36 +1,26 @@
 /**
- * Public API of the topic interpreter. A1 (server) integrates ONLY through these two exports.
- * A2 replaces the stub bodies; the signatures come from @constellate/shared and are frozen.
+ * Public API of the topic interpreter. A1 (server) integrates ONLY through these two exports;
+ * the signatures come from @constellate/shared and are frozen.
  *
- * Planned layout (A2):
  *   src/trigger.ts      when to call the LLM (window, pause, discourse markers)
  *   src/context.ts      context packing (anchor, outline, open threads, candidates, summary, recent)
  *   src/granularity.ts  density hints
  *   src/decision.ts     Decision type + JSON schema
  *   src/translate.ts    Decision → GraphOp[] (commit gate, placeNode, threads)
- *   src/finalize.ts     post-recording refinement
- *   src/llm/{gemini,anthropic,replay}.ts   LlmClient implementations
+ *   src/live.ts         the live state machine (queue, timeout, retry)
+ *   src/llm/            LlmClient implementations (gemini, anthropic, replay)
  *   prompts/live.md, prompts/finalize.md
  *   eval/run.ts, eval/reports/
  */
 import type { CreateLiveInterpreter, FinalizeConversation } from '@constellate/shared';
+import { createInterpreter } from './live';
 
-/** STUB (A2 replaces): accepts utterances and emits nothing, so the server can be built against it. */
-export const createLiveInterpreter: CreateLiveInterpreter = (deps) => {
-  const buffered: string[] = [];
-  return {
-    pushUtterance(u) {
-      buffered.push(u.id);
-      deps.log?.('interpreter.stub.utterance', { id: u.id });
-    },
-    park(text, atMs) {
-      deps.log?.('interpreter.stub.park', { text, atMs });
-    },
-    async stop() {
-      deps.log?.('interpreter.stub.stop', { utterances: buffered.length });
-    },
-  };
-};
+/** Provider from INTERPRETER_PROVIDER (gemini | anthropic), model from MODELS.interpreter. */
+export const createLiveInterpreter: CreateLiveInterpreter = (deps) => createInterpreter(deps);
 
-/** STUB (A2 replaces): returns no edits. */
+/** STUB (A2 replaces in phase 2): returns no edits, so the live graph stands. */
 export const finalizeConversation: FinalizeConversation = async () => ({ ops: [], recallPrompts: [] });
+
+export { createInterpreter, type DecisionRecord, type InterpreterOptions, type Scheduler } from './live';
+export type { LlmClient, LlmJsonArgs, LlmJsonResult } from './llm/types';
+export { createAnthropicClient, createGeminiClient, createGeminiEmbedder } from './llm';
