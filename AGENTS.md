@@ -57,6 +57,8 @@ Real limits on our keys, checked in AI Studio on 2026-11-07:
 | File transcription with speaker labels | `MODELS.sttFile` (`gemini-3.5-transcribe`) | Not available on our key | Finalisation keeps the live transcript with empty `speakers`. Check with `models.list` before relying on it. |
 | Text-to-speech | `MODELS.tts` | Not available; other TTS models are 10/day | **Don't render test audio.** Humans supply WAVs in `packages/shared/fixtures/audio/`. |
 
+- **Embedding caps (hard, enforced in code):** the server's shared Gemini client allows at most **500 embedding requests per day** and the eval at most **150 per day**, counted per process from midnight Pacific and persisted to disk so restarts don't reset them. Past the cap, embedding calls return nothing and callers degrade (no revisit candidates, Brain merges by name). The humans keep the remaining ~350/day as headroom for the demo.
+- **The eval defaults to `--cached`**: it reuses recorded embeddings and only re-embeds text that changed. A full re-record needs an explicit `--record` and the humans' OK.
 - **Unit tests and CI never call any real API.** Use fakes or recorded responses (`eval:replay`).
 - **Cache every Gemini response** by a hash of its input (`eval/recordings` for the eval; memory + disk on the server), so repeat runs cost nothing.
 - **Develop with transcript replay.** Use the microphone or WAV replay for deliberate speech tests only.
