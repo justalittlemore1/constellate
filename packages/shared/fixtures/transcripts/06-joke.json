@@ -12,16 +12,16 @@
     { "speaker": 1, "startMs": 32600, "endMs": 39800, "text": "It does at first. But after like twenty problems you start seeing the same three moves over and over." },
     { "speaker": 0, "startMs": 40600, "endMs": 45100, "text": "Okay, that actually makes sense. Nucleophile attacks, leaving group leaves, proton shuffles." },
     { "speaker": 1, "startMs": 45500, "endMs": 49400, "text": "Exactly. And the exam is mostly those plus the stereochemistry questions." },
-    { "speaker": 0, "startMs": 49900, "endMs": 55400, "text": "Oh my god, there's a pigeon on the window. It's just staring at us." },
-    { "speaker": 1, "startMs": 56100, "endMs": 61400, "text": "He's here to study too. He heard the curve is generous this year." },
-    { "speaker": 0, "startMs": 61800, "endMs": 64800, "text": "Honestly he probably understands stereochemistry better than me." },
-    { "speaker": 1, "startMs": 65300, "endMs": 72200, "text": "Ha. Okay, so for stereo, I'd do the chair flip problems every day, like ten minutes." },
-    { "speaker": 0, "startMs": 73000, "endMs": 78400, "text": "The chair flips are the worst. I always mix up axial and equatorial." },
-    { "speaker": 1, "startMs": 79000, "endMs": 84700, "text": "Build the model kit. Seriously, holding it in your hands makes the flip obvious." },
-    { "speaker": 0, "startMs": 85200, "endMs": 91000, "text": "I think I lent mine to my brother. I'll check if the library has one." },
-    { "speaker": 1, "startMs": 91400, "endMs": 99100, "text": "They do, at the front desk. Also, want to do a study session Sunday with the practice exam from last year?" },
-    { "speaker": 0, "startMs": 99900, "endMs": 102200, "text": "Yes. Library, second floor, noon?" },
-    { "speaker": 1, "startMs": 103000, "endMs": 106900, "text": "Perfect. Bring snacks, it'll be three hours at least." }
+    { "speaker": 0, "startMs": 49900, "endMs": 54300, "text": "Oh my god, a pigeon on the window. Staring at us." },
+    { "speaker": 1, "startMs": 55000, "endMs": 57600, "text": "He heard the curve is generous." },
+    { "speaker": 0, "startMs": 58000, "endMs": 60700, "text": "Ha, he knows stereo better than me." },
+    { "speaker": 1, "startMs": 61200, "endMs": 68100, "text": "Ha. Okay, so for stereo, I'd do the chair flip problems every day, like ten minutes." },
+    { "speaker": 0, "startMs": 68900, "endMs": 74300, "text": "The chair flips are the worst. I always mix up axial and equatorial." },
+    { "speaker": 1, "startMs": 74900, "endMs": 80600, "text": "Build the model kit. Seriously, holding it in your hands makes the flip obvious." },
+    { "speaker": 0, "startMs": 81100, "endMs": 86900, "text": "I think I lent mine to my brother. I'll check if the library has one." },
+    { "speaker": 1, "startMs": 87300, "endMs": 95000, "text": "They do, at the front desk. Also, want to do a study session Sunday with the practice exam from last year?" },
+    { "speaker": 0, "startMs": 95800, "endMs": 98100, "text": "Yes. Library, second floor, noon?" },
+    { "speaker": 1, "startMs": 98900, "endMs": 102800, "text": "Perfect. Bring snacks, it'll be three hours at least." }
   ],
   "expect": {
     "topicCountRange": [
