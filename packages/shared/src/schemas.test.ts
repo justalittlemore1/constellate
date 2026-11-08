@@ -6,6 +6,7 @@ import { applyBatches } from './ops';
 import { emptyGraph } from './domain';
 import {
   ClientMsgSchema,
+  GraphOpSchema,
   GraphStateSchema,
   OpBatchSchema,
   ServerMsgSchema,
@@ -60,6 +61,20 @@ describe('fixtures match the contracts', () => {
       }
       for (const u of t.utterances) expect(u.speaker).toBeLessThan(t.speakers.length);
     }
+  });
+});
+
+describe('commitment.update schema', () => {
+  it('accepts text and/or done, nothing else', () => {
+    const ok = (patch: unknown) => GraphOpSchema.safeParse({ op: 'commitment.update', id: 'k1', patch }).success;
+    expect(ok({ done: true })).toBe(true);
+    expect(ok({ text: 'Send the paper' })).toBe(true);
+    expect(ok({ text: 'Send the paper', done: false })).toBe(true);
+    expect(ok({})).toBe(true);
+    expect(ok({ text: '' })).toBe(false);
+    expect(ok({ nodeId: 'n1' })).toBe(false); // only the user-editable fields
+    expect(ok({ done: 'yes' })).toBe(false);
+    expect(GraphOpSchema.safeParse({ op: 'commitment.update', patch: { done: true } }).success).toBe(false);
   });
 });
 

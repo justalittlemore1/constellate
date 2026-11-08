@@ -177,6 +177,11 @@ export const GraphOpSchema: z.ZodType<GraphOp> = z.discriminatedUnion('op', [
   z.object({ op: z.literal('active.set'), nodeId: id.nullable() }),
   z.object({ op: z.literal('flag.add'), flag: FlagSchema }),
   z.object({ op: z.literal('commitment.add'), commitment: CommitmentSchema }),
+  z.object({
+    op: z.literal('commitment.update'),
+    id,
+    patch: z.object({ text: z.string().min(1).optional(), done: z.boolean().optional() }).strict(),
+  }),
   z.object({ op: z.literal('annotation.upsert'), annotation: AnnotationSchema }),
   z.object({ op: z.literal('conversation.update'), patch: ConversationPatchSchema }),
 ]);
