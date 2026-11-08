@@ -180,9 +180,29 @@ export class MemoryStore implements Store {
       .slice(0, k);
   }
 
-  async insertRecallCards(_userId: string, conversationId: string, cards: { nodeId: string; prompt: string }[]) {
-    this.check('insertRecallCards');
-    this.rec(conversationId).recallCards.push(...clone(cards));
+  async replaceRecallCards(_userId: string, conversationId: string, cards: { nodeId: string; prompt: string }[]) {
+    this.check('replaceRecallCards');
+    this.rec(conversationId).recallCards = clone(cards);
+  }
+
+  async idsTakenElsewhere(
+    conversationId: string,
+    ids: { nodes: string[]; edges: string[]; flags: string[]; commitments: string[]; annotations: string[] },
+  ) {
+    this.check('idsTakenElsewhere');
+    const taken: string[] = [];
+    for (const [cid, r] of this.convs) {
+      if (cid === conversationId) continue;
+      const g = r.graph;
+      taken.push(
+        ...ids.nodes.filter((id) => g.nodes[id]),
+        ...ids.edges.filter((id) => g.edges[id]),
+        ...ids.flags.filter((id) => g.flags.some((x) => x.id === id)),
+        ...ids.commitments.filter((id) => g.commitments.some((x) => x.id === id)),
+        ...ids.annotations.filter((id) => g.annotations.some((x) => x.id === id)),
+      );
+    }
+    return taken;
   }
 
   recallCards(conversationId: string) {

@@ -188,9 +188,27 @@ export class SupabaseStore implements Store {
   }
 
   async replaceUtterances(userId: string, conversationId: string, utterances: Utterance[]) {
-    check('utterances.delete', await this.db.from(TABLES.utterances).delete().eq('conversation_id', conversationId));
+    const existing = check(
+      'utterances.ids',
+      await this.db.from(TABLES.utterances).select('id').eq('conversation_id', conversationId),
+    ) as { id: string }[];
+    // upsert first (one statement, atomic), delete leftovers last: a failure never empties the transcript
     if (utterances.length) {
-      check('utterances.insert', await this.db.from(TABLES.utterances).insert(utterances.map((u) => toRow(u, userId))));
+      check(
+        'utterances.upsert',
+        await this.db.from(TABLES.utterances).upsert(
+          utterances.map((u) => toRow(u, userId)),
+          { onConflict: 'conversation_id,id' },
+        ),
+      );
+    }
+    const keep = new Set(utterances.map((u) => u.id));
+    const leftovers = (existing ?? []).map((r) => r.id).filter((id) => !keep.has(id));
+    if (leftovers.length) {
+      check(
+        'utterances.delete',
+        await this.db.from(TABLES.utterances).delete().eq('conversation_id', conversationId).in('id', leftovers),
+      );
     }
   }
 
@@ -217,16 +235,51 @@ export class SupabaseStore implements Store {
     return rows.map((r) => ({ id: r.id, similarity: Number(r.similarity) }));
   }
 
-  async insertRecallCards(userId: string, conversationId: string, cards: { nodeId: string; prompt: string }[]) {
-    if (!cards.length) return;
-    check(
-      'recall_cards',
-      await this.db
-        .from(TABLES.recallCards)
-        .insert(
-          cards.map((c) => ({ user_id: userId, conversation_id: conversationId, node_id: c.nodeId, prompt: c.prompt })),
-        ),
-    );
+  async replaceRecallCards(userId: string, conversationId: string, cards: { nodeId: string; prompt: string }[]) {
+    const existing = check(
+      'recall_cards.ids',
+      await this.db.from(TABLES.recallCards).select('id').eq('conversation_id', conversationId),
+    ) as { id: string }[];
+    if (cards.length) {
+      check(
+        'recall_cards.insert',
+        await this.db
+          .from(TABLES.recallCards)
+          .insert(
+            cards.map((c) => ({
+              user_id: userId,
+              conversation_id: conversationId,
+              node_id: c.nodeId,
+              prompt: c.prompt,
+            })),
+          ),
+      );
+    }
+    const old = (existing ?? []).map((r) => r.id);
+    if (old.length) check('recall_cards.delete', await this.db.from(TABLES.recallCards).delete().in('id', old));
+  }
+
+  async idsTakenElsewhere(
+    conversationId: string,
+    ids: { nodes: string[]; edges: string[]; flags: string[]; commitments: string[]; annotations: string[] },
+  ) {
+    const tables = [
+      [TABLES.nodes, ids.nodes],
+      [TABLES.edges, ids.edges],
+      [TABLES.flags, ids.flags],
+      [TABLES.commitments, ids.commitments],
+      [TABLES.annotations, ids.annotations],
+    ] as const;
+    const taken: string[] = [];
+    for (const [table, list] of tables) {
+      if (!list.length) continue;
+      const rows = check(
+        `${table}.ids`,
+        await this.db.from(table).select('id').in('id', list).neq('conversation_id', conversationId),
+      ) as { id: string }[];
+      taken.push(...(rows ?? []).map((r) => r.id));
+    }
+    return taken;
   }
 
   async deleteConversation(conversationId: string) {

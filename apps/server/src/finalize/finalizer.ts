@@ -59,44 +59,55 @@ export class Finalizer {
     const cell = await deps.hub.acquire(conversationId);
     if (!cell) return { status: 'skipped', transcript: 'live', reason: 'not found' };
     try {
-      const conv = cell.state.conversation;
-      if (conv.status === 'live') return { status: 'skipped', transcript: 'live', reason: 'still live' };
-      if (conv.status === 'ready' && !opts.force) {
-        return { status: 'skipped', transcript: 'live', reason: 'already ready' };
-      }
-      if (conv.status !== 'processing')
-        this.commit(cell, [{ op: 'conversation.update', patch: { status: 'processing' } }]);
-
-      const transcript = await this.transcript(cell, opts.waitForRecording ?? false);
-
-      let result;
-      try {
-        result = await deps.finalizeConversation({
-          state: cell.state,
-          utterances: transcript.utterances,
-          newId: deps.newId,
-        });
-      } catch (err) {
-        return await this.fail(cell, transcript.kind, `refinement failed: ${errText(err)}`);
-      }
-      try {
-        cell.commit([...result.ops, { op: 'conversation.update', patch: { status: 'ready' } }], 'finalize');
-      } catch (err) {
-        if (!(err instanceof OpError)) throw err;
-        return await this.fail(cell, transcript.kind, `refinement produced invalid ops: ${err.message}`);
-      }
-      const cards = result.recallPrompts.filter((c) => cell.state.nodes[c.nodeId]).slice(0, 3);
-      if (cards.length) {
-        await cell
-          .enqueue('recall cards', () => deps.store.insertRecallCards(cell.userId, conversationId, cards))
-          .catch(() => {});
-      }
-      await cell.flush();
-      deps.log('finalize.done', { conversationId, transcript: transcript.kind, ops: result.ops.length });
-      return { status: 'ready', transcript: transcript.kind };
+      return await this.finalizeCell(cell, opts);
+    } catch (err) {
+      // anything unexpected (e.g. the database is down): never leave the conversation `processing`
+      return await this.fail(cell, 'live', `finalisation crashed: ${errText(err)}`);
     } finally {
       deps.hub.release(cell);
     }
+  }
+
+  private async finalizeCell(
+    cell: GraphCell,
+    opts: { waitForRecording?: boolean; force?: boolean },
+  ): Promise<FinalizeOutcome> {
+    const { deps } = this;
+    const conversationId = cell.conversationId;
+    const conv = cell.state.conversation;
+    if (conv.status === 'live') return { status: 'skipped', transcript: 'live', reason: 'still live' };
+    if (conv.status === 'ready' && !opts.force) {
+      return { status: 'skipped', transcript: 'live', reason: 'already ready' };
+    }
+    if (conv.status !== 'processing')
+      this.commit(cell, [{ op: 'conversation.update', patch: { status: 'processing' } }]);
+
+    const transcript = await this.transcript(cell, opts.waitForRecording ?? false);
+
+    let result;
+    try {
+      result = await deps.finalizeConversation({
+        state: cell.state,
+        utterances: transcript.utterances,
+        newId: deps.newId,
+      });
+    } catch (err) {
+      return await this.fail(cell, transcript.kind, `refinement failed: ${errText(err)}`);
+    }
+    try {
+      cell.commit([...result.ops, { op: 'conversation.update', patch: { status: 'ready' } }], 'finalize');
+    } catch (err) {
+      if (!(err instanceof OpError)) throw err;
+      return await this.fail(cell, transcript.kind, `refinement produced invalid ops: ${err.message}`);
+    }
+    // replace, so a forced re-run never duplicates cards
+    const cards = result.recallPrompts.filter((c) => cell.state.nodes[c.nodeId]).slice(0, 3);
+    await cell
+      .enqueue('recall cards', () => deps.store.replaceRecallCards(cell.userId, conversationId, cards))
+      .catch(() => {});
+    await cell.flush();
+    deps.log('finalize.done', { conversationId, transcript: transcript.kind, ops: result.ops.length });
+    return { status: 'ready', transcript: transcript.kind };
   }
 
   /** Diarized transcript when the recording exists and fits; otherwise the live one. */
@@ -109,7 +120,8 @@ export class Finalizer {
     await cell.flush();
     const live = await deps.store.listUtterances(cid);
     const conv = cell.state.conversation;
-    const path = conv.audioPath ?? recordingPath(cell.userId, cid);
+    // always the owner's canonical path, never a stored value
+    const path = recordingPath(cell.userId, cid);
 
     const download = () => deps.store.downloadRecording(path).catch(() => null);
     let audio = await download();
@@ -136,9 +148,11 @@ export class Finalizer {
         endMs: s.endMs,
         text: s.text,
       }));
+      // utterances first: if that write fails we fall back to the live transcript and node evidence
+      // must still point at live ids, so the remap is committed only after it succeeded
+      await cell.enqueue('utterances', () => deps.store.replaceUtterances(cell.userId, cid, fresh));
       const ops = remapEvidence(cell.state, live, fresh);
       if (ops.length) this.commit(cell, ops);
-      await cell.enqueue('utterances', () => deps.store.replaceUtterances(cell.userId, cid, fresh));
       return { kind: 'diarized', utterances: fresh };
     } catch (err) {
       deps.log('finalize.transcription_failed', { conversationId: cid, message: errText(err) });

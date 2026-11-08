@@ -57,12 +57,23 @@ export interface Store {
 
   insertUtterance(userId: string, u: Utterance): Promise<void>;
   listUtterances(conversationId: string): Promise<Utterance[]>;
+  /** upsert the new set first, then delete leftovers, so a failure never leaves an empty transcript */
   replaceUtterances(userId: string, conversationId: string, utterances: Utterance[]): Promise<void>;
 
   saveEmbedding(nodeId: string, embedding: number[]): Promise<void>;
   matchNodes(conversationId: string, embedding: number[], k: number, excludeId?: string): Promise<NodeMatch[]>;
 
-  insertRecallCards(userId: string, conversationId: string, cards: { nodeId: string; prompt: string }[]): Promise<void>;
+  /** replaces every recall card of the conversation (a forced re-finalisation must not duplicate) */
+  replaceRecallCards(
+    userId: string,
+    conversationId: string,
+    cards: { nodeId: string; prompt: string }[],
+  ): Promise<void>;
+  /** of the given ids, those that already exist in a row of a different conversation */
+  idsTakenElsewhere(
+    conversationId: string,
+    ids: { nodes: string[]; edges: string[]; flags: string[]; commitments: string[]; annotations: string[] },
+  ): Promise<string[]>;
   deleteConversation(conversationId: string): Promise<void>;
 
   /** recordings bucket */
