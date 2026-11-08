@@ -70,7 +70,7 @@ describe('ConversationMap on the fixture graph', () => {
     expect(within(tile(resolved)).getByTestId('glyph-resolved')).toBeInTheDocument();
     // revisit ↺ badge, flag pin, highlight ring
     const back = tile(nodeOf('Resurrection Accounts', 1));
-    expect(within(back).getByTestId('revisit-badge')).toHaveTextContent('↺');
+    expect(within(back).getByTestId('revisit-badge')).toHaveAttribute('data-glyph', '↺');
     expect(within(back).getByTestId('flag-badge')).toBeInTheDocument();
     expect(within(back).getByTestId('highlight-ring')).toBeInTheDocument();
     expect(within(tile(nodeOf('Sunday Service'))).queryByTestId('revisit-badge')).toBeNull();
@@ -102,7 +102,7 @@ describe('ConversationMap on the fixture graph', () => {
     expect(screen.getByRole('button', { name: 'Broad' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByTestId(`map-note-${demo.annotations[0]!.id}`)).toBeNull();
     expect(screen.queryByTestId(`map-node-${nodeOf('Gospel Sources').id}`)).toBeNull();
-    expect(within(tile(nodeOf('Historical Jesus'))).getByTestId('child-badge')).toHaveTextContent('+2');
+    expect(within(tile(nodeOf('Historical Jesus'))).getByTestId('child-badge')).toHaveAttribute('data-glyph', '+2');
   });
 
   it('Detailed shows the start time under each label', async () => {
@@ -178,6 +178,52 @@ describe('screen reader names and instructions', () => {
     expect(names).toContain('Resurrection Accounts returns to the earlier Resurrection Accounts');
     expect(names).toContain('Thread Intramural Soccer linked to Gospel Sources');
     expect(names).toContain('Note on Resurrection Accounts: Look up the Q source hypothesis');
+  });
+});
+
+describe('visible text and accessible names (axe label-content-name-mismatch)', () => {
+  /** what a sighted person reads on a node, as axe sees it: all DOM text, whitespace collapsed */
+  const visibleText = (el: HTMLElement) => (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const nameOf = (n: TopicNode) => wrapper(n).getAttribute('aria-label') ?? '';
+
+  it('every node name starts with exactly its visible text (Balanced)', () => {
+    render(<ConversationMap state={demo} />);
+    for (const n of Object.values(demo.nodes)) {
+      const label = visibleText(within(tile(n)).getByTestId('node-label'));
+      expect(visibleText(tile(n))).toBe(label); // badges add no DOM text
+      expect(nameOf(n).startsWith(label)).toBe(true);
+    }
+    const trip = Object.values(demo.nodes).find((n) => n.kind === 'pending' && n.status === 'resolved')!;
+    expect(nameOf(trip).startsWith(`${trip.label} picked up,`)).toBe(true);
+  });
+
+  it('holds in Detailed (time line) and for the active node ("now")', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<ConversationMap state={demo} />);
+    await user.click(screen.getByRole('button', { name: 'Detailed' }));
+    const gs = nodeOf('Gospel Sources');
+    expect(nameOf(gs).startsWith('Gospel Sources 02:40,')).toBe(true);
+    unmount();
+    const g = liveGraph();
+    render(<ConversationMap state={g} live />);
+    expect(wrapper(g.nodes.a!).getAttribute('aria-label')!.startsWith('Opening now,')).toBe(true);
+  });
+
+  it('badges carry no DOM text (their glyphs come from CSS)', () => {
+    render(<ConversationMap state={demo} />);
+    const back = tile(nodeOf('Resurrection Accounts', 1));
+    expect(within(back).getByTestId('revisit-badge').textContent).toBe('');
+  });
+});
+
+describe('the label is part of the tap target', () => {
+  it('tapping a node name opens its preview (the pane must not swallow it)', () => {
+    render(<ConversationMap state={demo} />);
+    const n = nodeOf('Sunday Service');
+    const label = within(tile(n)).getByText('Sunday Service');
+    expect(label.closest('[data-testid="node-label"]')).not.toHaveClass('pointer-events-none');
+    fireEvent.click(label);
+    expect(screen.getByTestId('preview-card')).toHaveTextContent('Sunday Service');
   });
 });
 
