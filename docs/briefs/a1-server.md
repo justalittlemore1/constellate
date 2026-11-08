@@ -1,6 +1,6 @@
 # A1 Server
 
-**Agent:** Codex · **Human:** H1 · **Branch:** `ws/a1-server` · **Owns:** `apps/server/`, `packages/brain/`, new files in `supabase/migrations/`
+**Agent:** Claude Code (after it finishes A0) · **Human:** H1 · **Branch:** `ws/a1-server` · **Owns:** `apps/server/`, `packages/brain/`, new files in `supabase/migrations/`
 
 Read first: `docs/PLAN.md` → Architecture, Shared contracts, Database, Speech pipeline, The Brain. Contract types: `packages/shared/src/{ws,interpreter,ops,config}.ts`.
 

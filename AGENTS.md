@@ -10,14 +10,16 @@ Constellate is a phone-first web app that listens to a conversation and grows a 
 
 You may READ anything. You may WRITE only inside your workstream's paths. Each agent session belongs to exactly one workstream.
 
-| Workstream | Brief | Owns (write access) |
-| --- | --- | --- |
-| A0 Foundation | `docs/briefs/a0-foundation.md` | root configs, `.github/workflows/`, `packages/shared` until the contracts freeze, `scripts/build-fixtures.ts`, `supabase/migrations/0001_init.sql` |
-| A1 Server | `docs/briefs/a1-server.md` | `apps/server/`, `packages/brain/`, `supabase/migrations/` (new files only) |
-| A2 Interpreter | `docs/briefs/a2-interpreter.md` | `packages/interpreter/`, `packages/shared/fixtures/transcripts/`, `packages/shared/fixtures/audio/`, `scripts/` (except build-fixtures.ts), prompt files in `packages/brain/prompts/` |
-| A3 Map + Live UI | `docs/briefs/a3-map-live-ui.md` | `apps/web/src/features/map/`, `apps/web/src/features/live/` |
-| A4 Shell + Library + Brain UI | `docs/briefs/a4-shell-library-brain.md` | `apps/web/` everything else (`src/app`, `src/ui`, `src/lib`, `features/library`, `features/brain`, `index.html`, `vite.config.ts`, web `package.json`) |
-| A5 QA + Review | `docs/briefs/a5-qa-review.md` | `e2e/`, `playwright.config.ts`, test-only files anywhere (`*.test.ts(x)`, `*.spec.ts`) when adding coverage for others |
+| Workstream | Agent | Brief | Owns (write access) |
+| --- | --- | --- | --- |
+| A0 Foundation | Claude Code | `docs/briefs/a0-foundation.md` | root configs, `.github/workflows/`, `packages/shared` until the contracts freeze, `scripts/build-fixtures.ts`, `supabase/migrations/0001_init.sql` |
+| A1 Server + speech | Claude Code | `docs/briefs/a1-server.md` | `apps/server/`, `packages/brain/` (except prompts), `supabase/migrations/` (new files only) |
+| A2 Interpreter | Claude Code | `docs/briefs/a2-interpreter.md` | `packages/interpreter/`, `packages/shared/fixtures/transcripts/` and `audio/`, `packages/brain/prompts/`, `scripts/` (except build-fixtures.ts and stt-runner.ts) |
+| A3 Map UI | Cursor | `docs/briefs/a3-map-ui.md` | `apps/web/src/features/map/` |
+| A4 Shell + Library + Brain UI | Codex | `docs/briefs/a4-shell-library-brain.md` | `apps/web/` except `features/map/` and `features/live/` (i.e. `src/app`, `src/ui`, `src/lib`, `features/library`, `features/brain`, `index.html`, `vite.config.ts`, web `package.json`) |
+| A5 QA (tests) | Gemini CLI | `docs/briefs/a5-qa-review.md` | `e2e/`, `playwright.config.ts`, `scripts/stt-runner.ts`, test-only files anywhere when adding coverage for others |
+| A6 Live client | Codex | `docs/briefs/a6-live-client.md` | `apps/web/src/features/live/` |
+| R Reviewer | Claude Code | `docs/briefs/reviewer.md` | nothing — PR review comments only |
 
 Every agent writes unit tests next to its own code. Need a change in someone else's path? Describe it in your PR under "Deviations / open questions" and the owning workstream makes it.
 
@@ -59,10 +61,11 @@ Environment: copy `.env.example` to `.env` at the repo root. Humans fill in keys
 
 ## Git workflow
 
-- One **git worktree and branch per agent**: `git worktree add ../constellate-a1 -b ws/a1-server origin/main` (names: `ws/a1-server`, `ws/a2-interpreter`, `ws/a3-map-live`, `ws/a4-shell`, `ws/a5-qa`).
+- One **git worktree and branch per agent**: `git worktree add ../constellate-a1 -b ws/a1-server origin/main` (names: `ws/a1-server`, `ws/a2-interpreter`, `ws/a3-map`, `ws/a4-shell`, `ws/a5-qa`, `ws/a6-live`).
 - Small commits with clear messages: `a3: revisit edge component with dashed arc`.
 - Open a PR to `main` at least every **90 minutes** (`gh pr create --fill`), using the PR template. Rebase on `origin/main` before opening (`git fetch && git rebase origin/main`).
 - Merge needs: CI green + one human approval. Squash merge. Delete the branch, keep the worktree, rebase it on `main`, continue.
+- **Dependencies and the lockfile**: add a dependency only to your own package's `package.json` (`pnpm --filter @constellate/<pkg> add <dep>`). If `pnpm-lock.yaml` conflicts on rebase, never hand-merge it: take `main`'s version (`git checkout --theirs pnpm-lock.yaml` during a rebase), run `pnpm install`, and commit the regenerated lockfile.
 - Never force-push `main`. Never merge your own PR without approval.
 
 ## Definition of done (any task)

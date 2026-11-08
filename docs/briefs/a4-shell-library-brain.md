@@ -1,6 +1,6 @@
 # A4 Shell + Library + Brain UI
 
-**Agent:** Codex · **Human:** H2 · **Branch:** `ws/a4-shell` · **Owns:** everything in `apps/web/` except `features/map/` and `features/live/`
+**Agent:** Codex (first Plus seat) · **Human:** H2 · **Branch:** `ws/a4-shell` · **Owns:** everything in `apps/web/` except `features/map/` and `features/live/`
 
 Read first: `docs/PLAN.md` → Interface and interaction design (tokens, screens and routes, accessibility, phone simulation), The Brain → View. Current scaffold: `src/app/{App,AppRoutes,PhoneFrame}.tsx`, `src/ui/tokens.css`, `src/lib/{env,supabase,fixtures}.ts`.
 

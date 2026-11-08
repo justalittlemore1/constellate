@@ -30,7 +30,7 @@ pnpm verify              # lint + typecheck + unit tests
 pnpm e2e                 # Playwright on Pixel 7 and iPhone 14 viewports
 ```
 
-Humans: see `docs/SETUP.md` for Supabase, keys, GitHub and hosting. Agents: start with `AGENTS.md`.
+**Humans: start with `docs/START-HERE.md`** (agent assignments, worktrees, first prompts), then `docs/SETUP.md` (Supabase, keys, GitHub, hosting). Agents: start with `AGENTS.md`.
 
 ## How it works
 

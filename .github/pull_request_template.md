@@ -1,6 +1,6 @@
 ## Workstream
 
-<!-- A0 Foundation · A1 Server · A2 Interpreter · A3 Map + Live UI · A4 Shell + Library + Brain UI · A5 QA -->
+<!-- A0 Foundation · A1 Server · A2 Interpreter · A3 Map UI · A4 Shell + Library + Brain UI · A5 QA · A6 Live client -->
 
 ## What changed
 

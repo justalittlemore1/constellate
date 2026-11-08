@@ -1,6 +1,8 @@
-# A3 Map + Live UI
+# A3 Map UI
 
-**Agent:** Gemini CLI · **Human:** H2 · **Branch:** `ws/a3-map-live` · **Owns:** `apps/web/src/features/map/`, `apps/web/src/features/live/`
+**Agent:** Cursor (Grok 4.7) · **Human:** H2 · **Branch:** `ws/a3-map` · **Owns:** `apps/web/src/features/map/`
+
+Live capture, the WebSocket client and flag triggers belong to **A6 Live client** (`features/live`). You expose the map as a component that takes a `GraphState` (plus `activeNodeId` and callbacks); A6 feeds it live state.
 
 Read first: `docs/PLAN.md` → Interface and interaction design (tokens, visual language table, interactions, flag triggers, accessibility), Speech pipeline → Capture. Data: `loadDemoGraph()` / `loadDemoOps()` in `apps/web/src/lib/fixtures.ts`. Reducer: `applyOps` from `@constellate/shared`.
 
@@ -17,15 +19,12 @@ Work in mock mode (`VITE_USE_MOCKS=1`) until H5. Ask A4 (via PR note) for any ne
 - [ ] Outline view (`role="tree"`, chronological, indented, statuses and relationships in words) — the accessible and low-stimulation alternative.
 - [ ] Playwright visual snapshots of the fixture map at three zoom levels (coordinate with A5).
 
-## Phase 2 (H5–H8): live
+## Phase 2 (H5–H8): saved map and playback
 
-- [ ] `features/live/audio.ts`: `getUserMedia` (echo cancellation, noise suppression, mono) → `AudioWorklet` downsampling to 16 kHz Int16 → 3,200-byte (100 ms) binary frames; `MediaRecorder` Opus/WebM in parallel; upload to `recordings/{user}/{conversation}.webm` on stop.
-- [ ] WAV replay source (decode a fixture WAV, stream through the same worklet in real time) and transcript replay (`hello` with `source: 'replay-transcript'`).
-- [ ] `features/live/useLiveSession.ts`: WebSocket client per `ClientMsg`/`ServerMsg` (validate with the zod schemas), apply `ops` batches with `applyOps`, reconnect with `conversationId` + `resumeAtMs`. Mock mode replays `loadDemoOps()` on their `at` timing.
-- [ ] Live screen: top bar (timer, red dot, status), one-line caption strip, bottom bar **Flag / Park a thought / Stop**, consent sheet before recording, auto-follow newest node unless the user pans.
-- [ ] `useFlagTrigger`: on-screen button, double F or Space within 400 ms, `navigator.mediaSession` next/play/pause with a silent audio element, Pocket mode double-tap; haptic (`navigator.vibrate`) + toast.
-- [ ] "Before you go" banner on Stop listing open threads (pending/parked) while everyone is still together.
-- [ ] Playback on the saved map: scrubber with flags and node boundaries, the node being heard glows, tap node → seek to `startMs − 1 s` via a signed URL.
+- [ ] Export `<ConversationMap state onNodeSelect followLatest />` used by both `/c/:id` (yours) and `/live/:id` (A6). Agree the props with A6 in your first PR.
+- [ ] `/c/:id` map screen content: fetch `GET /conversations/:id`, render the map, floating toolbar (Fit, Detail level, Highlighter, Note, Path tracer, Map ↔ Outline).
+- [ ] Playback: scrubber with flags and node boundaries, the node being heard glows, tap node → seek to `startMs − 1 s` via a Supabase signed URL for `recordings/{user}/{conversation}.webm`.
+- [ ] User edits go through `POST /conversations/:id/ops` as `source: 'user'` batches, applied optimistically with `applyOps`.
 
 ## Phase 3 (H8–H10)
 
@@ -33,4 +32,4 @@ Work in mock mode (`VITE_USE_MOCKS=1`) until H5. Ask A4 (via PR note) for any ne
 
 ## Tests (required)
 
-Component tests per node/edge kind and status; outline view renders every node with accessible names; flag-trigger debounce; mock live replay ends in exactly the fixture graph; keyboard navigation through nodes.
+Component tests per node/edge kind and status; outline view renders every node with accessible names; keyboard navigation through nodes.

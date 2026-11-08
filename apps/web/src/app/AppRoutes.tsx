@@ -5,7 +5,7 @@ import { Link, Route, Routes } from 'react-router';
  * Route table. Owner: A4. Each placeholder names the workstream that replaces it.
  *   /login        A4  email + password
  *   /             A4  Home: starfield, Welcome, mic orb, library drawer, Generate Brain
- *   /live/:id     A3  live map, captions, Flag / Park a thought / Stop
+ *   /live/:id     A6  live screen (map from A3), captions, Flag / Park a thought / Stop
  *   /c/:id        A3  saved map, playback, toolbar · A4 Diary sheet
  *   /brain        A4  galaxy view + concept sheet
  *   /favorites    A4  highlights and flagged moments
@@ -16,7 +16,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Placeholder title="Sign in" owner="A4" />} />
-      <Route path="/live/:id" element={<Placeholder title="Live map" owner="A3" />} />
+      <Route path="/live/:id" element={<Placeholder title="Live map" owner="A6 + A3" />} />
       <Route path="/c/:id" element={<Placeholder title="Conversation" owner="A3 + A4" />} />
       <Route path="/brain" element={<Placeholder title="Brain" owner="A4" />} />
       <Route path="/favorites" element={<Placeholder title="Favourites" owner="A4" />} />

@@ -4,12 +4,12 @@
 
 Most of A0 was written before the hackathon session started: the monorepo, `packages/shared` (types, zod schemas, `applyOps` with invariant tests, `placeNode`, WebSocket protocol, `MODELS`, interpreter interfaces, db mapping), generated fixtures, migration `0001_init.sql`, stub apps, CI, AGENTS.md and the briefs.
 
-What was verified before push: `applyOps`/`placeNode` tests (22) pass, the op stream replays exactly into the graph fixture, the zod-free modules typecheck in strict mode, and the migration applies to Postgres 16 with RLS isolating two users (pgvector stubbed). **Not yet verified: anything that needs `node_modules`** (dependencies could not be installed in the authoring sandbox). Your job is to close that gap fast.
+**Status at hand-off:** CI on `main` is already green with real dependencies — install, lint, typecheck, every unit test, and the Playwright smoke + axe test on both viewports. The migration was also checked against Postgres 16 with RLS isolating two users. What's left is making the build reproducible and freezing the contracts (≈ 15 minutes).
 
 ## Tasks
 
 - [ ] `pnpm install`. Commit `pnpm-lock.yaml`.
-- [ ] `pnpm verify` — fix every lint, type and test failure. Likely spots: zod schema annotations in `packages/shared/src/schemas.ts`, ESLint flat-config plugin wiring, `@testing-library/jest-dom` types, Vite JSON/`?raw` imports in `apps/web/src/lib/fixtures.ts`. Fix forward; do not weaken the reducer invariants or delete tests.
+- [ ] `pnpm verify` locally — should already pass; fix anything that doesn't on your machine (Windows paths especially). Never weaken the reducer invariants or delete tests.
 - [ ] `pnpm exec playwright install chromium webkit && pnpm e2e` — the smoke test must pass on both viewports, including axe.
 - [ ] `pnpm dev:web` shows Welcome; `pnpm dev:server` → `GET /health` returns `ok: true`.
 - [ ] In `.github/workflows/ci.yml`: switch to `pnpm install --frozen-lockfile` and add `cache: pnpm` to both `setup-node` steps (remove the TODOs).
