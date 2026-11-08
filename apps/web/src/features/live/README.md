@@ -14,3 +14,13 @@ Brief: `docs/briefs/a6-live-client.md`.
 | `deps.ts` | Real wiring (server + Supabase) vs mock wiring. |
 
 Mock mode never touches the microphone: whatever the source, it runs as a transcript replay of the demo op stream.
+
+## Live screen
+
+| File | What |
+| --- | --- |
+| `LiveRoute.tsx` | Route element for `/live/:id` — A4: `<Route path="/live/:id" element={<LiveRoute />} />`. `/live/new` = microphone, `/live/demo?fixture=<id>` = transcript replay, `?speed=4` = faster mock replay. |
+| `LiveScreen.tsx` | Consent sheet → top bar (audio-clock timer, recording dot + word, stage), one-line caption strip (interim dimmed), the map (`renderMap` slot for A3's `<ConversationMap>`, default `LiveNodeList`), bottom bar Flag · Park a thought · Stop, toasts, Pocket mode, "Before you go", mic-denied recovery (WAV file or demo). |
+| `useFlagTrigger.ts` | Button, double F/Space within 400 ms, media keys (`nexttrack`/`play`/`pause` with a silent looping `<audio>`), Pocket-mode double-tap; 1.2 s debounce; `navigator.vibrate(60)`. |
+| `LiveNodeList.tsx` | Accessible ordered list of nodes that follows the newest one, with a "Jump to now" chip. |
+| `sheets.tsx` | Consent, Park a thought (80 chars), Before you go, mic recovery. |
