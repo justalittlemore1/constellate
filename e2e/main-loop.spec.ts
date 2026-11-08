@@ -181,20 +181,15 @@ test.describe('Main loop: Mock mode E2E', () => {
       .catch(() => false);
 
     const isLivePlaceholder = await page.getByText(/Live map/i).isVisible().catch(() => false);
-    const hasLiveScreen = await page.locator('[data-testid="live-screen"]').isVisible().catch(() => false);
-    const hasConsent = await page.getByRole('button', { name: /(start the demo|everyone agrees)/i }).isVisible().catch(() => false);
-    const hasStop = await page.getByRole('button', { name: 'Stop', exact: true }).isVisible().catch(() => false);
-
     test.fixme(
-      !navigatedToLive || isLivePlaceholder || (!hasLiveScreen && !hasConsent && !hasStop),
+      !navigatedToLive || isLivePlaceholder,
       'Blocked by A6 + A3: Live screen / map canvas still a placeholder',
     );
 
-    // Consent sheet (A6): accept demo or live recording if presented
+    // Consent sheet (A6): accept demo or live recording
     const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
-    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await consentBtn.click();
-    }
+    await expect(consentBtn).toBeVisible({ timeout: 5000 });
+    await consentBtn.click();
 
     // 3. Live nodes appear
     const firstNode = page.getByText(/Sunday Service/i);
@@ -216,7 +211,11 @@ test.describe('Main loop: Mock mode E2E', () => {
     await page.waitForURL(/\/c\//, { timeout: 5000 });
 
     // 6 & 7. Open node in saved conversation
-    const isSavedPlaceholder = await page.getByText(/Placeholder — built by A3 \+ A4/i).isVisible().catch(() => false);
+    const isSavedPlaceholder = await page
+      .getByText(/Placeholder — built by A3 \+ A4/i)
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .then(() => true)
+      .catch(() => false);
     test.fixme(isSavedPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
     await page.getByText(/Sunday Service/i).click();
