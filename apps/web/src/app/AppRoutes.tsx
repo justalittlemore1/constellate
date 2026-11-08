@@ -1,4 +1,5 @@
 import { Link, Outlet, Route, Routes } from 'react-router';
+import { BrainScreen } from '../features/brain/BrainScreen';
 import { FavoritesScreen } from '../features/library/FavoritesScreen';
 import { LiveRoute } from '../features/live';
 import { RequireAuth } from '../lib/auth';
@@ -9,7 +10,7 @@ import { SettingsScreen } from './SettingsScreen';
 
 /**
  * Route table. Owner: A4. Every route except /login requires a session (mock mode signs in a
- * demo user). Placeholders name the workstream that replaces them.
+ * demo user).
  *   /login        A4  email + password
  *   /             A4  Home: starfield, Welcome, mic orb, library drawer, Generate Brain
  *   /live/:id     A6  live screen (map from A3), captions, Flag / Park a thought / Stop
@@ -33,7 +34,7 @@ export function AppRoutes() {
         <Route path="/" element={<HomeScreen />} />
         <Route path="/live/:id" element={<LiveRoute />} />
         <Route path="/c/:id" element={<ConversationScreen />} />
-        <Route path="/brain" element={<Placeholder title="Brain" owner="A4" />} />
+        <Route path="/brain" element={<BrainScreen />} />
         <Route path="/favorites" element={<FavoritesScreen />} />
         <Route path="/settings" element={<SettingsScreen />} />
       </Route>
@@ -49,18 +50,6 @@ function NotFound() {
       <p className="text-ink-2">That page drifted out of the constellation.</p>
       <Link to="/" className="inline-flex min-h-11 items-center text-topic underline">
         Go home
-      </Link>
-    </main>
-  );
-}
-
-function Placeholder({ title, owner }: { title: string; owner: string }) {
-  return (
-    <main className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-      <h1 className="text-2xl font-semibold">{title}</h1>
-      <p className="text-ink-2 text-sm">Placeholder — built by {owner}.</p>
-      <Link to="/" className="inline-flex min-h-11 items-center text-topic underline">
-        Home
       </Link>
     </main>
   );
