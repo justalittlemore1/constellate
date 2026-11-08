@@ -22,11 +22,15 @@ import {
 const vec = (seed: number) => Array.from({ length: MODELS.embedDims }, (_, i) => ((i * 7 + seed) % 13) - 6);
 
 function fakeGenAi(over: { embed?: (texts: string[]) => Promise<number[][]> } = {}) {
-  const embedContent = vi.fn(async ({ contents }: { contents: string[] }) => ({
-    embeddings: (over.embed ? await over.embed(contents) : contents.map((_, i) => vec(i))).map((values) => ({
-      values,
-    })),
-  }));
+  // like the real API: one vector per Content; a bare string array is ONE input → one vector
+  const embedContent = vi.fn(async ({ contents }: { contents: unknown[] }) => {
+    const texts = contents.map((c) =>
+      typeof c === 'string' ? c : (c as { parts: { text: string }[] }).parts.map((p) => p.text).join(' '),
+    );
+    const inputs = contents.every((c) => typeof c === 'string') ? [texts.join(' ')] : texts;
+    const vectors = over.embed ? await over.embed(inputs) : inputs.map((_, i) => vec(i));
+    return { embeddings: vectors.map((values) => ({ values })) };
+  });
   const ai = {
     models: { embedContent, generateContent: vi.fn() },
     live: { connect: vi.fn(async () => ({ close() {}, sendRealtimeInput() {} })) },
@@ -38,6 +42,27 @@ function fakeGenAi(over: { embed?: (texts: string[]) => Promise<number[][]> } = 
 const err429 = Object.assign(new Error('got status: 429 RESOURCE_EXHAUSTED. Please retry in 12.5s.'), { status: 429 });
 
 describe('GeminiGateway', () => {
+  it('sends one Content per text so a batch gets one vector per text', async () => {
+    const { ai, embedContent } = fakeGenAi();
+    const out = await new GeminiGateway(ai).embed(['hockey game', 'concert friday', 'third text']);
+    expect(out).toHaveLength(3);
+    const req = embedContent.mock.calls[0]![0] as { contents: unknown[] };
+    expect(req.contents).toEqual([
+      { role: 'user', parts: [{ text: 'hockey game' }] },
+      { role: 'user', parts: [{ text: 'concert friday' }] },
+      { role: 'user', parts: [{ text: 'third text' }] },
+    ]);
+  });
+
+  it('a batch of several texts through the cached embedder stores one vector each', async () => {
+    const { ai, embedContent } = fakeGenAi();
+    const gateway = new GeminiGateway(ai);
+    const embed = cachedEmbedder({ fetch: (t) => gateway.embed(t), cache: new EmbeddingCache(), windowMs: 1 });
+    expect(await embed(['a', 'b', 'c', 'd'])).toHaveLength(4);
+    expect(embedContent).toHaveBeenCalledOnce();
+    expect(gateway.usage().requests).toEqual({ [MODELS.embed]: 1 });
+  });
+
   it('counts requests per model and logs running totals', async () => {
     const log = vi.fn();
     const { ai } = fakeGenAi();

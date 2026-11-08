@@ -111,7 +111,8 @@ export class GeminiGateway {
     const res = await this.call(MODELS.embed, () =>
       this.ai.models.embedContent({
         model: MODELS.embed,
-        contents: texts,
+        // one Content per text: a bare string array is ONE input with several parts → one vector
+        contents: texts.map((text) => ({ role: 'user', parts: [{ text }] })),
         config: { outputDimensionality: MODELS.embedDims },
       }),
     );
