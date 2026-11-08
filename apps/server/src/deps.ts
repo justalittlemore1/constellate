@@ -3,12 +3,12 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 import { loadMergeSystemPrompt } from '@constellate/brain';
 import { createLiveInterpreter, finalizeConversation } from '@constellate/interpreter';
-import type { CreateLiveInterpreter, FinalizeConversation } from '@constellate/shared';
+import { MODELS, type CreateLiveInterpreter, type FinalizeConversation } from '@constellate/shared';
 import { cachedEmbedder, EmbeddingCache, embedCacheFile, noEmbedder, type Embedder } from './ai/embed';
 import { assertRealApisAllowed, GeminiGateway } from './ai/gemini';
 import { anthropicMergeDecider, type MergeDecider } from './brain/merge-llm';
 import { forceClaudeReasoning, type Env } from './env';
-import { geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
+import { gatedTranscriber, geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
 import { GraphHub } from './graph/hub';
 import { LiveRegistry, SpeechUnavailableError, type LiveDeps, type Log, type SpeechRequest } from './live/session';
 import { GeminiLiveUpstream } from './speech/gemini-live';
@@ -31,6 +31,33 @@ export interface ServerDeps extends Omit<LiveDeps, 'log'> {
   decideMerge: MergeDecider | null;
   /** the one shared Gemini client (null without a key); usage is on GET /health */
   gemini: GeminiGateway | null;
+  /** whether MODELS.sttFile can be used (startup `models.list` probe) */
+  sttFile: SttFileProbe;
+}
+
+export interface SttFileProbe {
+  state: 'checking' | 'available' | 'unavailable' | 'off';
+  available: Promise<boolean>;
+}
+
+/** One `models.list` at startup (STT_FILE=auto); `on` trusts the config, `off` never transcribes files. */
+export function probeSttFile(gemini: GeminiGateway | null, env: Env, log: Log): SttFileProbe {
+  if (!gemini || env.STT_FILE === 'off') return { state: 'off', available: Promise.resolve(false) };
+  if (env.STT_FILE === 'on') return { state: 'available', available: Promise.resolve(true) };
+  const probe: SttFileProbe = { state: 'checking', available: Promise.resolve(false) };
+  probe.available = gemini
+    .listModels()
+    .then((names) => names.includes(MODELS.sttFile))
+    .catch((err) => {
+      log('gemini.models_list_failed', { message: String(err) });
+      return false;
+    })
+    .then((ok) => {
+      probe.state = ok ? 'available' : 'unavailable';
+      log('config.stt_file', { model: MODELS.sttFile, available: ok });
+      return ok;
+    });
+  return probe;
 }
 
 export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerDeps> = {}): ServerDeps {
@@ -48,6 +75,7 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
       })
     : noEmbedder;
   const replaySpeed = env.REPLAY_SPEED;
+  const sttFile = probeSttFile(gemini, env, log);
   // pin reasoning to Claude for the interpreter package (it reads process.env), whoever builds deps
   forceClaudeReasoning(env, (msg) => log('config.interpreter_provider_overridden', { message: msg }));
 
@@ -78,7 +106,9 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
     newId: randomUUID,
     replaySpeed,
     abandonAfterMs: env.ABANDON_AFTER_MS,
-    transcribeFile: gemini && env.STT_FILE === 'on' ? geminiFileTranscriber(gemini) : null,
+    transcribeFile:
+      gemini && sttFile.state !== 'off' ? gatedTranscriber(sttFile.available, geminiFileTranscriber(gemini)) : null,
+    sttFile,
     waitForRecordingMs: 45_000,
     decideMerge:
       overrides.decideMerge !== undefined || !env.ANTHROPIC_API_KEY

@@ -62,3 +62,19 @@ export function geminiFileTranscriber(gateway: Pick<GeminiGateway, 'transcribeFi
     return segments;
   };
 }
+
+/** MODELS.sttFile is not available to the key (startup `models.list` probe), so it was never called. */
+export class SttFileUnavailableError extends Error {
+  constructor() {
+    super('file transcription model is not available to this key');
+    this.name = 'SttFileUnavailableError';
+  }
+}
+
+/** Calls `inner` only once the startup probe has confirmed MODELS.sttFile exists. */
+export function gatedTranscriber(available: Promise<boolean>, inner: FileTranscriber): FileTranscriber {
+  return async (audio, mimeType) => {
+    if (!(await available)) throw new SttFileUnavailableError();
+    return inner(audio, mimeType);
+  };
+}

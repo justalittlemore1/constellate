@@ -8,6 +8,7 @@ import { createDefaultDeps } from '../deps';
 import { forceClaudeReasoning, loadEnv } from '../env';
 import { RotatingSpeechAdapter, type Upstream } from '../speech/rotating';
 import { makeHarness, recordConversation, USER_A, type Harness } from '../test-utils';
+import { SttFileUnavailableError } from '../finalize/transcribe';
 import { cachedEmbedder, EmbeddingCache } from './embed';
 import {
   assertRealApisAllowed,
@@ -168,12 +169,46 @@ describe('Claude for reasoning, fakes in tests', () => {
     );
   });
 
-  it('file re-transcription is off by default (MODELS.sttFile is not on our key)', () => {
-    const { ai } = fakeGenAi();
-    const gemini = new GeminiGateway(ai);
-    expect(createDefaultDeps(loadEnv({ LOG_LEVEL: 'silent' }), () => {}, { gemini }).transcribeFile).toBeNull();
-    const on = createDefaultDeps(loadEnv({ LOG_LEVEL: 'silent', STT_FILE: 'on' }), () => {}, { gemini });
-    expect(on.transcribeFile).not.toBeNull();
+  it('checks models.list once at startup; file transcription runs only if the key lists MODELS.sttFile', async () => {
+    const listing = (names: string[]) =>
+      vi.fn(async () =>
+        (async function* () {
+          for (const name of names) yield { name: `models/${name}` };
+        })(),
+      );
+    const transcribeFile = vi.fn(async () => [
+      { audioTranscription: { speakerLabel: 'spk_1', text: 'hi', startOffset: '0s', endOffset: '1s' } },
+    ]);
+    const make = (names: string[], STT_FILE?: string) => {
+      const { ai } = fakeGenAi();
+      (ai.models as unknown as { list: unknown }).list = listing(names);
+      const gemini = new GeminiGateway(ai);
+      (gemini as unknown as { transcribeFile: unknown }).transcribeFile = transcribeFile;
+      const env = loadEnv({ LOG_LEVEL: 'silent', ...(STT_FILE ? { STT_FILE } : {}) });
+      return {
+        deps: createDefaultDeps(env, () => {}, { gemini }),
+        gemini,
+        list: ai.models.list as unknown as ReturnType<typeof listing>,
+      };
+    };
+
+    const absent = make(['gemini-embedding-2', MODELS.sttLive]);
+    expect(await absent.deps.sttFile.available).toBe(false);
+    expect(absent.deps.sttFile.state).toBe('unavailable');
+    await expect(absent.deps.transcribeFile!(Buffer.from('x'), 'audio/webm')).rejects.toBeInstanceOf(
+      SttFileUnavailableError,
+    );
+    expect(transcribeFile).not.toHaveBeenCalled();
+    expect(absent.list).toHaveBeenCalledOnce();
+    expect(absent.gemini.usage().requests).toEqual({ 'models.list': 1 });
+
+    const present = make([MODELS.sttFile]);
+    expect(await present.deps.transcribeFile!(Buffer.from('x'), 'audio/webm')).toHaveLength(1);
+    expect(present.deps.sttFile.state).toBe('available');
+
+    const off = make([MODELS.sttFile], 'off');
+    expect(off.deps.transcribeFile).toBeNull();
+    expect(off.list).not.toHaveBeenCalled();
   });
 });
 

@@ -24,11 +24,11 @@ const EnvSchema = z.object({
     .default('anthropic')
     .transform(() => 'anthropic' as const),
   /**
-   * Post-recording diarized re-transcription with MODELS.sttFile. Off by default: that model is not
-   * available to our key, so finalisation keeps the live transcript (speakers stay empty) and the
-   * Claude refine still runs. Set to `on` once the key lists the model.
+   * Post-recording diarized re-transcription with MODELS.sttFile. `auto` (default) checks
+   * `models.list` once at startup and uses it only if the key has it — ours does not, so
+   * finalisation keeps the live transcript (speakers stay empty) and the Claude refine still runs.
    */
-  STT_FILE: z.enum(['on', 'off']).default('off'),
+  STT_FILE: z.enum(['auto', 'on', 'off']).default('auto'),
   /** embeddings disk cache (JSON lines); "off" keeps it in memory only */
   EMBED_CACHE_FILE: z.string().optional(),
   /** transcript replay speed; 1 = original timing */

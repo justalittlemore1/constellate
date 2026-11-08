@@ -69,7 +69,7 @@ export interface GatewayOptions {
 
 /** The subset of `GoogleGenAI` the gateway uses (a fake implements it in tests). */
 export type GenAiLike = {
-  models: Pick<GoogleGenAI['models'], 'embedContent' | 'generateContent'>;
+  models: Pick<GoogleGenAI['models'], 'embedContent' | 'generateContent' | 'list'>;
   live: Pick<GoogleGenAI['live'], 'connect'>;
   files: Pick<GoogleGenAI['files'], 'upload' | 'delete'>;
 };
@@ -116,6 +116,16 @@ export class GeminiGateway {
       }),
     );
     return (res.embeddings ?? []).map((e) => e.values ?? []);
+  }
+
+  /** Model ids available to the key (one `models.list` request, counted). */
+  async listModels(): Promise<string[]> {
+    return this.call('models.list', async () => {
+      const names: string[] = [];
+      const pager = await this.ai.models.list({ config: { pageSize: 200 } });
+      for await (const m of pager) if (m.name) names.push(m.name.replace(/^models\//, ''));
+      return names;
+    });
   }
 
   /** One `MODELS.sttLive` session (counted as one request). */

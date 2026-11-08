@@ -16,6 +16,7 @@ describe('seed runtime', () => {
       transcribeFile: null,
       decideMerge: null,
       gemini: null,
+      sttFile: { state: 'off', available: Promise.resolve(false) },
     });
     const res = await seedFixtureConversation(rt, USER_A, '01-simple-shift');
     expect(res.finalize.status).toBe('ready');

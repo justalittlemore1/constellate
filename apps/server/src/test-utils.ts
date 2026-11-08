@@ -151,6 +151,7 @@ export async function makeHarness(over: Partial<ServerDeps> = {}): Promise<Harne
     transcribeFile: null,
     decideMerge: null,
     gemini: null,
+    sttFile: { state: 'off', available: Promise.resolve(false) },
     waitForRecordingMs: 0,
     ...over,
   };
