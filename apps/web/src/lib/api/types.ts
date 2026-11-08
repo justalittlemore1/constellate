@@ -3,7 +3,7 @@
  * rows the browser reads directly from Supabase and for the `GET /brain` payload served by A1
  * (`apps/server/src/brain/rebuild.ts → BrainResponse`). If they move into the contract, switch to it.
  */
-import type { Commitment, Conversation, GraphState, Ms, TopicNode, Utterance } from '@constellate/shared';
+import type { Conversation, GraphOp, GraphState, Ms, OpBatch, TopicNode, Utterance } from '@constellate/shared';
 
 export interface Folder {
   id: string;
@@ -116,8 +116,11 @@ export interface Api {
   addParticipant(conversationId: string, displayName: string): Promise<Participant>;
   removeParticipant(id: string): Promise<void>;
 
-  /** only when `capabilities.editCommitments` (see ApiCapabilities) */
-  updateCommitment(id: string, patch: Partial<Pick<Commitment, 'text' | 'done'>>): Promise<void>;
+  /**
+   * Save user edits as a `source: 'user'` batch (`POST /conversations/:id/ops`). The server validates
+   * them with the shared reducer; a refusal rejects with the server's message.
+   */
+  postOps(conversationId: string, ops: GraphOp[]): Promise<{ batch?: OpBatch }>;
 
   listRecallCards(conversationId: string): Promise<RecallCard[]>;
   recordRecall(id: string, result: 'remembered' | 'forgot'): Promise<void>;
@@ -132,48 +135,48 @@ export interface Api {
   audioUrl(audioPath: string | null): Promise<string | null>;
 
   /**
-   * Delete every conversation (recording + rows), folder and concept of the signed-in user.
-   * Keeps going past individual failures and reports exactly what was and wasn't removed.
+   * `DELETE /me/data`: every conversation (rows + recording), folder and Brain concept of the
+   * signed-in user, in one server transaction. Throws only when the request itself fails.
    */
-  deleteMyData(): Promise<DeleteReport>;
+  deleteMyData(): Promise<DeleteResult>;
 
   readonly capabilities: ApiCapabilities;
 }
 
 export interface ApiCapabilities {
-  /**
-   * Promise (commitment) edits. Off for the real API: commitments live in the server's op log and
-   * there is no `commitment.update` op yet, so a direct table write would revert on the next
-   * `GET /conversations/:id`. Turn on once that op exists (additive contract change).
-   */
+  /** promise (commitment) edits, saved as `commitment.update` user ops */
   editCommitments: boolean;
 }
 
-export interface DeleteReport {
-  conversationsTotal: number;
-  conversationsDeleted: number;
-  foldersDeleted: boolean;
-  conceptsDeleted: boolean;
+/** What `DELETE /me/data` removed (A1: apps/server/src/routes/me.ts). */
+export interface DeletedCounts {
+  conversations: number;
+  folders: number;
+  concepts: number;
+  conceptLinks: number;
+  /** absent when the recordings step failed (502) */
+  recordings?: number;
 }
 
-export function deleteComplete(r: DeleteReport): boolean {
-  return r.conversationsDeleted === r.conversationsTotal && r.foldersDeleted && r.conceptsDeleted;
-}
+export type DeleteResult =
+  /** 200: everything is gone */
+  | { outcome: 'deleted'; deleted: DeletedCounts }
+  /** 502: every row is gone, but some recordings are left; calling again removes them */
+  | { outcome: 'recordings-left'; deleted: DeletedCounts }
+  /** 503: the database step failed, so nothing was deleted */
+  | { outcome: 'nothing-deleted' };
 
-/** Plain-language summary of a partial deletion, naming what is left. */
-export function describeDeleteReport(r: DeleteReport): string {
-  if (deleteComplete(r)) return 'All your data was deleted.';
-  const left: string[] = [];
-  const failed = r.conversationsTotal - r.conversationsDeleted;
-  if (failed > 0)
-    left.push(`${failed} of ${r.conversationsTotal} ${r.conversationsTotal === 1 ? 'conversation' : 'conversations'}`);
-  if (!r.foldersDeleted) left.push('your folders');
-  if (!r.conceptsDeleted) left.push('your Brain concepts');
-  const done =
-    r.conversationsDeleted > 0
-      ? `${r.conversationsDeleted} ${r.conversationsDeleted === 1 ? 'conversation was' : 'conversations were'} deleted, but `
-      : '';
-  return `Not everything was deleted: ${done}${left.join(', ')} could not be removed. Please try again.`;
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** "3 conversations, 2 folders, 8 Brain concepts and 3 recordings" */
+export function describeDeleted(d: DeletedCounts): string {
+  const parts = [
+    plural(d.conversations, 'conversation', 'conversations'),
+    plural(d.folders, 'folder', 'folders'),
+    plural(d.concepts, 'Brain concept', 'Brain concepts'),
+  ];
+  if (d.recordings !== undefined) parts.push(plural(d.recordings, 'recording', 'recordings'));
+  return parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]!;
 }
 
 /** A topic node is "an open thread" when it was deferred or parked and never picked up. */

@@ -5,6 +5,7 @@ import {
   TABLES,
   type Conversation,
   type GraphOp,
+  type OpBatch,
   type Utterance,
 } from '@constellate/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -12,6 +13,7 @@ import type {
   Api,
   BrainPayload,
   ConceptSearchResult,
+  DeletedCounts,
   FavoriteMoment,
   Folder,
   Participant,
@@ -93,7 +95,10 @@ export function createRealApi({ supabase, serverHttpUrl, userId, accessToken, fe
   }
 
   const postOps = (conversationId: string, ops: GraphOp[]) =>
-    server(`/conversations/${conversationId}/ops`, { method: 'POST', body: JSON.stringify({ ops }) });
+    server<{ batch?: OpBatch }>(`/conversations/${encodeURIComponent(conversationId)}/ops`, {
+      method: 'POST',
+      body: JSON.stringify({ ops }),
+    });
 
   async function conversationsById(ids: string[]): Promise<Map<string, Conversation>> {
     if (ids.length === 0) return new Map();
@@ -156,9 +161,7 @@ export function createRealApi({ supabase, serverHttpUrl, userId, accessToken, fe
       check(await supabase.from(TABLES.participants).delete().eq('id', id));
     },
 
-    async updateCommitment(id, patch) {
-      check(await supabase.from(TABLES.commitments).update(patch).eq('id', id));
-    },
+    postOps,
 
     async listRecallCards(conversationId) {
       const rows = check(
@@ -238,30 +241,15 @@ export function createRealApi({ supabase, serverHttpUrl, userId, accessToken, fe
     },
 
     async deleteMyData() {
-      // TODO(A1): replace with one atomic server route (e.g. DELETE /me/data) when it exists
-      const rows = check(await supabase.from(TABLES.conversations).select('id')) as Row[];
-      let conversationsDeleted = 0;
-      for (const r of rows) {
-        try {
-          // the server route removes the recording and cascades every row (graph, transcript, embeddings)
-          await server(`/conversations/${String(r.id)}`, { method: 'DELETE' });
-          conversationsDeleted++;
-        } catch {
-          /* reported below; keep deleting the rest */
-        }
-      }
-      const ok = async (p: PromiseLike<{ error: { message: string } | null }>) => {
-        try {
-          return !(await p).error;
-        } catch {
-          return false;
-        }
-      };
-      const foldersDeleted = await ok(supabase.from(TABLES.folders).delete().eq('user_id', userId));
-      const conceptsDeleted = await ok(supabase.from(TABLES.concepts).delete().eq('user_id', userId));
-      return { conversationsTotal: rows.length, conversationsDeleted, foldersDeleted, conceptsDeleted };
+      // one server transaction for every row, then the recordings (A1: routes/me.ts)
+      const res = await f(`${base}/me/data`, { method: 'DELETE', headers: { authorization: `Bearer ${accessToken}` } });
+      const body = (await res.json().catch(() => ({}))) as { deleted?: DeletedCounts; message?: string };
+      if (res.ok && body.deleted) return { outcome: 'deleted', deleted: body.deleted };
+      if (res.status === 502 && body.deleted) return { outcome: 'recordings-left', deleted: body.deleted };
+      if (res.status === 503) return { outcome: 'nothing-deleted' };
+      throw new ApiError(body.message ?? `${res.status} ${res.statusText}`, res.status);
     },
 
-    capabilities: { editCommitments: false },
+    capabilities: { editCommitments: true },
   };
 }

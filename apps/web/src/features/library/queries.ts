@@ -1,4 +1,8 @@
 import type { Commitment, Conversation } from '@constellate/shared';
+import { useGraphOps } from '../../lib/graphOps';
+import { useToast } from '../../ui';
+
+type CommitmentPatch = Partial<Pick<Commitment, 'text' | 'done'>>;
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi, type ConversationPatch, type Folder } from '../../lib/api';
 
@@ -104,18 +108,17 @@ export function useParticipantMutations(conversationId: string) {
   return { add, remove };
 }
 
+/**
+ * Promise edits (the "When ___" cue and done) as a `commitment.update` user op: shown at once,
+ * saved through the server's op log, rolled back with a toast if the server refuses.
+ */
 export function useUpdateCommitment(conversationId: string) {
-  const api = useApi();
-  const qc = useQueryClient();
+  const submit = useGraphOps(conversationId);
+  const toast = useToast();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Pick<Commitment, 'text' | 'done'>> }) =>
-      api.updateCommitment(id, patch),
-    onMutate: ({ id, patch }) => {
-      qc.setQueryData(keys.graph(conversationId), (g: { commitments: Commitment[] } | undefined) =>
-        g ? { ...g, commitments: g.commitments.map((c) => (c.id === id ? { ...c, ...patch } : c)) } : g,
-      );
-    },
-    onSettled: () => void qc.invalidateQueries({ queryKey: keys.graph(conversationId) }),
+    mutationFn: ({ id, patch }: { id: string; patch: CommitmentPatch }) =>
+      submit([{ op: 'commitment.update', id, patch }]),
+    onError: () => toast('Couldn’t save that promise. It shows what is saved.', 'error'),
   });
 }
 

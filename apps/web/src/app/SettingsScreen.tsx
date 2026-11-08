@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { LogOut, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { deleteComplete, describeDeleteReport, useApi } from '../lib/api';
+import { describeDeleted, useApi, type DeletedCounts } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { TEXT_SIZE_MAX, TEXT_SIZE_MIN, usePrefs } from '../lib/prefs';
 import { routes } from '../lib/routes';
@@ -102,6 +102,11 @@ export function SettingsScreen() {
   );
 }
 
+type DeleteProblem =
+  | { kind: 'recordings-left'; deleted: DeletedCounts }
+  | { kind: 'nothing-deleted' }
+  | { kind: 'failed'; message: string };
+
 function DeleteDataSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const api = useApi();
   const qc = useQueryClient();
@@ -110,34 +115,39 @@ function DeleteDataSheet({ open, onClose }: { open: boolean; onClose: () => void
   const navigate = useNavigate();
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<DeleteProblem | null>(null);
 
   async function confirm() {
     setBusy(true);
-    setError(null);
+    const earlier = problem?.kind === 'recordings-left' ? problem.deleted : null;
+    setProblem(null);
     try {
-      const report = await api.deleteMyData();
-      qc.clear();
-      if (!deleteComplete(report)) {
-        // say exactly what is left; the user can try again from here
-        setError(describeDeleteReport(report));
+      const result = await api.deleteMyData();
+      if (result.outcome === 'nothing-deleted') {
+        setProblem({ kind: 'nothing-deleted' });
         return;
       }
-      toast(describeDeleteReport(report), 'success');
+      qc.clear(); // the rows are gone either way
+      // a retry after a 502 only removes leftover recordings: report the whole deletion
+      const deleted = earlier ? { ...earlier, recordings: result.deleted.recordings } : result.deleted;
+      if (result.outcome === 'recordings-left') {
+        setProblem({ kind: 'recordings-left', deleted });
+        return;
+      }
+      toast(`Deleted ${describeDeleted(deleted)}.`, 'success');
       onClose();
       if (!auth.mock) {
         await auth.signOut();
         navigate(routes.login);
       } else navigate(routes.home);
     } catch (err) {
-      setError(
-        `Deletion couldn’t start (${err instanceof Error ? err.message : 'unknown error'}). Nothing was deleted.`,
-      );
+      setProblem({ kind: 'failed', message: err instanceof Error ? err.message : 'unknown error' });
     } finally {
       setBusy(false);
     }
   }
 
+  const confirmed = typed.trim().toUpperCase() === CONFIRM_WORD;
   return (
     <Sheet open={open} onClose={onClose} title="Delete all your data?">
       <p className="mb-4 text-sm">
@@ -151,15 +161,25 @@ function DeleteDataSheet({ open, onClose }: { open: boolean; onClose: () => void
         value={typed}
         onChange={(e) => setTyped(e.target.value)}
       />
-      {error && (
-        <p role="alert" className="mt-2 text-sm text-flag">
-          {error}
+      {problem && (
+        <p role="alert" className="mt-3 text-sm text-flag">
+          {problem.kind === 'recordings-left'
+            ? `Deleted ${describeDeleted(problem.deleted)}, but some recordings couldn’t be removed yet. Try again to remove them.`
+            : problem.kind === 'nothing-deleted'
+              ? 'Nothing was deleted: the server couldn’t reach the database. Please try again.'
+              : `The request didn’t go through (${problem.message}). Check your connection and try again.`}
         </p>
       )}
       <div className="mt-4 flex gap-2">
-        <Button variant="danger" disabled={typed.trim().toUpperCase() !== CONFIRM_WORD || busy} onClick={confirm}>
-          {busy ? 'Deleting…' : 'Delete everything'}
-        </Button>
+        {problem?.kind === 'recordings-left' ? (
+          <Button variant="danger" disabled={busy} onClick={confirm}>
+            {busy ? 'Deleting…' : 'Try again'}
+          </Button>
+        ) : (
+          <Button variant="danger" disabled={!confirmed || busy} onClick={confirm}>
+            {busy ? 'Deleting…' : 'Delete everything'}
+          </Button>
+        )}
         <Button variant="ghost" onClick={onClose}>
           Cancel
         </Button>

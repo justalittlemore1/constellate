@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
 import { createRealApi } from './realApi';
-import { deleteComplete, describeDeleteReport } from './types';
+import { describeDeleted } from './types';
 
 type Result = { data: unknown; error: { message: string } | null };
 
@@ -49,67 +49,98 @@ describe('real API', () => {
     );
   });
 
-  it('does not offer promise edits (they would revert: commitments replay from the op log)', () => {
-    const { client } = fakeSupabase({});
-    const api = createRealApi({ supabase: client, serverHttpUrl: '', userId: 'u1', accessToken: 't' });
-    expect(api.capabilities.editCommitments).toBe(false);
-  });
-
-  it('delete my data: deletes every conversation through the server, then folders and concepts', async () => {
-    const fetch = vi.fn(async (_url: string, _init?: RequestInit) => new Response(null, { status: 204 }));
-    const { client, calls } = fakeSupabase({
-      conversations: [{ data: [{ id: 'c1' }, { id: 'c2' }], error: null }],
-    });
+  it('saves promise edits as a commitment.update user op — never a direct commitments write', async () => {
+    const fetch = vi.fn(async (_url: string, _init?: RequestInit) => ok({ batch: { seq: 12 } }));
+    const { client, calls } = fakeSupabase({});
     const api = createRealApi({
       supabase: client,
       serverHttpUrl: 'https://srv.test',
       userId: 'u1',
-      accessToken: 't',
+      accessToken: 'tok',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
-    const report = await api.deleteMyData();
-    expect(fetch.mock.calls.map((c) => [c[0], (c[1] as RequestInit).method])).toEqual([
-      ['https://srv.test/conversations/c1', 'DELETE'],
-      ['https://srv.test/conversations/c2', 'DELETE'],
-    ]);
-    expect(calls.filter((c) => c.op === 'delete').map((c) => c.table)).toEqual(['folders', 'concepts']);
-    expect(report).toEqual({
-      conversationsTotal: 2,
-      conversationsDeleted: 2,
-      foldersDeleted: true,
-      conceptsDeleted: true,
-    });
-    expect(deleteComplete(report)).toBe(true);
-  });
-
-  it('delete my data keeps going past failures and reports exactly what is left', async () => {
-    const fetch = vi.fn(async (url: string, _init?: RequestInit) =>
-      url.endsWith('/c2')
-        ? new Response(JSON.stringify({ message: 'boom' }), { status: 500 })
-        : new Response(null, { status: 204 }),
+    expect(api.capabilities.editCommitments).toBe(true);
+    const res = await api.postOps('c1', [{ op: 'commitment.update', id: 'p1', patch: { done: true } }]);
+    expect(res).toEqual({ batch: { seq: 12 } });
+    expect(fetch).toHaveBeenCalledWith(
+      'https://srv.test/conversations/c1/ops',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ ops: [{ op: 'commitment.update', id: 'p1', patch: { done: true } }] }),
+        headers: expect.objectContaining({ authorization: 'Bearer tok' }),
+      }),
     );
-    const { client } = fakeSupabase({
-      conversations: [{ data: [{ id: 'c1' }, { id: 'c2' }, { id: 'c3' }], error: null }],
-      concepts: [{ data: null, error: { message: 'denied' } }],
-    });
+    expect(calls).toEqual([]); // no Supabase table touched
+  });
+
+  it('a refused op rejects with the server message', async () => {
+    const fetch = vi.fn(
+      async (_url: string, _init?: RequestInit) =>
+        new Response(JSON.stringify({ error: 'unknown_commitment', message: 'commitment p9 does not exist' }), {
+          status: 409,
+        }),
+    );
+    const { client } = fakeSupabase({});
     const api = createRealApi({
       supabase: client,
       serverHttpUrl: 'https://srv.test',
       userId: 'u1',
-      accessToken: 't',
+      accessToken: 'tok',
       fetch: fetch as unknown as typeof globalThis.fetch,
     });
-    const report = await api.deleteMyData();
-    expect(fetch).toHaveBeenCalledTimes(3);
-    expect(report).toEqual({
-      conversationsTotal: 3,
-      conversationsDeleted: 2,
-      foldersDeleted: true,
-      conceptsDeleted: false,
+    await expect(api.postOps('c1', [{ op: 'commitment.update', id: 'p9', patch: { done: true } }])).rejects.toThrow(
+      'commitment p9 does not exist',
+    );
+  });
+});
+
+describe('delete my data (DELETE /me/data)', () => {
+  const rows = { conversations: 3, folders: 2, concepts: 8, conceptLinks: 5 };
+  function apiAnswering(status: number, body: unknown) {
+    const fetch = vi.fn(async (_url: string, _init?: RequestInit) => new Response(JSON.stringify(body), { status }));
+    const { client, calls } = fakeSupabase({});
+    const api = createRealApi({
+      supabase: client,
+      serverHttpUrl: 'https://srv.test/',
+      userId: 'u1',
+      accessToken: 'tok',
+      fetch: fetch as unknown as typeof globalThis.fetch,
     });
-    expect(deleteComplete(report)).toBe(false);
-    expect(describeDeleteReport(report)).toBe(
-      'Not everything was deleted: 2 conversations were deleted, but 1 of 3 conversations, your Brain concepts could not be removed. Please try again.',
+    return { api, fetch, calls };
+  }
+
+  it('is one authenticated server call, with no client-side deletes', async () => {
+    const { api, fetch, calls } = apiAnswering(200, { deleted: { ...rows, recordings: 3 } });
+    expect(await api.deleteMyData()).toEqual({ outcome: 'deleted', deleted: { ...rows, recordings: 3 } });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith(
+      'https://srv.test/me/data',
+      expect.objectContaining({ method: 'DELETE', headers: { authorization: 'Bearer tok' } }),
+    );
+    expect(calls).toEqual([]);
+  });
+
+  it('502 → rows deleted, recordings left (with the counts)', async () => {
+    const { api } = apiAnswering(502, { error: 'storage', message: 'call again', deleted: rows });
+    expect(await api.deleteMyData()).toEqual({ outcome: 'recordings-left', deleted: rows });
+  });
+
+  it('503 → nothing deleted', async () => {
+    const { api } = apiAnswering(503, { error: 'db', message: 'nothing was deleted; try again' });
+    expect(await api.deleteMyData()).toEqual({ outcome: 'nothing-deleted' });
+  });
+
+  it('other failures throw (e.g. an expired session)', async () => {
+    const { api } = apiAnswering(401, { error: 'auth', message: 'missing or invalid access token' });
+    await expect(api.deleteMyData()).rejects.toThrow('missing or invalid access token');
+  });
+
+  it('describes the counts in words', () => {
+    expect(describeDeleted({ ...rows, recordings: 1 })).toBe(
+      '3 conversations, 2 folders, 8 Brain concepts and 1 recording',
+    );
+    expect(describeDeleted({ conversations: 1, folders: 0, concepts: 1, conceptLinks: 0 })).toBe(
+      '1 conversation, 0 folders and 1 Brain concept',
     );
   });
 });
