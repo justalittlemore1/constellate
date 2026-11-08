@@ -15,7 +15,6 @@ describe('seed runtime', () => {
       createSpeech: (req) => new TranscriptReplayAdapter(req.fixture!, { speed: 1000, fromMs: 0 }),
       finalizeConversation: async () => ({ ops: [], recallPrompts: [] }),
       embed: async (texts) => texts.map((t) => unitVector(t)),
-      finalizeConversation: async () => ({ ops: [], recallPrompts: [] }),
       transcribeFile: null,
       decideMerge: null,
       gemini: null,
