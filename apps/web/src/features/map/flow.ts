@@ -26,6 +26,10 @@ export interface MapNodeFlags {
   describedBy?: string;
   /** dots drifting along flow edges (flag `particles`) */
   particles?: boolean;
+  /** flag `cometTrails` */
+  comet?: boolean;
+  /** flag `facetedStars`: the wave-2 Y4 art instead of the Y3 compass */
+  starArt?: 'y3' | 'y4';
 }
 
 export type TopicFlowData = {
@@ -37,6 +41,8 @@ export type TopicFlowData = {
   dimmed: boolean;
   showTime: boolean;
   motion: boolean;
+  /** which star art to draw ('y3' compass by default; 'y4' faceted behind a flag) */
+  art?: 'y3' | 'y4';
 };
 export type NoteFlowData = { annotation: Annotation; dimmed: boolean };
 export type MapEdgeData = {
@@ -53,6 +59,10 @@ export type MapEdgeData = {
   /** flow back to an earlier (merged) star: drawn as a loop */
   returning?: boolean;
   particles?: boolean;
+  /** flag `cometTrails`: the earlier comet-trail style instead of constellation lines */
+  comet?: boolean;
+  /** source label length, so a straight line can avoid crossing it */
+  labelChars?: number;
 };
 
 export type TopicFlowNode = Node<TopicFlowData, 'topic' | 'thread'>;
@@ -112,6 +122,7 @@ export function toFlowNodes(
         dimmed: Boolean(flags.traced && !flags.traced.nodeIds.has(n.id)),
         showTime: flags.showTime,
         motion: flags.motion,
+        art: flags.starArt ?? 'y3',
       },
     };
   });
@@ -168,6 +179,8 @@ export function toFlowEdges(graph: VisibleGraph, state: GraphState, flags: MapNo
         onPath: Boolean(flags.traced && edgeTraced(e, flags.traced)),
         motion: flags.motion,
         particles: Boolean(flags.particles),
+        comet: Boolean(flags.comet),
+        labelChars: src?.label.length ?? 12,
         ...(e.returning ? { returning: true } : {}),
         labelGap: src
           ? labelBlockHeight(

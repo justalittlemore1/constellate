@@ -55,7 +55,18 @@ import {
   QuickActionsSheet,
   type NodeEditActions,
 } from './panels';
-import { ensureVisible, fitAll, fitWidth, followY, graphBounds, MAX_ZOOM, MIN_ZOOM, withLaneFrame } from './viewport';
+import {
+  ensureVisible,
+  fitAll,
+  followY,
+  graphBounds,
+  LIVE_FOLLOW_FRAC,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  panAboveSheet,
+  readableViewport,
+  withLaneFrame,
+} from './viewport';
 
 export type MapView = 'map' | 'outline';
 
@@ -222,8 +233,21 @@ function MapInner({
       traced,
       describedBy: keyboardHintId,
       particles: F.particles,
+      comet: F.cometTrails,
+      starArt: F.facetedStars ? ('y4' as const) : ('y3' as const),
     }),
-    [activeNodeId, playingNodeId, selectedId, shown, motion, traced, keyboardHintId, F.particles],
+    [
+      activeNodeId,
+      playingNodeId,
+      selectedId,
+      shown,
+      motion,
+      traced,
+      keyboardHintId,
+      F.particles,
+      F.cometTrails,
+      F.facetedStars,
+    ],
   );
   const nodes = useMemo(
     () =>
@@ -264,7 +288,7 @@ function MapInner({
   const jumpToNow = useCallback(() => {
     const vp = rf.getViewport();
     if (!latest || !size.h) return;
-    void rf.setViewport(followY(vp, latest.y, size.h), { duration });
+    void rf.setViewport(followY(vp, latest.y, size.h, LIVE_FOLLOW_FRAC), { duration });
     follow.resume();
   }, [rf, latest, size.h, duration, follow]);
 
@@ -277,8 +301,9 @@ function MapInner({
   useEffect(() => {
     if (!ready || placed.current || !fullBounds || !size.w || !size.h || view !== 'map') return;
     placed.current = true;
-    const vp = fitWidth(fullBounds, size.w, topInset);
-    void rf.setViewport(followLatest && latest ? followY(vp, latest.y, size.h) : vp);
+    // readable from the start (labels ≥ 15 px, smallest star ≥ 28 px); live: newest star ~38 % down
+    const vp = readableViewport(fullBounds, size.w, topInset);
+    void rf.setViewport(followLatest && latest ? followY(vp, latest.y, size.h, LIVE_FOLLOW_FRAC) : vp);
   }, [ready, fullBounds, size.w, size.h, topInset, rf, followLatest, latest, view]);
 
   // live: follow the newest node while the user has not panned away
@@ -287,7 +312,7 @@ function MapInner({
     if (!followLatest || !following || !placed.current || !latestId) return;
     const n = state.nodes[latestId];
     if (!n || !size.h) return;
-    void rf.setViewport(followY(rf.getViewport(), n.y, size.h), { duration });
+    void rf.setViewport(followY(rf.getViewport(), n.y, size.h, LIVE_FOLLOW_FRAC), { duration });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a new node arrives
   }, [latestId, followLatest, following]);
 
@@ -356,9 +381,27 @@ function MapInner({
     const n = state.nodes[vg.starOf(focusNodeId)];
     if (!n) return;
     placed.current = true;
-    void rf.setViewport(followY(fitWidth(fullBounds, size.w, topInset), n.y, size.h, 0.4));
+    void rf.setViewport(followY(readableViewport(fullBounds, size.w, topInset), n.y, size.h, 0.4));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the requested node changes
   }, [ready, focusNodeId, size.w > 0 && size.h > 0, view]);
+
+  // the detail sheet covers the bottom ~58 %: bring its star into the uncovered map above it
+  useEffect(() => {
+    if (!sheetId || view !== 'map' || !container.current) return;
+    const n = starById.get(sheetId)?.node ?? state.nodes[sheetId];
+    if (!n) return;
+    const mapRect = container.current.getBoundingClientRect();
+    if (!mapRect.height) return;
+    const frameEl = document.querySelector<HTMLElement>('[data-testid="phone-frame"]') ?? document.documentElement;
+    const frameRect = frameEl.getBoundingClientRect();
+    // measure in the frame's own coordinates: opening the sheet moves focus, which can scroll the
+    // frame for a moment, and screen rects would then be off by that scroll
+    const mapTop = mapRect.top - frameRect.top + frameEl.scrollTop;
+    const map = { top: mapTop, height: mapRect.height, width: mapRect.width };
+    const frame = { top: 0, height: frameRect.height || window.innerHeight };
+    void rf.setViewport(panAboveSheet(rf.getViewport(), n, map, frame), { duration });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- when a sheet opens
+  }, [sheetId]);
 
   const onPaneClick = useCallback(() => {
     const now = Date.now();
@@ -481,7 +524,7 @@ function MapInner({
           placed.current = false;
         }}
         data-testid="text-view-link"
-        className="sr-only z-30 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-bg focus:px-4 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-topic"
+        className="cmap-control sr-only z-30 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-bg focus:px-4 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-topic"
       >
         {view === 'map' ? 'Text view' : 'Map view'}
       </button>
@@ -548,7 +591,7 @@ function MapInner({
               maxZoom={MAX_ZOOM}
               colorMode="dark"
               attributionPosition="bottom-left"
-              proOptions={{ hideAttribution: false }}
+              proOptions={{ hideAttribution: true }}
               aria-label="Conversation map"
             />
             <p id={keyboardHintId} className="sr-only">
@@ -563,13 +606,13 @@ function MapInner({
           <div
             role="status"
             data-testid="highlighter-banner"
-            className="cmap-chart surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
+            className="cmap-chart star-frame surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
           >
             <Highlighter aria-hidden size={16} className="shrink-0 text-highlight" />
             <p className="min-w-0 flex-1 text-[13px] leading-snug">
               <span className="font-semibold">Highlighter on.</span> Tap topics to paint them gold; tap again to clear.
             </p>
-            <Button variant="ghost" onClick={() => setPainting(false)}>
+            <Button variant="ghost" className="cmap-control" onClick={() => setPainting(false)}>
               Done
             </Button>
           </div>
@@ -597,7 +640,7 @@ function MapInner({
               <button
                 type="button"
                 onClick={jumpToNow}
-                className="pointer-events-auto flex min-h-11 items-center gap-1.5 rounded-full border border-topic/50 bg-bg/90 px-4 text-sm font-semibold text-topic shadow-lg"
+                className="cmap-control pointer-events-auto flex min-h-11 items-center gap-1.5 rounded-full border border-topic/50 bg-bg/90 px-4 text-sm font-semibold text-topic shadow-lg"
               >
                 <ArrowDown aria-hidden size={16} />
                 Jump to now
@@ -611,7 +654,7 @@ function MapInner({
                   <IconButton
                     label="Paint topics gold (highlighter)"
                     aria-pressed={paintingOn}
-                    className={cx(paintingOn && 'bg-highlight text-bg hover:bg-highlight/90')}
+                    className={cx(paintingOn ? 'bg-highlight text-bg hover:bg-highlight/90' : 'cmap-control')}
                     onClick={() => {
                       setPainting((p) => !p);
                       select(null);
@@ -622,10 +665,10 @@ function MapInner({
                 )}
                 {F.zoomButtons && (
                   <>
-                    <IconButton label="Zoom in" onClick={() => void rf.zoomIn({ duration })}>
+                    <IconButton className="cmap-control" label="Zoom in" onClick={() => void rf.zoomIn({ duration })}>
                       <Plus aria-hidden size={18} />
                     </IconButton>
-                    <IconButton label="Zoom out" onClick={() => void rf.zoomOut({ duration })}>
+                    <IconButton className="cmap-control" label="Zoom out" onClick={() => void rf.zoomOut({ duration })}>
                       <Minus aria-hidden size={18} />
                     </IconButton>
                   </>
@@ -719,7 +762,7 @@ function MapToolbar({
                 aria-pressed={detail === d}
                 onClick={() => onDetail(d)}
                 className={cx(
-                  'min-h-11 min-w-0 flex-1 rounded-full px-2 text-[13px] font-semibold transition-colors',
+                  'cmap-control min-h-11 min-w-0 flex-1 rounded-full px-2 text-[13px] font-semibold transition-colors',
                   detail === d ? 'bg-topic text-bg' : 'text-ink-2 hover:bg-white/10 hover:text-ink',
                 )}
               >
@@ -733,12 +776,13 @@ function MapToolbar({
           </p>
         )}
         {view === 'map' && flags.zoomBar && (
-          <IconButton label="Fit the whole map" onClick={onFit}>
+          <IconButton className="cmap-control" label="Fit the whole map" onClick={onFit}>
             <Maximize2 aria-hidden size={18} />
           </IconButton>
         )}
         {flags.outlineToggle && (
           <IconButton
+            className="cmap-control"
             label={view === 'map' ? 'Show as outline' : 'Show as map'}
             onClick={() => onView(view === 'map' ? 'outline' : 'map')}
           >
@@ -746,7 +790,7 @@ function MapToolbar({
           </IconButton>
         )}
         {flags.legendHelp && (
-          <IconButton label="What the symbols mean" onClick={onLegend}>
+          <IconButton className="cmap-control" label="What the symbols mean" onClick={onLegend}>
             <HelpCircle aria-hidden size={18} />
           </IconButton>
         )}

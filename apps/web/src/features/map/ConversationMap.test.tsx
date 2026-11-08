@@ -21,6 +21,8 @@ const LEGACY: MapFlags = {
   revisitArcs: true,
   particles: true,
   parkedThoughts: true,
+  cometTrails: true,
+  facetedStars: true,
 };
 
 beforeAll(() => installFlowDomStubs());
@@ -423,13 +425,13 @@ describe('edge components', () => {
   it('flow particles only with the flag and motion on', () => {
     const { container, rerender } = render(
       <svg>
-        <FlowEdge {...base} data={data({ particles: true })} />
+        <FlowEdge {...base} data={data({ comet: true, particles: true })} />
       </svg>,
     );
     expect(container.querySelectorAll('[data-testid="particle"]').length).toBe(2);
     rerender(
       <svg>
-        <FlowEdge {...base} data={data({ particles: true, motion: false })} />
+        <FlowEdge {...base} data={data({ comet: true, particles: true, motion: false })} />
       </svg>,
     );
     expect(container.querySelectorAll('[data-testid="particle"]').length).toBe(0);
@@ -452,7 +454,7 @@ describe('edge components', () => {
   it('edges on the traced path are drawn thicker', () => {
     const { container } = render(
       <svg>
-        <FlowEdge {...base} data={data({ onPath: true })} />
+        <FlowEdge {...base} data={data({ comet: true, onPath: true })} />
       </svg>,
     );
     expect(Number(container.querySelector('g[data-kind="flow"] path')!.getAttribute('stroke-width'))).toBeGreaterThan(

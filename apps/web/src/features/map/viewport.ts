@@ -1,7 +1,7 @@
 /**
  * Viewport maths for the map (pure). The map never moves nodes; it only chooses where to look.
  */
-import { GUTTER_X, type TopicNode } from '@constellate/shared';
+import { GUTTER_X, LANE_WIDTH, type TopicNode } from '@constellate/shared';
 import { revisitControlX } from './edges';
 import type { VisibleGraph } from './model';
 
@@ -76,6 +76,53 @@ export function fitAll(b: Bounds, w: number, h: number, top = 0, bottom = 0): Vi
     x: (w - bw * zoom) / 2 - b.minX * zoom,
     y: top + 8 + (availH - bh * zoom) / 2 - b.minY * zoom,
   };
+}
+
+/**
+ * Default zoom floor so the map starts readable on a phone: labels (14 px) render at ≥ 15 px and
+ * the smallest topic star (level 2, radius 13.6) at ≥ 28 px across; taps stay ≥ 44 px.
+ */
+export const READABLE_ZOOM = 1.1;
+/** x between the first two topic lanes (140 and 280): kept centred when the map is wider than the screen */
+export const LANE_CENTRE_X = 1.5 * LANE_WIDTH;
+
+/**
+ * The default frame: fit the width if that is readable; otherwise zoom to READABLE_ZOOM, keep the
+ * topic lanes centred and start at the top (the thread gutter and return loops are a pan away).
+ */
+export function readableViewport(b: Bounds, w: number, top = 0, minZoom = READABLE_ZOOM): Viewport {
+  const fit = fitWidth(b, w, top);
+  if (fit.zoom >= minZoom) return fit;
+  return { zoom: minZoom, x: w / 2 - LANE_CENTRE_X * minZoom, y: top + 8 - b.minY * minZoom };
+}
+
+/** Live map: where the newest star sits, as a fraction of the height from the top. */
+export const LIVE_FOLLOW_FRAC = 0.38;
+
+/** Fraction of the screen the bottom detail sheet may cover (see map.css). */
+export const SHEET_FRACTION = 0.58;
+
+/**
+ * With the detail sheet open at the bottom, scroll so `p` sits in the middle of the map area that
+ * is still uncovered above the sheet (keeping zoom; x only moves if the star is off-screen).
+ * Rects are screen rects of the map container and of the phone / window.
+ */
+export function panAboveSheet(
+  vp: Viewport,
+  p: { x: number; y: number },
+  map: { top: number; height: number; width: number },
+  frame: { top: number; height: number },
+  fraction = SHEET_FRACTION,
+): Viewport {
+  const sheetTop = frame.top + frame.height * (1 - fraction);
+  const visible = Math.max(80, Math.min(map.height, sheetTop - map.top));
+  const y = Math.max(40, visible / 2) - p.y * vp.zoom;
+  const sx = p.x * vp.zoom + vp.x;
+  const margin = 60;
+  let x = vp.x;
+  if (sx < margin) x += margin - sx;
+  else if (sx > map.width - margin) x -= sx - (map.width - margin);
+  return { ...vp, x, y };
 }
 
 /** Keep x and zoom; scroll so that `y` sits at `frac` of the height (follow the newest node). */
