@@ -22,6 +22,8 @@ export interface MapNodeFlags {
   showTime: boolean;
   motion: boolean;
   traced: TracedPath | null;
+  /** id of the visually hidden keyboard instructions every node points at */
+  describedBy?: string;
 }
 
 export type TopicFlowData = {
@@ -90,6 +92,7 @@ export function toFlowNodes(
       selectable: false,
       ariaRole: 'button',
       ariaLabel: accessibleName(v),
+      ...(flags.describedBy ? { domAttributes: { 'aria-describedby': flags.describedBy } } : {}),
       zIndex: 2,
       data: {
         view: v,
@@ -145,6 +148,7 @@ export function toFlowEdges(graph: VisibleGraph, state: GraphState, flags: MapNo
       selectable: false,
       focusable: false,
       zIndex: e.kind === 'note' ? 1 : 0,
+      ariaLabel: edgeAccessibleName(e, state),
       markerEnd: color ? { type: MarkerType.ArrowClosed, color, width: 14, height: 14, strokeWidth: 1 } : undefined,
       data: {
         kind: e.kind,
@@ -153,7 +157,12 @@ export function toFlowEdges(graph: VisibleGraph, state: GraphState, flags: MapNo
         highlighted,
         dimmed: Boolean(flags.traced && !edgeTraced(e, flags.traced)),
         motion: flags.motion,
-        labelGap: src ? labelBlockHeight(src.label, flags.showTime || src.id === flags.activeNodeId) : 0,
+        labelGap: src
+          ? labelBlockHeight(
+              src.label,
+              flags.showTime || src.id === flags.activeNodeId || src.id === flags.playingNodeId,
+            )
+          : 0,
       },
     };
   });
@@ -166,4 +175,25 @@ const LABEL_LINE_CHARS = 16;
 export function labelBlockHeight(label: string, withSub: boolean): number {
   const lines = label.length > LABEL_LINE_CHARS ? 2 : 1;
   return 5 + lines * 17 + (withSub ? 15 : 0) + 4;
+}
+
+/** Edge names in words (React Flow otherwise reads "Edge from <uuid> to <uuid>"). */
+export function edgeAccessibleName(e: VisibleEdge, state: GraphState): string {
+  const label = (id: string) => state.nodes[id]?.label ?? 'a topic';
+  const note = (id: string) => state.annotations.find((a) => noteNodeId(a.id) === id)?.text ?? '';
+  switch (e.kind) {
+    case 'flow':
+      return `Moved on from ${label(e.sourceId)} to ${label(e.targetId)}`;
+    case 'user':
+      return `Your link from ${label(e.sourceId)} to ${label(e.targetId)}`;
+    case 'revisit':
+      return `${label(e.sourceId)} returns to the earlier ${label(e.targetId)}`;
+    case 'tether': {
+      const s = state.nodes[e.sourceId];
+      const [thread, topic] = s && s.kind !== 'topic' ? [e.sourceId, e.targetId] : [e.targetId, e.sourceId];
+      return `Thread ${label(thread)} linked to ${label(topic)}`;
+    }
+    case 'note':
+      return `Note on ${label(e.targetId)}: ${note(e.sourceId)}`;
+  }
 }

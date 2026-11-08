@@ -27,17 +27,17 @@ map never lays anything out, it only chooses where to look.
 
 ## Files
 
-| File | What |
-| --- | --- |
-| `model.ts` | Pure view-model: radius by duration, detail-level visibility (Broad folds level-2 topics into the main topic just before them), statuses and relationships in words, path tracer, keyboard order. |
-| `flow.ts` | React Flow node/edge records (circle centre on x/y, centre handles given up front, label gap for edges). |
-| `nodes.tsx` | `TopicNodeView`, `ThreadNodeView`, `NoteNodeView`; long-press. |
-| `edges.tsx` | `FlowEdge` (solid + arrow + particles), `RevisitEdge` (dashed arc to the left margin + arrow), `TetherEdge` (dotted), `UserEdge` (long dash), `NoteEdge`. |
-| `viewport.ts` | Width-fit, fit-all, follow, ensure-visible. |
-| `panels.tsx` | Preview card, detail sheet, quick actions, legend, path banner. |
-| `OutlineView.tsx` | `role="tree"` chronological outline with words for every status and relation. |
-| `ConversationMap.tsx` | The canvas, toolbar (detail level, fit, outline, legend), zoom buttons, keyboard navigation. |
-| `ConversationScreen.tsx` | `/c/:id`: loads the graph + transcript, plays a node's moment from the signed recording URL. |
+| File                     | What                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `model.ts`               | Pure view-model: radius by duration, detail-level visibility (Broad folds level-2 topics into the main topic just before them), statuses and relationships in words, path tracer, keyboard order. |
+| `flow.ts`                | React Flow node/edge records (circle centre on x/y, centre handles given up front, label gap for edges).                                                                                          |
+| `nodes.tsx`              | `TopicNodeView`, `ThreadNodeView`, `NoteNodeView`; long-press.                                                                                                                                    |
+| `edges.tsx`              | `FlowEdge` (solid + arrow + particles), `RevisitEdge` (dashed arc to the left margin + arrow), `TetherEdge` (dotted), `UserEdge` (long dash), `NoteEdge`.                                         |
+| `viewport.ts`            | Width-fit, fit-all, follow, ensure-visible.                                                                                                                                                       |
+| `panels.tsx`             | Preview card, detail sheet, quick actions, legend, path banner.                                                                                                                                   |
+| `OutlineView.tsx`        | `role="tree"` chronological outline with words for every status and relation.                                                                                                                     |
+| `ConversationMap.tsx`    | The canvas, toolbar (detail level, fit, outline, legend), zoom buttons, keyboard navigation.                                                                                                      |
+| `ConversationScreen.tsx` | `/c/:id`: loads the graph + transcript, plays a node's moment from the signed recording URL.                                                                                                      |
 
 Every cue has a non-colour twin (shape, dash, glyph or words); motion (pulse, particles, appear) stops under
 reduced motion; labels follow the Text size setting.

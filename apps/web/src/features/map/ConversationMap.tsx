@@ -20,7 +20,7 @@ import {
   type OnMoveStart,
 } from '@xyflow/react';
 import { ArrowDown, HelpCircle, List, Map as MapIcon, Maximize2, Minus, Plus } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { useMotionReduced } from '../../lib/prefs';
 import { cx, IconButton } from '../../ui';
 import { toFlowEdges, toFlowNodes, type MapFlowNode } from './flow';
@@ -71,6 +71,8 @@ export interface ConversationMapProps {
 }
 
 const TOOLBAR_INSET = 60;
+export const KEYBOARD_HINT =
+  'Arrow keys move between topics in conversation order. Enter opens a preview; Enter again opens the details.';
 const DOUBLE_TAP_MS = 320;
 
 export function ConversationMap(props: ConversationMapProps) {
@@ -133,6 +135,8 @@ function MapInner({
   const rf = useReactFlow();
   const zoom = useStore((s) => s.transform[2]);
   const container = useRef<HTMLDivElement>(null);
+  // React Flow drops its own node description when disableKeyboardA11y is on, so we carry ours
+  const keyboardHintId = `cmap-keys-${useId().replace(/:/g, '')}`;
   const size = useSize(container);
 
   const [detail, setDetail] = useControllable<DetailLevel>(detailProp, onDetailChange, 'balanced');
@@ -162,27 +166,24 @@ function MapInner({
     [state, tracedId],
   );
 
+  const flowFlags = useMemo(
+    () => ({
+      activeNodeId,
+      playingNodeId,
+      selectedNodeId: selectedId,
+      showTime: shown === 'detailed',
+      motion,
+      traced,
+      describedBy: keyboardHintId,
+    }),
+    [activeNodeId, playingNodeId, selectedId, shown, motion, traced, keyboardHintId],
+  );
   const nodes = useMemo(
-    () =>
-      toFlowNodes(
-        vg,
-        { activeNodeId, playingNodeId, selectedNodeId: selectedId, showTime: shown === 'detailed', motion, traced },
-        (v) => nodeAccessibleName(state, v.node, activeNodeId),
-      ),
-    [vg, activeNodeId, playingNodeId, selectedId, shown, motion, traced, state],
+    () => toFlowNodes(vg, flowFlags, (v) => nodeAccessibleName(state, v.node, activeNodeId)),
+    [vg, flowFlags, state, activeNodeId],
   );
-  const edges = useMemo(
-    () =>
-      toFlowEdges(vg, state, {
-        activeNodeId,
-        playingNodeId,
-        selectedNodeId: selectedId,
-        showTime: false,
-        motion,
-        traced,
-      }),
-    [vg, state, activeNodeId, playingNodeId, selectedId, motion, traced],
-  );
+  // same flags as the nodes, so edges leave below the time line in Detailed
+  const edges = useMemo(() => toFlowEdges(vg, state, flowFlags), [vg, state, flowFlags]);
   const order = useMemo(() => vg.nodes.map((v) => v.node.id), [vg]);
   const latest = latestNode(state);
   const topInset = hideToolbar ? 0 : TOOLBAR_INSET;
@@ -385,13 +386,12 @@ function MapInner({
               maxZoom={MAX_ZOOM}
               colorMode="dark"
               attributionPosition="bottom-left"
-              ariaLabelConfig={{
-                'node.a11yDescription.keyboardDisabled':
-                  'Arrow keys move between topics in conversation order. Enter opens a preview; Enter again opens the details.',
-              }}
               proOptions={{ hideAttribution: false }}
               aria-label="Conversation map"
             />
+            <p id={keyboardHintId} className="sr-only">
+              {KEYBOARD_HINT}
+            </p>
           </div>
         </MapNodeActionsContext.Provider>
       )}

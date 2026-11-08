@@ -16,9 +16,21 @@ describe('edge geometry', () => {
     expect([ex, ey]).toEqual([240, 200 - 18 - 3]);
   });
 
-  it('flow edges ignore the label gap when it would leave no room', () => {
-    const d = flowPath({ x: 100, y: 0 }, { x: 100, y: 96 }, 20, 20, 60);
-    expect(nums(d).slice(0, 2)).toEqual([100, 20]);
+  it('with no room under a tall label, a lane change leaves from the side facing the target', () => {
+    // Detailed: Historical Jesus (r 26.4) → Gospel Sources one row down, one lane right
+    const d = flowPath({ x: 127, y: 96 }, { x: 289, y: 192 }, 26.4, 20.4, 41);
+    const [ax, ay] = nums(d);
+    expect([ax, ay]).toEqual([127 + 26.4, 96]); // right side of the circle, level with its centre
+    expect(d.trim().endsWith(`289 ${192 - 20.4 - 3}`)).toBe(true);
+  });
+
+  it('with no room in the same lane, it is a short stub just above the target', () => {
+    const d = flowPath({ x: 133, y: 672 }, { x: 124, y: 768 }, 20, 20, 56);
+    const [ax, ay, bx, by] = nums(d);
+    expect([ax, bx]).toEqual([124, 124]);
+    expect(by).toBe(768 - 23);
+    expect(by - ay).toBeGreaterThanOrEqual(8);
+    expect(ay).toBeGreaterThan(672 + 20 + 5); // starts below the label's first line, not on the circle
   });
 
   it('revisit arcs swing out to the left margin, left of both endpoints', () => {

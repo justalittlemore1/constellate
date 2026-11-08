@@ -32,8 +32,18 @@ export function flowPath(s: Pt, t: Pt, sr: number, tr: number, gap = 0): string 
   const dir = Math.sign(dy);
   const b = { x: t.x, y: t.y - dir * (tr + 3) };
   const below = s.y + sr + gap;
-  // skip the label gap when there is no room left for a visible curve
-  const a = { x: s.x, y: dir > 0 && gap > 0 && b.y - below >= 14 ? below : s.y + dir * sr };
+  if (dir > 0 && gap > 0 && b.y - below < 14) {
+    // the label (and its time line) fills the space below the node
+    const side = Math.sign(t.x - s.x);
+    if (side !== 0 && Math.abs(t.x - s.x) > sr + 20) {
+      // changing lane: leave from the side facing the target, clear of the label
+      const a = { x: s.x + side * sr, y: s.y };
+      return `M ${a.x} ${a.y} C ${a.x + side * 48} ${a.y}, ${b.x} ${b.y - 40}, ${b.x} ${b.y}`;
+    }
+    // same lane: a short stub just above the target, under the label
+    return `M ${b.x} ${Math.min(below, b.y - 8)} L ${b.x} ${b.y}`;
+  }
+  const a = { x: s.x, y: dir > 0 && gap > 0 ? below : s.y + dir * sr };
   // too short for an S-curve to read: a straight segment
   if (Math.abs(b.y - a.y) < 36) return `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
   const k = (b.y - a.y) * 0.5;

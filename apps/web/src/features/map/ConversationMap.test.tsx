@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { usePrefs } from '../../lib/prefs';
 import { renderApp } from '../../test/render';
-import { ConversationMap } from './ConversationMap';
+import { ConversationMap, KEYBOARD_HINT } from './ConversationMap';
 import { ConversationScreen } from './ConversationScreen';
 import { FlowEdge, RevisitEdge, TetherEdge } from './edges';
 import type { MapFlowEdge } from './flow';
@@ -153,6 +153,47 @@ describe('live statuses and motion', () => {
   it('shows a placeholder before the first topic', () => {
     render(<ConversationMap state={makeGraph()} followLatest />);
     expect(screen.getByText('Topics appear here as the conversation goes.')).toBeInTheDocument();
+  });
+});
+
+describe('screen reader names and instructions', () => {
+  it('every node points at the keyboard instructions', () => {
+    render(<ConversationMap state={demo} />);
+    for (const n of Object.values(demo.nodes)) {
+      const id = wrapper(n).getAttribute('aria-describedby');
+      expect(id).toBeTruthy();
+      expect(document.getElementById(id!)).toHaveTextContent(KEYBOARD_HINT);
+    }
+  });
+
+  it('edges are named in words, never by raw ids', () => {
+    const { container } = render(<ConversationMap state={demo} />);
+    const edges = [...container.querySelectorAll<SVGGElement>('.react-flow__edge')];
+    expect(edges.length).toBeGreaterThan(0);
+    for (const el of edges) {
+      const name = el.getAttribute('aria-label') ?? '';
+      expect(name).not.toMatch(/^Edge from/);
+      expect(name).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    }
+    const names = edges.map((el) => el.getAttribute('aria-label'));
+    expect(names).toContain('Moved on from Sunday Service to Historical Jesus');
+    expect(names).toContain('Resurrection Accounts returns to the earlier Resurrection Accounts');
+    expect(names).toContain('Thread Intramural Soccer linked to Gospel Sources');
+    expect(names).toContain('Note on Resurrection Accounts: Look up the Q source hypothesis');
+  });
+});
+
+describe('Detailed zoom keeps edges off the time line', () => {
+  it('re-routes forward edges when each label gains its time line', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ConversationMap state={demo} />);
+    const flowId = Object.values(demo.edges).find(
+      (e) => e.kind === 'flow' && e.sourceId === nodeOf('Historical Jesus').id,
+    )!.id;
+    const path = () => container.querySelector(`[data-testid="map-edge-${flowId}"] path`)!.getAttribute('d');
+    const balanced = path();
+    await user.click(screen.getByRole('button', { name: 'Detailed' }));
+    expect(path()).not.toBe(balanced);
   });
 });
 
