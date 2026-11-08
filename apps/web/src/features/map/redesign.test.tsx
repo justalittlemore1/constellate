@@ -248,14 +248,15 @@ describe('appearance', () => {
     const camus = tile(byLabel('Camus and Absurdism'));
     expect(camus).toHaveClass('cmap-appear');
     expect(document.querySelector('.cmap-pulse')).toBeNull();
-    expect(within(camus).getByTestId('colour-shift')).toHaveClass('cmap-shift');
+    expect(within(camus).getByTestId('y4-light')).toHaveClass('cmap-shift-fill');
+    expect(within(camus).getByTestId('active-core')).toBeInTheDocument();
     expect(within(camus).getByText('now')).toBeInTheDocument();
   });
 
   it('reduced motion: no colour shift either', () => {
     usePrefs.getState().set({ reduceMotion: true });
     render(<ConversationMap state={liveWithActive()} live />);
-    expect(screen.queryByTestId('colour-shift')).toBeNull();
+    expect(document.querySelector('.cmap-shift-fill')).toBeNull();
     usePrefs.getState().reset();
   });
 });

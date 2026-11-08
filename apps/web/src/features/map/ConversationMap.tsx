@@ -193,14 +193,18 @@ function MapInner({
   const shown = F.zoomBar ? effectiveDetail(detail, zoom) : detail;
   const autoBroad = shown !== detail;
   const mergeReturns = !F.revisitArcs;
-  const vg = useMemo(() => visibleGraph(state, shown, { mergeReturns }), [state, shown, mergeReturns]);
+  const hideParked = !F.parkedThoughts;
+  const vg = useMemo(
+    () => visibleGraph(state, shown, { mergeReturns, hideParked }),
+    [state, shown, mergeReturns, hideParked],
+  );
   const starById = useMemo(() => new Map(vg.nodes.map((v) => [v.node.id, v])), [vg]);
   // the full graph decides the frame, so switching detail level never jumps the view
   // live maps frame every lane up to the thread gutter from the start, so later nodes land in view
   const fullBounds = useMemo(() => {
-    const b = graphBounds(visibleGraph(state, 'balanced', { mergeReturns }));
+    const b = graphBounds(visibleGraph(state, 'balanced', { mergeReturns, hideParked }));
     return b && followLatest ? withLaneFrame(b) : b;
-  }, [state, followLatest, mergeReturns]);
+  }, [state, followLatest, mergeReturns, hideParked]);
   const traced: TracedPath | null = useMemo(() => {
     if (!tracedId || !state.nodes[tracedId]) return null;
     const t = tracePath(state, tracedId);
@@ -504,6 +508,7 @@ function MapInner({
             state={state}
             activeNodeId={activeNodeId}
             selectedNodeId={selectedId}
+            hideParked={hideParked}
             onOpen={(n) => setSheetId(vg.starOf(n.id))}
           />
         </div>
@@ -558,7 +563,7 @@ function MapInner({
           <div
             role="status"
             data-testid="highlighter-banner"
-            className="surface pointer-events-auto flex items-center gap-2 rounded-[var(--radius)] border border-highlight/60 py-1 pl-3 pr-1 shadow-lg"
+            className="cmap-chart surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
           >
             <Highlighter aria-hidden size={16} className="shrink-0 text-highlight" />
             <p className="min-w-0 flex-1 text-[13px] leading-snug">

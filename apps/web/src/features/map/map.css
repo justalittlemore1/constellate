@@ -69,17 +69,18 @@
   transition: opacity 200ms ease;
 }
 
-/* no pulsing anywhere (humans' redesign): an active star only shifts colour, very slowly */
-@keyframes cmap-shift {
+/* no pulsing anywhere: star facets and ember cores only shift between two close colours, slowly
+   (the colours come from --shift-from / --shift-to set on the element; static under reduced motion) */
+@keyframes cmap-shift-fill {
   from {
-    filter: hue-rotate(0deg) saturate(1);
+    fill: var(--shift-from);
   }
   to {
-    filter: hue-rotate(-14deg) saturate(1.15);
+    fill: var(--shift-to);
   }
 }
-.cmap-shift {
-  animation: cmap-shift 9s ease-in-out infinite alternate;
+.cmap-shift-fill {
+  animation: cmap-shift-fill 10s ease-in-out infinite alternate;
 }
 
 /* new stars fade and grow in gently; instant under reduced motion (global rule in index.css) */

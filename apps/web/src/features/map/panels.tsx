@@ -570,7 +570,7 @@ export function PathBanner({ labels, onClear }: { labels: string[]; onClear(): v
     <div
       role="status"
       data-testid="path-banner"
-      className="surface pointer-events-auto flex items-center gap-2 rounded-[var(--radius)] border border-line py-1 pl-3 pr-1 shadow-lg"
+      className="cmap-chart surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
     >
       <Route aria-hidden size={16} className="shrink-0 text-topic" />
       <p className="min-w-0 flex-1 text-[13px] leading-snug">

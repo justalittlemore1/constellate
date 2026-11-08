@@ -1,17 +1,21 @@
 /**
  * Node components. Every meaning has a non-colour cue:
- *  topic   — filled glowing circle; active = static outer ring + "now" (+ a very slow, subtle colour
- *            shift, never a pulse; none under reduced motion); provisional = 40 %
- *            opacity + "tentative"; revisit = ↺ badge; highlighted = gold ring + ★; flag = pin badge
- *  thread  — hollow dashed ring; clock glyph (mentioned for later), pencil (parked), check (picked up)
+ *  topic   — Y4 faceted four-point star (art.tsx); active = small white core dot + "now"; provisional
+ *            = 40 % opacity + "tentative"; selected / focused = thin hairline ring; highlighted =
+ *            thin gold ring + ★; revisit = ↺ badge (flag); flag = pin badge. No pulse: the light
+ *            facets only shift colour very slowly (static under reduced motion).
+ *  thread  — deferred / unexplored: E2 "broken shell" ember (small dashed ring + dim core), a
+ *            different shape from any star; picked up later: a "rekindled" Y4 star in orange, plus
+ *            the words "picked up"; parked (flag): the ember with a pencil
  *  note    — small sticky card
  * Accessible names are set on the React Flow wrapper (`ariaLabel`), so the visuals are aria-hidden.
  */
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { Check, Clock, Flag, Pencil, StickyNote } from 'lucide-react';
+import { Flag, Pencil, StickyNote } from 'lucide-react';
 import { createContext, useContext, useRef, type PointerEvent as ReactPointerEvent } from 'react';
 import { cx } from '../../ui';
 import type { NoteFlowNode, TopicFlowNode } from './flow';
+import { EmberArt, StateRings, Y4Star, type StarPalette } from './art';
 import { nodeSubLabel } from './model';
 
 export interface MapNodeActions {
@@ -128,81 +132,35 @@ function Badge({
 }
 
 /**
- * The star itself. Kept apart from the node's behaviour (badges, label, long-press) so the
- * wave-2 star shapes can replace just this. Everything here is decoration (aria-hidden).
+ * The star itself, kept apart from the node's behaviour (badges, label, long-press) so the art can
+ * change on its own. Everything here is decoration (aria-hidden).
  */
 export function TopicArt({
   box,
   r,
-  gradId,
   active,
   playing,
   selected,
   highlighted,
   motion,
+  palette = 'young',
 }: {
   box: number;
   r: number;
-  gradId: string;
   active: boolean;
   playing: boolean;
   selected: boolean;
   highlighted: boolean;
   motion: boolean;
+  palette?: StarPalette;
 }) {
   const side = box * 2;
   return (
     <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
-      <defs>
-        <radialGradient id={gradId}>
-          <stop offset="0%" stopColor="#F2FDFF" stopOpacity="1" />
-          <stop offset="38%" stopColor="#9DEEFF" stopOpacity="1" />
-          <stop offset="100%" stopColor="#3CC9EE" stopOpacity="0.95" />
-        </radialGradient>
-      </defs>
-      {/* keyboard focus ring (shown via .react-flow__node:focus-visible) */}
-      <circle className="cmap-focus" cx={box} cy={box} r={r + 9} fill="none" stroke="var(--text)" strokeWidth={2} />
-      {highlighted && (
-        <circle
-          cx={box}
-          cy={box}
-          r={r + 5}
-          fill="none"
-          stroke="var(--highlight)"
-          strokeWidth={2.5}
-          data-testid="highlight-ring"
-        />
-      )}
-      {(active || playing) && (
-        <circle
-          cx={box}
-          cy={box}
-          r={r + 4}
-          fill="none"
-          stroke={playing ? 'var(--text)' : 'var(--topic)'}
-          strokeWidth={1.5}
-          data-testid="active-ring"
-        />
-      )}
-      {selected && (
-        <circle cx={box} cy={box} r={r + 4} fill="none" stroke="var(--text)" strokeWidth={1.5} strokeDasharray="3 3" />
-      )}
-      {/* the only motion on an active star: a very slow, subtle colour shift (never a pulse) */}
-      <g
-        className={active && motion ? 'cmap-shift' : undefined}
-        data-testid={active && motion ? 'colour-shift' : undefined}
-      >
-        <circle
-          cx={box}
-          cy={box}
-          r={r}
-          fill={`url(#${gradId})`}
-          data-testid="star"
-          style={{
-            filter: `drop-shadow(0 0 calc(${playing ? 18 : 10}px * var(--glow)) rgba(111,227,255,${playing ? 0.95 : 0.7}))`,
-          }}
-        />
-      </g>
+      <StateRings cx={box} cy={box} r={r} selected={selected} highlighted={highlighted} />
+      <Y4Star cx={box} cy={box} r={r} palette={palette} motion={motion} />
+      {/* being discussed now (or being heard): a small white core, never a pulse */}
+      {(active || playing) && <circle cx={box} cy={box} r={2.5} fill="#FFFFFF" data-testid="active-core" />}
     </svg>
   );
 }
@@ -214,7 +172,6 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
   const side = box * 2;
   const provisional = n.status === 'provisional';
   const press = useLongPress(id);
-  const gradId = `cmap-g-${id}`;
   const sub = nodeSubLabel(n, { active, playing, showTime });
 
   return (
@@ -233,7 +190,6 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
       <TopicArt
         box={box}
         r={r}
-        gradId={gradId}
         active={active}
         playing={playing}
         selected={selected}
@@ -272,13 +228,12 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
 }
 
 export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
-  const { view, box, selected, dimmed, showTime } = data;
+  const { view, box, selected, dimmed, showTime, motion } = data;
   const n = view.node;
   const r = view.radius;
   const side = box * 2;
   const resolved = n.status === 'resolved';
   const press = useLongPress(id);
-  const Glyph = resolved ? Check : n.kind === 'parked' ? Pencil : Clock;
   const sub = nodeSubLabel(n, { active: false, playing: false, showTime });
 
   return (
@@ -287,47 +242,37 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
       data-testid={`map-node-${id}`}
       data-kind={n.kind}
       data-status={n.status}
+      data-art={resolved ? 'rekindled' : 'ember'}
       className={cx('cmap-appear relative', dimmed && 'cmap-dim')}
-      style={{ width: side, height: side, opacity: dimmed ? 0.22 : resolved ? 0.7 : undefined }}
+      style={{ width: side, height: side, opacity: dimmed ? 0.22 : undefined }}
     >
       <CentreHandles />
-      <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
-        <circle className="cmap-focus" cx={box} cy={box} r={r + 8} fill="none" stroke="var(--text)" strokeWidth={2} />
-        {n.highlighted && (
-          <circle cx={box} cy={box} r={r + 5} fill="none" stroke="var(--highlight)" strokeWidth={2.5} />
-        )}
-        {selected && (
-          <circle
-            cx={box}
-            cy={box}
-            r={r + 4}
-            fill="none"
-            stroke="var(--text)"
-            strokeWidth={1.5}
-            strokeDasharray="3 3"
-          />
-        )}
-        <g>
-          <circle
-            data-testid="thread-ring"
-            cx={box}
-            cy={box}
-            r={r}
-            fill="rgba(7,10,23,0.85)"
-            stroke="var(--thread)"
-            strokeWidth={2}
-            strokeDasharray="4 3.5"
-            style={{ filter: 'drop-shadow(0 0 calc(6px * var(--glow)) rgba(255,196,107,0.45))' }}
-          />
-        </g>
-      </svg>
-      <span
-        aria-hidden
-        className="pointer-events-none absolute flex items-center justify-center text-thread"
-        style={{ left: box - 8, top: box - 8, width: 16, height: 16 }}
-      >
-        <Glyph size={14} strokeWidth={2.4} data-testid={`glyph-${resolved ? 'resolved' : n.kind}`} />
-      </span>
+      {resolved ? (
+        <TopicArt
+          box={box}
+          r={r}
+          active={false}
+          playing={false}
+          selected={selected}
+          highlighted={n.highlighted}
+          motion={motion}
+          palette="rekindled"
+        />
+      ) : (
+        <svg aria-hidden width={side} height={side} className="absolute inset-0 overflow-visible">
+          <StateRings cx={box} cy={box} r={r} selected={selected} highlighted={n.highlighted} />
+          <EmberArt cx={box} cy={box} motion={motion} />
+        </svg>
+      )}
+      {n.kind === 'parked' && !resolved && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute flex items-center justify-center text-thread"
+          style={{ left: box + r - 2, top: box - r - 10, width: 12, height: 12 }}
+        >
+          <Pencil size={10} strokeWidth={2.4} data-testid="glyph-parked" />
+        </span>
+      )}
       {view.flags > 0 && (
         <Badge box={box} r={r} angle={-45} className="border-flag text-flag" testId="flag-badge">
           <Flag size={10} strokeWidth={2.5} />
