@@ -1,7 +1,12 @@
 /** Public, browser-safe configuration. Never add secrets here. */
 type PublicEnv = Partial<
   Record<
-    'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY' | 'VITE_SERVER_WS_URL' | 'VITE_SERVER_HTTP_URL' | 'VITE_USE_MOCKS',
+    | 'VITE_SUPABASE_URL'
+    | 'VITE_SUPABASE_ANON_KEY'
+    | 'VITE_SERVER_WS_URL'
+    | 'VITE_SERVER_HTTP_URL'
+    | 'VITE_USE_MOCKS'
+    | 'VITE_MOCK_SIGNED_IN',
     string
   >
 > & {
@@ -37,4 +42,9 @@ export const env = {
   serverHttpUrl: devDefault(raw.VITE_SERVER_HTTP_URL, 'http://localhost:8787'),
   /** run against fixtures and recorded op streams, with no server or Supabase */
   useMocks: raw.VITE_USE_MOCKS === '1',
+  /**
+   * mock mode only: start signed in as the demo user (e2e sets it). Without it mock mode starts
+   * signed out on every load, so rehearsals and filming begin at the sign-in screen.
+   */
+  mockSignedIn: raw.VITE_MOCK_SIGNED_IN === '1',
 } as const;
