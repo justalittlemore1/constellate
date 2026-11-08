@@ -52,7 +52,7 @@ function isTypingTarget(t: EventTarget | null): boolean {
 }
 
 function isActivatable(t: EventTarget | null): boolean {
-  return t instanceof HTMLElement && (t.closest('button, a[href], [role="button"], summary') !== null);
+  return t instanceof HTMLElement && t.closest('button, a[href], [role="button"], summary') !== null;
 }
 
 /** A short silent WAV, as a data URI, to keep the media session alive. */
@@ -83,6 +83,8 @@ export interface FlagTriggerOptions {
   /** listen for keys, media keys and pocket taps (true while live) */
   enabled: boolean;
   debounceMs?: number;
+  /** Shift+F: "flag with a note". Without it Shift+F does nothing (and never counts as a double F). */
+  onNote?: () => void;
 }
 
 export interface FlagTrigger {
@@ -98,7 +100,11 @@ export interface FlagTrigger {
  * `onFlag` performs the flag and returns whether it was accepted (e.g. `controller.flag`).
  */
 export function useFlagTrigger(onFlag: (source: FlagSource) => boolean, opts: FlagTriggerOptions): FlagTrigger {
-  const { enabled, debounceMs = FLAG_DEBOUNCE_MS } = opts;
+  const { enabled, debounceMs = FLAG_DEBOUNCE_MS, onNote } = opts;
+  const onNoteRef = useRef(onNote);
+  useEffect(() => {
+    onNoteRef.current = onNote;
+  }, [onNote]);
   const [pocket, setPocket] = useState(false);
   const onFlagRef = useRef(onFlag);
   useEffect(() => {
@@ -129,6 +135,11 @@ export function useFlagTrigger(onFlag: (source: FlagSource) => boolean, opts: Fl
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey || isTypingTarget(e.target)) return;
       const key = e.key === ' ' || e.code === 'Space' ? 'space' : e.key.toLowerCase() === 'f' ? 'f' : null;
       if (!key) return;
+      if (key === 'f' && e.shiftKey) {
+        e.preventDefault();
+        onNoteRef.current?.();
+        return;
+      }
       if (key === 'space') {
         if (isActivatable(e.target)) return; // Space presses the focused button; leave it alone
         e.preventDefault(); // no page scroll

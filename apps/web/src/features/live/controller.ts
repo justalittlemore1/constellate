@@ -13,14 +13,17 @@ import {
   OpError,
   applyOps,
   emptyGraph,
+  topicAt,
   type ClientMsg,
   type FlagSource,
+  type GraphOp,
   type GraphState,
   type LiveStage,
   type OpBatch,
   type ServerMsg,
 } from '@constellate/shared';
 import type { Capture, CaptureSource } from './audio';
+import { FLAG_NOTE_MAX_CHARS } from './flags';
 import type { LiveTransport, TransportFactory } from './transport';
 
 export type LivePhase = 'idle' | 'consenting' | 'connecting' | 'live' | 'stopping' | 'stopped' | 'error';
@@ -70,6 +73,13 @@ export interface LiveDeps {
   fetchGraph(conversationId: string, auth: Auth): Promise<GraphState>;
   /** start audio capture; rejects with a DOMException named NotAllowedError when the mic is denied */
   startCapture(source: CaptureSource, onFrame: (frame: ArrayBuffer) => void): Promise<Capture>;
+  /**
+   * POST /conversations/:id/ops — user edits (source 'user'). Used to save a flag with a note,
+   * which today's contract accepts as a `flag.add` user op. Optional: without it notes degrade.
+   */
+  postOps?(conversationId: string, auth: Auth, ops: GraphOp[]): Promise<void>;
+  /** id generator for client-created entities (defaults to crypto.randomUUID) */
+  newId?(): string;
   /** upload the recording to recordings/{userId}/{conversationId}.webm */
   upload(blob: Blob, auth: Auth, conversationId: string): Promise<void>;
   now(): number;
@@ -86,6 +96,9 @@ export const MAX_BUFFERED_FRAMES = 50;
 export const STOP_TIMEOUT_MS = 20_000;
 export const MAX_CAPTIONS = 20;
 export const PARK_MAX_CHARS = 80;
+
+/** what happened to a flag with a note */
+export type FlagNoteResult = 'saved' | 'flag-only' | 'rejected';
 
 /** WebSocket close codes after which reconnecting is pointless */
 const FATAL_CLOSE_CODES = new Set([1008, 1011]);
@@ -267,7 +280,10 @@ export class LiveController {
         return this.onBatch(msg.batch);
       case 'caption':
         if (msg.final) {
-          const captions = [...this.snap.captions, { text: msg.text, startMs: msg.startMs, utteranceId: msg.utteranceId }];
+          const captions = [
+            ...this.snap.captions,
+            { text: msg.text, startMs: msg.startMs, utteranceId: msg.utteranceId },
+          ];
           this.set({ captions: captions.slice(-MAX_CAPTIONS), interim: null });
         } else {
           this.set({ interim: msg.text });
@@ -469,6 +485,39 @@ export class LiveController {
     if (this.snap.phase !== 'live') return false;
     this.sendOrQueue({ t: 'flag', atMs: Math.round(this.clockMs()), source });
     return true;
+  }
+
+  /**
+   * Flag the moment `atMs` (when the press started) with a short note. The note goes as a
+   * `flag.add` user op; if that is unavailable or fails, the moment is still flagged over the
+   * socket without the note ('flag-only'), so nothing is lost.
+   */
+  async flagWithNote(source: FlagSource, note: string, atMs: number = this.clockMs()): Promise<FlagNoteResult> {
+    if (this.snap.phase !== 'live') return 'rejected';
+    const at = Math.round(Math.max(0, Math.min(atMs, this.clockMs())));
+    const clean = note.trim().slice(0, FLAG_NOTE_MAX_CHARS);
+    const id = this.snap.conversationId;
+    const auth = this.auth;
+    const graph = this.snap.graph;
+    if (clean && id && auth && graph && this.deps.postOps) {
+      const flag = {
+        id: this.deps.newId?.() ?? crypto.randomUUID(),
+        conversationId: id,
+        atMs: at,
+        nodeId: topicAt(graph, at)?.id ?? null,
+        note: clean,
+        source,
+      };
+      try {
+        await this.deps.postOps(id, auth, [{ op: 'flag.add', flag }]);
+        return 'saved';
+      } catch (err) {
+        this.log('live.flag_note_failed', { message: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (this.disposed) return 'rejected';
+    this.sendOrQueue({ t: 'flag', atMs: at, source });
+    return 'flag-only';
   }
 
   /** park a thought for later; text is trimmed and capped at 80 characters */

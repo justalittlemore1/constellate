@@ -1,16 +1,18 @@
 /**
  * /live/:id — consent sheet, then a full-screen live map with the recording bar, a one-line
- * caption strip, and Flag · Park a thought · Stop. Route wiring belongs to A4 (see LiveRoute).
+ * caption strip, and Flag · Stop (Park a thought is behind flags.ts). Route wiring belongs to A4.
  */
 import type { GraphState, LiveStage } from '@constellate/shared';
-import { Flag, Moon, NotebookPen, Square, WifiOff } from 'lucide-react';
+import { Moon, NotebookPen, Square, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFocusTrap } from '../../ui';
 import type { LiveController, LiveDeps, LiveSourceSpec } from './controller';
 import { captionTail } from './captions';
+import { FlagButton } from './FlagButton';
+import { LIVE_FEATURES, type LiveFeatures } from './flags';
 import { LiveMap } from './LiveMap';
 import { formatClock, openThreads } from './openThreads';
-import { BeforeYouGo, ConsentSheet, MicRecovery, ParkSheet } from './sheets';
+import { BeforeYouGo, ConsentSheet, FlagNoteSheet, MicRecovery, ParkSheet } from './sheets';
 import { useFlagTrigger } from './useFlagTrigger';
 import { useLiveSession } from './useLiveSession';
 
@@ -33,6 +35,8 @@ export interface LiveScreenProps {
   deps?: LiveDeps;
   /** override the map (tests); defaults to <LiveMap>: A3's map, with the node list as fallback */
   renderMap?: (graph: GraphState | null) => ReactNode;
+  /** override feature switches (tests); defaults to LIVE_FEATURES in flags.ts */
+  features?: Partial<LiveFeatures>;
 }
 
 const STAGE_TEXT: Record<LiveStage, string> = {
@@ -75,10 +79,16 @@ function LiveSessionView({
   speed,
   deps,
   renderMap,
+  features: featureOverrides,
 }: Omit<LiveScreenProps, 'initialSource'> & { source: LiveSourceSpec; setSource(s: LiveSourceSpec): void }) {
+  const features: LiveFeatures = { ...LIVE_FEATURES, ...featureOverrides };
+  const notesOn = features.flagNotes !== 'off';
   const s = useLiveSession(source, { deps, speed });
   const { controller, phase } = s;
   const [parking, setParking] = useState(false);
+  /** the flag note being written: when the press started, and which input */
+  const [noting, setNoting] = useState<{ atMs: number; source: 'button' | 'key' } | null>(null);
+  const pressAt = useRef(0);
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null);
   const toastSeq = useRef(0);
 
@@ -109,8 +119,37 @@ function LiveSessionView({
       },
       [controller, show],
     ),
-    { enabled: live && !parking },
+    {
+      enabled: live && !parking && noting === null,
+      onNote: () => openNote('key', controller?.clockMs() ?? 0),
+    },
   );
+
+  /** hold / Shift+F: open the note field, or (notes off) just flag */
+  function openNote(src: 'button' | 'key', atMs: number) {
+    if (!live) return;
+    if (!notesOn) {
+      trigger.flag(src);
+      return;
+    }
+    setNoting({ atMs, source: src });
+  }
+
+  async function saveNote(note: string | null) {
+    const n = noting;
+    setNoting(null);
+    if (!n || !controller) return;
+    const result =
+      note === null
+        ? controller.flag(n.source)
+          ? 'flag-only'
+          : 'rejected'
+        : await controller.flagWithNote(n.source, note, n.atMs);
+    if (result === 'rejected') return;
+    navigator.vibrate?.(60);
+    if (note === null) show('Moment flagged');
+    else show(result === 'saved' ? 'Flagged with a note' : 'Moment flagged — the note could not be saved');
+  }
 
   const threads = useMemo(() => openThreads(s.graph), [s.graph]);
   const ending = phase === 'stopping' || phase === 'stopped';
@@ -200,95 +239,102 @@ function LiveSessionView({
   // the PhoneFrame's #overlay-root does not exist yet, and a sheet portalled then would move containers
   // on the next render and lose its initial focus
   const consenting = phase === 'consenting';
-  const overlayOpen = consenting || phase === 'idle' || parking || ending || trigger.pocket;
+  const overlayOpen = consenting || phase === 'idle' || parking || noting !== null || ending || trigger.pocket;
 
   return (
     <div className="relative h-full" data-testid="live-screen">
       <p className="sr-only" role="status">
         {s.reconnecting ? 'Connection lost. Reconnecting…' : ''}
       </p>
-      <main aria-label="Live conversation" className="flex h-full flex-col" inert={overlayOpen} data-testid="live-content">
-      {/* top bar: elapsed time on the audio clock, recording indicator (dot + word), stage */}
-      <header className="flex min-h-[56px] items-center gap-3 border-b border-white/10 px-4">
-        <span className="flex items-center gap-2 text-[13px] font-semibold">
-          <span
+      <main
+        aria-label="Live conversation"
+        className="flex h-full flex-col"
+        inert={overlayOpen}
+        data-testid="live-content"
+      >
+        {/* top bar: elapsed time on the audio clock, recording indicator (dot + word), stage */}
+        <header className="flex min-h-[56px] items-center gap-3 border-b border-white/10 px-4">
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <span
+              aria-hidden
+              className={`inline-block size-2.5 rounded-full ${recording ? 'bg-[#ff4d5e]' : 'bg-ink-2'}`}
+            />
+            {recording ? 'Recording' : ending ? 'Stopped' : 'Ready'}
+          </span>
+          <span role="timer" aria-label="Elapsed time" className="tabular-nums text-[15px] font-semibold">
+            {formatClock(clockMs)}
+          </span>
+          <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 truncate text-[13px] text-ink-2">
+            {s.reconnecting && <WifiOff aria-hidden size={14} />}
+            {stageText}
+          </span>
+          <button
+            type="button"
+            aria-label="Pocket mode: dim the screen, double-tap anywhere to flag"
+            disabled={!live}
+            onClick={() => trigger.setPocket(true)}
+            className="flex size-11 items-center justify-center rounded-full text-ink-2 disabled:opacity-40"
+          >
+            <Moon aria-hidden size={20} />
+          </button>
+        </header>
+        {sourceLabel && <p className="px-4 pt-1 text-[11.5px] text-ink-2">{sourceLabel}</p>}
+
+        {/* one-line caption strip; finals are announced, interim text is dimmed */}
+        <div
+          className="flex min-h-[44px] items-center gap-1 overflow-hidden border-b border-white/10 px-4 text-[15px]"
+          data-testid="captions"
+        >
+          <p className="sr-only" aria-live="polite">
+            {lastCaption}
+          </p>
+          <p
             aria-hidden
-            className={`inline-block size-2.5 rounded-full ${recording ? 'bg-[#ff4d5e] motion-safe:animate-pulse' : 'bg-ink-2'}`}
+            data-testid="caption-line"
+            className="flex min-w-0 flex-1 justify-end overflow-hidden whitespace-nowrap [mask-image:linear-gradient(to_right,transparent,black_1.5rem)]"
+          >
+            {caption.cut && <span className="mr-1 shrink-0 text-ink-2">…</span>}
+            {caption.final && <span className="shrink-0">{caption.final}</span>}
+            {caption.interim && <span className="ml-1 shrink-0 text-ink-2/70 italic">{caption.interim}</span>}
+            {!lastCaption && !s.interim && <span className="text-ink-2">Captions appear here.</span>}
+          </p>
+        </div>
+
+        <div className="min-h-0 flex-1">{renderMap ? renderMap(s.graph) : <LiveMap graph={s.graph} />}</div>
+
+        {/* bottom bar */}
+        <nav
+          aria-label="Recording controls"
+          className={`grid ${features.parkThought ? 'grid-cols-3' : 'grid-cols-2'} gap-2 border-t border-white/10 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3`}
+        >
+          <FlagButton
+            disabled={!live}
+            holdEnabled={notesOn}
+            onPressStart={() => (pressAt.current = controller?.clockMs() ?? 0)}
+            onTap={() => trigger.flag('button')}
+            onHold={() => openNote('button', pressAt.current)}
           />
-          {recording ? 'Recording' : ending ? 'Stopped' : 'Ready'}
-        </span>
-        <span role="timer" aria-label="Elapsed time" className="tabular-nums text-[15px] font-semibold">
-          {formatClock(clockMs)}
-        </span>
-        <span className="flex min-w-0 flex-1 items-center justify-end gap-1.5 truncate text-[13px] text-ink-2">
-          {s.reconnecting && <WifiOff aria-hidden size={14} />}
-          {stageText}
-        </span>
-        <button
-          type="button"
-          aria-label="Pocket mode: dim the screen, double-tap anywhere to flag"
-          disabled={!live}
-          onClick={() => trigger.setPocket(true)}
-          className="flex size-11 items-center justify-center rounded-full text-ink-2 disabled:opacity-40"
-        >
-          <Moon aria-hidden size={20} />
-        </button>
-      </header>
-      {sourceLabel && <p className="px-4 pt-1 text-[11.5px] text-ink-2">{sourceLabel}</p>}
-
-      {/* one-line caption strip; finals are announced, interim text is dimmed */}
-      <div className="flex min-h-[44px] items-center gap-1 overflow-hidden border-b border-white/10 px-4 text-[15px]" data-testid="captions">
-        <p className="sr-only" aria-live="polite">
-          {lastCaption}
-        </p>
-        <p
-          aria-hidden
-          data-testid="caption-line"
-          className="flex min-w-0 flex-1 justify-end overflow-hidden whitespace-nowrap [mask-image:linear-gradient(to_right,transparent,black_1.5rem)]"
-        >
-          {caption.cut && <span className="mr-1 shrink-0 text-ink-2">…</span>}
-          {caption.final && <span className="shrink-0">{caption.final}</span>}
-          {caption.interim && <span className="ml-1 shrink-0 text-ink-2/70 italic">{caption.interim}</span>}
-          {!lastCaption && !s.interim && <span className="text-ink-2">Captions appear here.</span>}
-        </p>
-      </div>
-
-      <div className="min-h-0 flex-1">{renderMap ? renderMap(s.graph) : <LiveMap graph={s.graph} />}</div>
-
-      {/* bottom bar */}
-      <nav aria-label="Recording controls" className="grid grid-cols-3 gap-2 border-t border-white/10 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">
-        <button
-          type="button"
-          disabled={!live}
-          onClick={() => trigger.flag('button')}
-          aria-describedby="flag-hint"
-          className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-2xl bg-flag/15 font-semibold text-flag disabled:opacity-40"
-        >
-          <Flag aria-hidden size={22} />
-          Flag
-        </button>
-        <span id="flag-hint" className="sr-only">
-          Also: double-press F or Space, or a media key.
-        </span>
-        <button
-          type="button"
-          disabled={!live}
-          onClick={() => setParking(true)}
-          className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-2xl bg-thread/15 text-[13px] font-semibold text-thread disabled:opacity-40"
-        >
-          <NotebookPen aria-hidden size={22} />
-          Park a thought
-        </button>
-        <button
-          type="button"
-          disabled={!recording}
-          onClick={() => void controller?.stop()}
-          className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-2xl bg-white/10 font-semibold text-ink disabled:opacity-40"
-        >
-          <Square aria-hidden size={20} fill="currentColor" />
-          Stop
-        </button>
-      </nav>
+          {features.parkThought && (
+            <button
+              type="button"
+              disabled={!live}
+              onClick={() => setParking(true)}
+              className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-none border border-thread/40 bg-thread/15 text-[13px] font-semibold text-thread disabled:opacity-40"
+            >
+              <NotebookPen aria-hidden size={22} />
+              Park a thought
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={!recording}
+            onClick={() => void controller?.stop()}
+            className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-none border border-white/20 bg-white/10 font-semibold text-ink disabled:opacity-40"
+          >
+            <Square aria-hidden size={20} fill="currentColor" />
+            Stop
+          </button>
+        </nav>
       </main>
 
       {toast && (
@@ -304,12 +350,20 @@ function LiveSessionView({
       <ConsentSheet
         open={consenting}
         demo={source.kind === 'transcript'}
+        notes={notesOn}
         onAgree={() => void controller?.consent()}
         onCancel={onCancel}
       />
 
+      <FlagNoteSheet
+        open={noting !== null && live}
+        onSave={(note) => void saveNote(note)}
+        onFlagOnly={() => void saveNote(null)}
+        onCancel={() => setNoting(null)}
+      />
+
       <ParkSheet
-        open={parking}
+        open={parking && features.parkThought}
         onClose={() => setParking(false)}
         onPark={(text) => {
           if (controller?.park(text)) show(`Parked: ${text.trim().slice(0, 40)}`);

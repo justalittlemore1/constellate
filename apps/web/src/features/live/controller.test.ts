@@ -1,4 +1,4 @@
-import { AUDIO_FRAME_MS, emptyGraph, type ClientMsg, type GraphState } from '@constellate/shared';
+import { AUDIO_FRAME_MS, emptyGraph, type ClientMsg, type GraphOp, type GraphState } from '@constellate/shared';
 import { batch, makeConversation, makeEdge, makeNode, TEST_CONVERSATION_ID } from '@constellate/shared/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadDemoGraph, loadDemoOps } from '../../lib/fixtures';
@@ -8,6 +8,7 @@ import {
   MAX_BUFFERED_FRAMES,
   PING_INTERVAL_MS,
   STOP_TIMEOUT_MS,
+  type LiveDeps,
   type LiveSourceSpec,
 } from './controller';
 import { mockDeps } from './deps';
@@ -407,3 +408,79 @@ describe('stop', () => {
     c.dispose();
   });
 });
+
+describe('flag with a note', () => {
+  it('saves the note as a flag.add user op on the topic of the press moment', async () => {
+    const graph = {
+      ...emptyGraph(makeConversation()),
+      nodes: { t1: makeNode('t1', { startMs: 0, endMs: null }) },
+      lastSeq: 1,
+    };
+    const postOps = vi.fn(async () => undefined);
+    const f = fakeDeps({ graph: () => structuredClone(graph), postOps, newId: () => 'flag-1' });
+    const c = new LiveController(MIC, f.deps);
+    c.requestConsent();
+    await c.consent();
+    f.net.last.open();
+    f.net.last.push({ t: 'ready', conversationId: TEST_CONVERSATION_ID });
+    await flush();
+    f.capture.emit(30); // 3 s on the audio clock
+    const note = 'x'.repeat(200);
+    await expect(c.flagWithNote('button', `  ${note}  `, 1200)).resolves.toBe('saved');
+    expect(postOps).toHaveBeenCalledWith(TEST_CONVERSATION_ID, { token: 'tok', userId: 'u1' }, [
+      {
+        op: 'flag.add',
+        flag: {
+          id: 'flag-1',
+          conversationId: TEST_CONVERSATION_ID,
+          atMs: 1200,
+          nodeId: 't1',
+          note: 'x'.repeat(140), // capped at 140 characters
+          source: 'button',
+        },
+      },
+    ]);
+    expect(f.net.last.sent.some((m) => m.t === 'flag')).toBe(false); // not flagged twice
+    c.dispose();
+  });
+
+  it('never dates a flag in the future', async () => {
+    const postOps = vi.fn(async (_id: string, _auth: unknown, _ops: GraphOp[]) => undefined);
+    const { c } = await liveMicWith({ postOps });
+    await c.flagWithNote('key', 'later', 99_999);
+    expect(postOps.mock.calls[0]![2][0]).toMatchObject({ flag: { atMs: 0 } });
+    c.dispose();
+  });
+
+  it('still flags the moment over the socket when the note cannot be saved', async () => {
+    const postOps = vi.fn(async () => {
+      throw new Error('503');
+    });
+    const { c, net, capture } = await liveMicWith({ postOps });
+    capture.emit(10);
+    await expect(c.flagWithNote('button', 'important', 500)).resolves.toBe('flag-only');
+    expect(net.last.sent).toContainEqual({ t: 'flag', atMs: 500, source: 'button' });
+    c.dispose();
+  });
+
+  it('degrades to a plain flag without postOps, and is rejected when not live', async () => {
+    const { c, net, capture } = await liveMicWith({});
+    capture.emit(10);
+    await expect(c.flagWithNote('key', 'note', 100)).resolves.toBe('flag-only');
+    expect(net.last.sent).toContainEqual({ t: 'flag', atMs: 100, source: 'key' });
+    const idle = new LiveController(MIC, fakeDeps().deps);
+    await expect(idle.flagWithNote('key', 'note')).resolves.toBe('rejected');
+    c.dispose();
+  });
+});
+
+async function liveMicWith(over: Partial<LiveDeps>) {
+  const f = fakeDeps({ graph: () => emptyGraph(makeConversation()), ...over });
+  const c = new LiveController(MIC, f.deps);
+  c.requestConsent();
+  await c.consent();
+  f.net.last.open();
+  f.net.last.push({ t: 'ready', conversationId: TEST_CONVERSATION_ID });
+  await flush();
+  return { c, ...f };
+}
