@@ -112,6 +112,17 @@ export function validateDecision(
   return null;
 }
 
+/**
+ * A promise needs the speaker committing to act ("I'll send…", "I will", "I'm going to", "let me
+ * send…"). Requests to the other person ("text me if…", "let me know") are not promises.
+ */
+export function isCommitment(text: string): boolean {
+  const t = text.replace(/[’‘]/g, "'");
+  if (/\b(i'll|i will|i'm going to|i am going to|i'm gonna|i promise|i can send|i'll make sure)\b/i.test(t))
+    return true;
+  return /\blet me (send|get|grab|book|check|text|email|call|find|look|bring|forward|share|ask)\b/i.test(t);
+}
+
 /** 1–4 words, no trailing punctuation, first letters capitalised. */
 export function cleanLabel(raw: string): string {
   const words = raw.replace(/["“”]/g, '').trim().split(/\s+/).filter(Boolean).slice(0, LABEL_MAX_WORDS);
@@ -333,19 +344,14 @@ function placement(
     if (p.level >= 2) return asChildOf(p.parentId ? b.state.nodes[p.parentId] : undefined);
     return { level: (p.level + 1) as Level, parentId: p.id };
   };
-  switch (relation) {
-    case 'new_theme':
-      return { level: 1, parentId: null };
-    case 'child_of':
-      return asChildOf(explicitParentId ? b.state.nodes[explicitParentId] : undefined);
-    case 'child_of_active':
-      return asChildOf(active);
-    case 'sibling_of_active': {
-      if (!active || active.kind !== 'topic') return { level: 1, parentId: null };
-      if (wantLevel === 1 && active.level === 2) return { level: 1, parentId: null };
-      return { level: active.level, parentId: active.parentId };
-    }
-  }
+  // A level-1 answer is always a new subtopic of the anchor (models tended to file new subtopics as
+  // children of whatever was active). For level 2 the relation picks the parent.
+  if (wantLevel === 1 || relation === 'new_theme') return { level: 1, parentId: null };
+  if (relation === 'child_of') return asChildOf(explicitParentId ? b.state.nodes[explicitParentId] : active);
+  if (relation === 'child_of_active') return asChildOf(active);
+  // sibling_of_active: the next idea next to the active one
+  if (!active || active.kind !== 'topic' || active.level === 1) return { level: 1, parentId: null };
+  return { level: active.level, parentId: active.parentId };
 }
 
 export function translate(input: TranslateInput): TranslateResult {
@@ -471,6 +477,10 @@ export function translate(input: TranslateInput): TranslateResult {
         createdBy: 'ai',
       });
     } else {
+      if (!isCommitment(quote.text)) {
+        b.warnings.push(`dropped promise "${it.label}": ${quote.id} has no first-person commitment`);
+        continue;
+      }
       const text = it.label.trim();
       const held = b.memory.provisional?.held ?? [];
       if ([...b.state.commitments, ...held].some((c) => c.text.toLowerCase() === text.toLowerCase())) continue;

@@ -1,19 +1,17 @@
 /**
- * Interpreter evaluation CLI. Reasoning runs on Claude only; Gemini is used just for embeddings
- * (AGENTS.md › API budget), and every LLM and embedding response is recorded in eval/recordings
- * (committed) by a hash of its input, so a repeat run with unchanged prompts costs nothing and
- * `eval:replay` works with no keys. A full run (no --only) drops recordings it no longer used.
+ * Interpreter evaluation CLI. Reasoning runs on Claude only; Gemini is used only for embeddings,
+ * under a hard cap of 150 embedding requests per Pacific day (AGENTS.md › API budget).
  *
- *   pnpm eval                      every fixture on MODELS.interpreter.anthropic (cached where possible)
- *     --compare                    also run MODELS.refine on Claude as a second opinion
+ *   pnpm eval                      = --cached: reuse every recorded Claude answer and embedding; only
+ *                                    text that changed is embedded, all of a fixture's new texts in
+ *                                    one batched request per pass
  *     --only 03,07                 a subset (comma-separated id prefixes)
- *     --fresh                      bypass recorded LLM answers (fresh latency; embeddings stay reused)
- *     --cached                     the default: reuse every recorded answer and embedding
  *     --note "what changed"        recorded in the report
- *   pnpm eval:replay               cache only, no network; exit 1 on any miss
+ *     --record                     full re-record of Claude answers AND embeddings (needs the
+ *                                  humans' OK: it spends the embedding quota)
+ *   pnpm eval:replay               recordings only, no network; exit 1 on any miss
  *
- * Writes eval/reports/<timestamp>-<model>.md (not in replay mode unless --report) and prints how many
- * Gemini requests the run made. Exit code 1 if the release gate fails for the default model.
+ * Each report states the run's Gemini requests and the day's total against the cap.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,10 +23,14 @@ import {
   createReplayClient,
   createReplayEmbedder,
   geminiUsage,
+  createDailyCap,
+  EVAL_EMBED_CAP_PER_DAY,
+  flushDeferred,
   newReplayStore,
   pruneUnused,
   type ReplayMode,
 } from '../src/llm';
+import { tuning } from '../src/llm/anthropic';
 import { loadFixtures, renderReport, runFixture, score, summarise, type RunResult } from './harness';
 import { RECORDINGS } from './recordings-path';
 
@@ -48,22 +50,28 @@ async function main() {
     return;
   }
   const replay = flag('replay');
-  const llmMode: ReplayMode = replay ? 'replay' : flag('fresh') ? 'record' : 'auto';
-  const embedMode: ReplayMode = replay ? 'replay' : 'auto';
+  const record = flag('record');
+  if (flag('fresh')) console.warn('[eval] --fresh is gone: the default is --cached; --record re-records everything.');
+  const llmMode: ReplayMode = replay ? 'replay' : record ? 'record' : 'auto';
+  // misses are collected per fixture pass and embedded in one batched request (flushDeferred)
+  const embedMode: ReplayMode = replay ? 'replay' : record ? 'record' : 'defer';
+  const cap = createDailyCap({ limit: EVAL_EMBED_CAP_PER_DAY });
   const models: string[] = [MODELS.interpreter.anthropic, ...(flag('compare') ? [MODELS.refine] : [])];
   const fixtures = loadFixtures(arg('only')?.split(','));
   const store = newReplayStore();
-  const embed = createReplayEmbedder(replay ? null : createGeminiEmbedder(), RECORDINGS, embedMode, store);
+  const gemini = replay ? null : createGeminiEmbedder({ cap, log: (e, d) => console.warn(`[eval] ${e}`, d ?? {}) });
+  const embed = createReplayEmbedder(gemini, RECORDINGS, embedMode, store);
+  const flushEmbeddings = gemini && embedMode === 'defer' ? () => flushDeferred(store, gemini, RECORDINGS) : undefined;
   const claude = replay ? null : createAnthropicClient();
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
   let gateFailed = false;
 
   for (const model of models) {
-    const llm = createReplayClient(claude, RECORDINGS, llmMode, store);
+    const llm = createReplayClient(claude, RECORDINGS, llmMode, store, tuning);
     const runs: RunResult[] = [];
     for (const f of fixtures) {
       process.stdout.write(`[eval] ${model} ${f.id} … `);
-      const run = await runFixture(f, llm, embed, model);
+      const run = await runFixture(f, llm, embed, model, { flushEmbeddings });
       const sc = score(run);
       console.log(
         `${sc.pass ? 'pass' : 'FAIL'} (${sc.topics} topics, ${run.records.length} calls${run.error ? `, error: ${run.error}` : ''})`,
@@ -73,7 +81,7 @@ async function main() {
     const scores = runs.map(score);
     const s = summarise(runs, scores);
     const usage = geminiUsage()[MODELS.embed] ?? { requests: 0, items: 0, throttled: 0 };
-    const budget = `Gemini requests so far this run: ${usage.requests} embedding request(s) for ${usage.items} new text(s), ${usage.throttled} throttled; 0 Gemini text-model requests (cache: ${RECORDINGS.split(/[\\/]/).slice(-2).join('/')})`;
+    const budget = `Gemini requests this run: ${usage.requests} embedding request(s) for ${usage.items} new text(s), ${usage.throttled} throttled, 0 text-model requests; today (Pacific) ${cap.used(MODELS.embed)}/${cap.limit} embedding requests on the eval cap`;
     console.log(
       `[eval] ${model}: ${s.passed}/${s.total} passed · p50 ${(s.p50 / 1000).toFixed(2)} s · p95 ${(s.p95 / 1000).toFixed(2)} s · gate ${s.gate ? 'PASS' : 'FAIL'}`,
     );

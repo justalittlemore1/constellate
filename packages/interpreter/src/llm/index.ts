@@ -4,12 +4,14 @@ export type { LlmClient, LlmJsonArgs, LlmJsonResult } from './types';
 import { createAnthropicClient } from './anthropic';
 
 export { createAnthropicClient } from './anthropic';
-export { createGeminiEmbedder, normalise } from './gemini';
+export { createGeminiEmbedder, EMBED_BATCH_MAX, normalise } from './gemini';
+export { CapExceededError, createDailyCap, EVAL_EMBED_CAP_PER_DAY, pacificDay, type DailyCap } from './cap';
 export {
   createReplayClient,
   createReplayEmbedder,
   dequantise,
   embeddingsFile,
+  flushDeferred,
   llmFile,
   newReplayStore,
   pruneUnused,

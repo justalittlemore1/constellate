@@ -3,7 +3,16 @@ import { applyOps, GUTTER_X, LANE_WIDTH, type GraphState, type Utterance } from 
 import { makeGraph } from '@constellate/shared/testing';
 import { buildAliases } from './context';
 import type { Decision } from './decision';
-import { cleanLabel, emptyMemory, parkOps, stopOps, translate, validateDecision, type GateMemory } from './translate';
+import {
+  cleanLabel,
+  emptyMemory,
+  isCommitment,
+  parkOps,
+  stopOps,
+  translate,
+  validateDecision,
+  type GateMemory,
+} from './translate';
 import { dec, utt } from './test-utils';
 
 /** Drives translate over successive windows, applying ops like the server would. */
@@ -392,7 +401,10 @@ describe('validation', () => {
 });
 
 describe('commit gate keeps threads and promises attached', () => {
-  const joke = [utt(5, 'a pigeon!', 20_000, 23_000), utt(6, 'remind me about soccer', 23_500, 26_000)];
+  const joke = [
+    utt(5, 'a pigeon!', 20_000, 23_000),
+    utt(6, "remind me about soccer, and I'll send the notes", 23_500, 26_000),
+  ];
   const back = [utt(7, 'okay so chair flips', 28_000)];
   const toStudy = dec({
     action: 'revisit',
@@ -462,5 +474,26 @@ describe('commit gate keeps threads and promises attached', () => {
     expect(Object.values(s.state.nodes).filter((n) => n.kind === 'pending')).toHaveLength(0);
     expect(s.state.commitments).toHaveLength(0);
     expect(r.warnings.filter((w) => w.includes('unknown quote_utterance'))).toHaveLength(2);
+  });
+});
+
+describe('promise guard', () => {
+  it('accepts first-person commitments and rejects requests', () => {
+    expect(isCommitment("I'll send you the paper tonight, it's readable.")).toBe(true);
+    expect(isCommitment('I will book it tomorrow')).toBe(true);
+    expect(isCommitment('Let me send you the link')).toBe(true);
+    expect(isCommitment('Text me if anyone in your group drops out.')).toBe(false);
+    expect(isCommitment('Let me know how it goes')).toBe(false);
+    expect(isCommitment('I should really read more of this stuff.')).toBe(false);
+  });
+
+  it('drops a promise intention whose quote is a request', () => {
+    const s = session();
+    const r = s.step([utt(1, 'Text me if anyone drops out', 0)], {
+      ...newTopic('Concert', 'u1'),
+      intentions: [{ kind: 'promise', label: 'Text if anyone drops out', quote_utterance: 'u1' }],
+    });
+    expect(s.state.commitments).toHaveLength(0);
+    expect(r.warnings.some((w) => w.includes('no first-person commitment'))).toBe(true);
   });
 });

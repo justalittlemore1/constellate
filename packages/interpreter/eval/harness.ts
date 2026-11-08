@@ -69,6 +69,19 @@ export interface RunResult {
   records: DecisionRecord[];
   durationMs: number;
   error: string | null;
+  /** set when embeddings were unavailable (daily cap, quota) */
+  embedNote?: string;
+}
+
+export interface RunOptions {
+  keepPrompts?: boolean;
+  /**
+   * Batched embedding (AGENTS.md › API budget): after a pass, embed every text that missed the cache
+   * in one request and return how many were embedded; the fixture is re-run while that is > 0
+   * (Claude answers for unchanged prompts are served from the recordings).
+   */
+  flushEmbeddings?: () => Promise<number>;
+  maxPasses?: number;
 }
 
 export async function runFixture(
@@ -76,7 +89,38 @@ export async function runFixture(
   llm: LlmClient,
   embed: (texts: string[]) => Promise<number[][]>,
   model: string,
-  opts: { keepPrompts?: boolean } = {},
+  opts: RunOptions = {},
+): Promise<RunResult> {
+  const maxPasses = opts.flushEmbeddings ? (opts.maxPasses ?? 3) : 1;
+  let result = await runOnce(fixture, llm, embed, model, opts);
+  for (let pass = 2; pass <= maxPasses; pass++) {
+    let embedded = 0;
+    try {
+      embedded = (await opts.flushEmbeddings?.()) ?? 0;
+    } catch (e) {
+      // cap reached or quota: keep the degraded result (no revisit candidates where vectors are missing)
+      result = { ...result, embedNote: e instanceof Error ? e.message : String(e) };
+      break;
+    }
+    if (embedded === 0) break;
+    result = await runOnce(fixture, llm, embed, model, opts);
+  }
+  if (opts.flushEmbeddings) {
+    try {
+      await opts.flushEmbeddings(); // vectors first needed in the last pass (e.g. the final node batch)
+    } catch {
+      // ignore: only affects the next run's cache
+    }
+  }
+  return result;
+}
+
+async function runOnce(
+  fixture: TranscriptFixture,
+  llm: LlmClient,
+  embed: (texts: string[]) => Promise<number[][]>,
+  model: string,
+  opts: RunOptions,
 ): Promise<RunResult> {
   const clock = new VirtualClock();
   const deps = memoryDeps(clock, embed);

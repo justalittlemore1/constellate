@@ -19,7 +19,11 @@ import { join } from 'node:path';
 import { LlmError } from './errors';
 import type { LlmClient, LlmJsonArgs } from './types';
 
-export type ReplayMode = 'replay' | 'record' | 'auto';
+/**
+ * 'defer' (embeddings only): serve cached vectors; collect misses in `rs.deferred` and fail the call
+ * (callers degrade). `flushDeferred` then embeds all collected texts in one batched request.
+ */
+export type ReplayMode = 'replay' | 'record' | 'auto' | 'defer';
 
 export function requestKey(parts: unknown): string {
   return createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0, 32);
@@ -89,10 +93,18 @@ export interface ReplayStore {
   misses: number;
   /** requests that went to the real API (cache misses outside replay mode) */
   calls: number;
+  /** 'defer' mode: texts that missed the cache, embedded together by flushDeferred */
+  deferred: Set<string>;
   stores: Map<string, JsonlStore<Entry>>;
 }
 
-export const newReplayStore = (): ReplayStore => ({ used: new Map(), misses: 0, calls: 0, stores: new Map() });
+export const newReplayStore = (): ReplayStore => ({
+  used: new Map(),
+  misses: 0,
+  calls: 0,
+  deferred: new Set(),
+  stores: new Map(),
+});
 
 function storeFor<T extends Entry>(rs: ReplayStore, file: string): JsonlStore<T> {
   let s = rs.stores.get(file);
@@ -109,9 +121,16 @@ function markUsed(rs: ReplayStore, file: string, key: string) {
   rs.used.set(file, keys);
 }
 
-/** Drop every entry not used this run, for the files this run touched. */
-export function pruneUnused(rs: ReplayStore): void {
-  for (const [file, keys] of rs.used) storeFor(rs, file).rewrite(keys);
+/**
+ * Drop entries not used this run, for the files this run touched. Embeddings are kept unless asked:
+ * they are keyed by text, cheap to keep, and re-requesting them would spend the Gemini quota when a
+ * prompt change is reverted.
+ */
+export function pruneUnused(rs: ReplayStore, opts: { embeddings?: boolean } = {}): void {
+  for (const [file, keys] of rs.used) {
+    if (!opts.embeddings && file.endsWith('embeddings.jsonl')) continue;
+    storeFor(rs, file).rewrite(keys);
+  }
 }
 
 export function llmFile(dir: string, model: string): string {
@@ -126,10 +145,19 @@ export function createReplayClient(
   dir: string,
   mode: ReplayMode,
   rs: ReplayStore = newReplayStore(),
+  /** request settings that change answers without appearing in the args (thinking, effort) */
+  settings: (model: string) => unknown = () => null,
 ): LlmClient {
   return {
     async json<T>(args: LlmJsonArgs) {
-      const key = requestKey({ system: args.system, user: args.user, schema: args.schema, model: args.model });
+      const extra = settings(args.model);
+      const key = requestKey({
+        system: args.system,
+        user: args.user,
+        schema: args.schema,
+        model: args.model,
+        ...(extra === null ? {} : { settings: extra }),
+      });
       const file = llmFile(dir, args.model);
       const store = storeFor<LlmEntry>(rs, file);
       const hit = mode !== 'record' ? store.get(key) : undefined;
@@ -187,6 +215,10 @@ export function createReplayEmbedder(
     });
     if (missing.length > 0) {
       const uniq = [...new Set(missing.map((i) => texts[i]!))];
+      if (mode === 'defer') {
+        uniq.forEach((t) => rs.deferred.add(t));
+        throw new LlmError('replay_miss', `deferred ${uniq.length} text(s) to the next batched request`);
+      }
       if (mode === 'replay' || !inner) {
         rs.misses += uniq.length;
         throw new LlmError('replay_miss', `no embedding recording for ${uniq.length} text(s)`);
@@ -202,4 +234,28 @@ export function createReplayEmbedder(
     }
     return out as number[][];
   };
+}
+
+/**
+ * Embed every text collected by a 'defer' embedder in one batched request (the inner embedder
+ * chunks very large batches) and record the vectors. Returns how many texts were embedded.
+ */
+export async function flushDeferred(
+  rs: ReplayStore,
+  inner: (texts: string[]) => Promise<number[][]>,
+  dir: string,
+): Promise<number> {
+  const texts = [...rs.deferred];
+  if (texts.length === 0) return 0;
+  rs.deferred.clear();
+  const file = embeddingsFile(dir);
+  const store = storeFor<EmbedEntry>(rs, file);
+  rs.calls++;
+  const got = await inner(texts);
+  texts.forEach((t, j) => {
+    const key = requestKey({ embed: t });
+    store.put({ key, ...quantise(got[j]!) });
+    markUsed(rs, file, key);
+  });
+  return texts.length;
 }

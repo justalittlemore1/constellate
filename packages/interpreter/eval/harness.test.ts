@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { MODELS } from '@constellate/shared';
+import { tuning } from '../src/llm/anthropic';
 import { createReplayClient, createReplayEmbedder, llmFile, newReplayStore } from '../src/llm';
 import { bagEmbed, dec, scriptedLlm, windowIdsOf } from '../src/test-utils';
 import type { Decision } from '../src/decision';
@@ -139,7 +140,7 @@ describe('eval replay', () => {
   for (const model of models) {
     it(`replays every fixture for ${model} with no LLM or embedding cache miss`, async () => {
       const store = newReplayStore();
-      const llm = createReplayClient(null, RECORDINGS, 'replay', store);
+      const llm = createReplayClient(null, RECORDINGS, 'replay', store, tuning);
       const emb = createReplayEmbedder(null, RECORDINGS, 'replay', store);
       for (const f of loadFixtures()) {
         const run = await runFixture(f, llm, emb, model);

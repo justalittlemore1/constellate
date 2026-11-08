@@ -90,4 +90,23 @@ describe('replay recordings', () => {
     pruneUnused(rs);
     expect(lines(llmFile(dir, 'claude-test'))).toHaveLength(1);
   });
+
+  it('pruneUnused keeps embeddings unless asked', async () => {
+    const dir = tmp();
+    await createReplayEmbedder(async (ts) => ts.map(() => [1, 0]), dir, 'auto')(['old']);
+    const rs = newReplayStore();
+    await createReplayEmbedder(async (ts) => ts.map(() => [0, 1]), dir, 'auto', rs)(['new']);
+    pruneUnused(rs);
+    expect(lines(embeddingsFile(dir))).toHaveLength(2);
+    pruneUnused(rs, { embeddings: true });
+    expect(lines(embeddingsFile(dir))).toHaveLength(1);
+  });
+
+  it('request settings are part of the key', async () => {
+    const dir = tmp();
+    const inner = scriptedLlm(() => ({}));
+    await createReplayClient(inner, dir, 'auto', newReplayStore(), () => ({ thinking: 'off' })).json(args());
+    await createReplayClient(inner, dir, 'auto', newReplayStore(), () => ({ thinking: 'adaptive' })).json(args());
+    expect(inner.calls).toHaveLength(2);
+  });
 });
