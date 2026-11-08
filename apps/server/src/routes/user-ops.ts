@@ -27,6 +27,8 @@ function embeddedConversationId(op: GraphOp): string | null {
 
 /**
  * Policy for `source: 'user'` batches (POST /conversations/:id/ops), on top of the reducer.
+ * `commitment.update` is allowed: its schema only takes `text`/`done`, and the reducer finds the
+ * id only among this conversation's commitments (another conversation's id is `unknown_commitment`).
  * Returns a reason when the batch must be refused, null when it is allowed.
  */
 export function checkUserOps(ops: readonly GraphOp[], conversationId: string): string | null {

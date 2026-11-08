@@ -89,6 +89,65 @@ describe('user batch policy', () => {
   });
 });
 
+describe('commitment.update in user batches', () => {
+  it('the policy allows it (it carries no conversation id and no server-only field)', () => {
+    expect(checkUserOps([{ op: 'commitment.update', id: 'k1', patch: { done: true } }], 'c1')).toBeNull();
+    expect(checkUserOps([{ op: 'commitment.update', id: 'k1', patch: { text: 'Send the essay' } }], 'c1')).toBeNull();
+  });
+
+  it('POST /ops ticks off and edits a commitment of this conversation, persisted', async () => {
+    h = await makeHarness();
+    const a = await recordConversation(h);
+    const commitment = {
+      id: crypto.randomUUID(),
+      conversationId: a,
+      nodeId: null,
+      text: 'Send Sam the paper',
+      speaker: null,
+      atMs: 1_000,
+      done: false,
+    };
+    expect((await post(a, [{ op: 'commitment.add', commitment }])).statusCode).toBe(200);
+    const res = await post(a, [
+      { op: 'commitment.update', id: commitment.id, patch: { done: true, text: 'Send Sam the essay' } },
+    ]);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().batch.source).toBe('user');
+    const want = { ...commitment, done: true, text: 'Send Sam the essay' };
+    expect((await h.store.loadGraph(a))!.commitments).toEqual([want]);
+    expect(h.store.materialized(a).commitments).toEqual([want]); // the row too, not just the op log
+  });
+
+  it("an unknown id, or another conversation's commitment, is refused and changes nothing", async () => {
+    h = await makeHarness();
+    const a = await recordConversation(h);
+    const b = await recordConversation(h, 'token-b');
+    const bCommitment = {
+      id: crypto.randomUUID(),
+      conversationId: b,
+      nodeId: null,
+      text: 'B promise',
+      speaker: null,
+      atMs: 0,
+      done: false,
+    };
+    expect((await post(b, [{ op: 'commitment.add', commitment: bCommitment }], 'token-b')).statusCode).toBe(200);
+    const before = (await h.store.loadGraph(a))!.lastSeq;
+
+    const unknown = await post(a, [{ op: 'commitment.update', id: crypto.randomUUID(), patch: { done: true } }]);
+    expect(unknown.statusCode).toBe(409);
+    expect(unknown.json().error).toBe('unknown_commitment');
+    const foreign = await post(a, [{ op: 'commitment.update', id: bCommitment.id, patch: { done: true } }]);
+    expect(foreign.statusCode).toBe(409);
+    expect((await h.store.loadGraph(b))!.commitments[0]!.done).toBe(false);
+    expect((await h.store.loadGraph(a))!.lastSeq).toBe(before);
+
+    // fields other than text/done are refused by the schema
+    const extra = await post(a, [{ op: 'commitment.update', id: bCommitment.id, patch: { nodeId: null } }]);
+    expect(extra.statusCode).toBe(400);
+  });
+});
+
 describe('authentication on every route', () => {
   it('mutating, transcript and Brain routes reject a missing or forged token', async () => {
     h = await makeHarness();
