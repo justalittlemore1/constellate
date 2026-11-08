@@ -1,0 +1,59 @@
+{
+  "id": "02-drill-down",
+  "title": "Drill-down: religion to Christianity to the resurrection",
+  "description": "Two friends start on religion in general (why people believe at all), narrow to Christianity specifically, then to whether the resurrection accounts are historical. Expect a broad religion/faith anchor and a Christianity node with the resurrection nested beneath it as a child.",
+  "speakers": ["Noor", "Ethan"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 9500, "text": "Can I ask you something kind of personal? Do you actually still believe in God, or is church more of a family thing for you now?" },
+    { "speaker": 1, "startMs": 10400, "endMs": 17400, "text": "Honestly it's both. I think most people believe because of where they grew up, and I'm not sure I'm different." },
+    { "speaker": 0, "startMs": 17900, "endMs": 27500, "text": "That's what gets me though. If you'd been born in Jakarta you'd probably be Muslim, so how can any one religion be the true one?" },
+    { "speaker": 1, "startMs": 28200, "endMs": 37000, "text": "Sure, but that argument cuts both ways. If you'd been born in Copenhagen you'd probably be an atheist, and you wouldn't say that makes atheism false." },
+    { "speaker": 0, "startMs": 37700, "endMs": 44800, "text": "Okay, fair. I guess I just think belief is mostly comfort. People want something to hold onto when things go wrong." },
+    { "speaker": 1, "startMs": 45700, "endMs": 55700, "text": "Some of it is comfort, for sure. But a lot of the people I know at church believe because of specific stuff, not just a warm feeling." },
+    { "speaker": 0, "startMs": 56100, "endMs": 61400, "text": "Like what, though? What's the specific stuff for you, for Christianity in particular?" },
+    { "speaker": 1, "startMs": 61900, "endMs": 71100, "text": "For me it's mostly Jesus. Like, the person. The way he treated people nobody else would touch, lepers, tax collectors, women in that culture." },
+    { "speaker": 0, "startMs": 71800, "endMs": 79500, "text": "I mean I'll give you that he was an impressive moral teacher. Plenty of atheists say that too." },
+    { "speaker": 1, "startMs": 80300, "endMs": 89700, "text": "Right, but C.S. Lewis has that line, that he didn't leave that option open. He claimed to forgive sins, he talked like he was God." },
+    { "speaker": 0, "startMs": 90100, "endMs": 96500, "text": "Or the gospel writers put those words in his mouth decades later. Mark was written what, forty years after?" },
+    { "speaker": 1, "startMs": 97100, "endMs": 103500, "text": "Something like that, yeah. But Paul's letters are earlier, and he's already worshipping Jesus within twenty years." },
+    { "speaker": 0, "startMs": 104200, "endMs": 111500, "text": "Okay so what about the resurrection itself. Do you think that literally happened, like a dead body got up?" },
+    { "speaker": 1, "startMs": 112300, "endMs": 119600, "text": "Yeah, I actually do. And it's the whole thing, Paul says if Christ isn't raised your faith is useless." },
+    { "speaker": 0, "startMs": 120300, "endMs": 124900, "text": "But what's the evidence beyond the Bible saying so? That's kind of circular." },
+    { "speaker": 1, "startMs": 125700, "endMs": 134900, "text": "The usual argument is the empty tomb plus the appearances. Women found the tomb, and in that culture women weren't credible witnesses, so why make that up?" },
+    { "speaker": 0, "startMs": 135500, "endMs": 140900, "text": "Huh. I hadn't heard that one. That's actually a decent point about the women." },
+    { "speaker": 1, "startMs": 141500, "endMs": 149800, "text": "And then the disciples went from hiding to dying for it. People don't usually die for something they know they invented." },
+    { "speaker": 0, "startMs": 150500, "endMs": 156000, "text": "People die for false things all the time though. Heaven's Gate, whatever. Sincerity isn't evidence." },
+    { "speaker": 1, "startMs": 156600, "endMs": 162700, "text": "Sure, but they'd be the ones who knew whether they saw him. That's different from believing something secondhand." },
+    { "speaker": 0, "startMs": 163500, "endMs": 171600, "text": "Maybe it was grief hallucinations. You lose someone and you see them everywhere for months. My mom saw my grandpa in the kitchen." },
+    { "speaker": 1, "startMs": 172300, "endMs": 180100, "text": "That's the best skeptical explanation, I think. But it doesn't really explain five hundred people at once, or the empty tomb." },
+    { "speaker": 0, "startMs": 180700, "endMs": 185700, "text": "If the five hundred thing is even real. That's one line in one letter." },
+    { "speaker": 1, "startMs": 186100, "endMs": 193300, "text": "Fair. I'm not saying it proves it. I just think it's harder to explain away than people assume." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      2,
+      5
+    ],
+    "anchorKeywords": [
+      "relig",
+      "faith",
+      "belief",
+      "god",
+      "christian"
+    ],
+    "boundaries": [
+      "u7",
+      "u13"
+    ],
+    "tolerance": 1,
+    "nesting": [
+      {
+        "parent": "u7",
+        "child": "u17"
+      }
+    ],
+    "revisits": [],
+    "pending": [],
+    "commitments": []
+  }
+}

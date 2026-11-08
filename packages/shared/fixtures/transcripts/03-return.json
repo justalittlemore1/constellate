@@ -1,0 +1,53 @@
+{
+  "id": "03-return",
+  "title": "Return: free will, then a job offer, then back to free will",
+  "description": "Two friends argue about free will and determinism, switch to Marcus's job offer, then explicitly go back to free will. Expect three occurrences; the third is a new free-will node on the same thread as the first, with a revisit edge back to it.",
+  "speakers": ["Lena", "Marcus"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 7200, "text": "I watched this lecture last night that totally broke my brain. The guy argued free will basically doesn't exist." },
+    { "speaker": 1, "startMs": 7600, "endMs": 13500, "text": "Sapolsky? He's been everywhere lately. The whole thing about how every choice is just biology plus environment." },
+    { "speaker": 0, "startMs": 14300, "endMs": 22700, "text": "Yeah! He says if you trace any decision back far enough, it's neurons, hormones, childhood, genes. There's no point where \"you\" step in." },
+    { "speaker": 1, "startMs": 23600, "endMs": 32300, "text": "I kind of buy it, honestly. Like, I didn't choose to be the kind of person who likes running. I just am." },
+    { "speaker": 0, "startMs": 32900, "endMs": 37700, "text": "But then nobody's responsible for anything. That feels wrong. Should we stop punishing people?" },
+    { "speaker": 1, "startMs": 38400, "endMs": 46000, "text": "He'd say yes to punishment as revenge, no to keeping dangerous people away from others. More like quarantine than blame." },
+    { "speaker": 0, "startMs": 46400, "endMs": 50300, "text": "That's bleak. But also kind of compassionate? I can't decide." },
+    { "speaker": 1, "startMs": 50700, "endMs": 56200, "text": "Totally. Okay, wait, I have to tell you, I got the offer from the design agency." },
+    { "speaker": 0, "startMs": 56800, "endMs": 60700, "text": "No way! The one in Gastown? Congrats! Are you taking it?" },
+    { "speaker": 1, "startMs": 61600, "endMs": 70700, "text": "I don't know yet. It's more money, like fifteen percent more, but I'd be leaving my team right before our big launch." },
+    { "speaker": 0, "startMs": 71200, "endMs": 77600, "text": "How do you feel about your manager though? You've been complaining about her for months." },
+    { "speaker": 1, "startMs": 78500, "endMs": 85100, "text": "That's the thing. She's the main reason to leave. The new place said I'd get a senior title too." },
+    { "speaker": 0, "startMs": 85600, "endMs": 90700, "text": "Then it sounds like you already know. Do they want an answer soon?" },
+    { "speaker": 1, "startMs": 91400, "endMs": 96400, "text": "By Friday. I'm going to negotiate for one more week of vacation first." },
+    { "speaker": 0, "startMs": 97000, "endMs": 99700, "text": "Smart. Ask for the vacation in writing." },
+    { "speaker": 0, "startMs": 100500, "endMs": 110800, "text": "Okay but going back to the free will thing, I keep thinking about it. If it's all determined, was your job decision ever really yours?" },
+    { "speaker": 1, "startMs": 111100, "endMs": 118900, "text": "Ha, that's exactly what I was thinking. Like, I'm going to \"decide\" by Friday, but my brain probably already knows." },
+    { "speaker": 0, "startMs": 119500, "endMs": 125000, "text": "Right, and if it's predetermined, then all my agonising over stuff is just theatre." },
+    { "speaker": 1, "startMs": 125700, "endMs": 132300, "text": "Unless the agonising is part of the cause. The deliberating still matters, it's just not magic." },
+    { "speaker": 0, "startMs": 132700, "endMs": 138900, "text": "Huh, that's compatibilism, right? Free will is just acting on your own reasons without being forced." },
+    { "speaker": 1, "startMs": 139700, "endMs": 145800, "text": "Yeah, Dennett's take. I think that's where I land. It's free enough to be worth wanting." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      3,
+      4
+    ],
+    "boundaries": [
+      "u8",
+      "u16"
+    ],
+    "tolerance": 1,
+    "revisits": [
+      {
+        "at": "u16",
+        "of": "u2"
+      }
+    ],
+    "sameThread": [
+      [
+        "u2",
+        "u16"
+      ]
+    ],
+    "pending": []
+  }
+}

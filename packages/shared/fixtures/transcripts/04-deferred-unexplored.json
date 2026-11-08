@@ -1,0 +1,38 @@
+{
+  "id": "04-deferred-unexplored",
+  "title": "Deferred and never discussed: soccer",
+  "description": "Two friends plan a weekend camping trip. Ben asks Aiko to remind him to tell her about soccer, and it never comes up again. Expect one pending node about soccer, tethered to the camping topic, that ends unexplored.",
+  "speakers": ["Aiko", "Ben"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 7300, "text": "So are we still doing the camping trip this weekend? I checked and Golden Ears still has spots." },
+    { "speaker": 1, "startMs": 8100, "endMs": 14100, "text": "Yes, definitely. Did you look at the weather? I heard it might rain Saturday night." },
+    { "speaker": 0, "startMs": 14600, "endMs": 20100, "text": "Forty percent chance. I think we bring the big tarp and just deal with it." },
+    { "speaker": 1, "startMs": 20600, "endMs": 26800, "text": "Okay. Oh, and remind me to tell you about soccer, something wild happened at my game Tuesday." },
+    { "speaker": 0, "startMs": 27400, "endMs": 33600, "text": "Ooh, okay, noted. So who's driving? My car can fit four but not with all the gear." },
+    { "speaker": 1, "startMs": 34400, "endMs": 40700, "text": "I can drive. My hatchback fits the cooler and both tents if we fold the seats down." },
+    { "speaker": 0, "startMs": 41400, "endMs": 47800, "text": "Perfect. I'll handle food then. I was thinking chili the first night, it's easy on the camp stove." },
+    { "speaker": 1, "startMs": 48100, "endMs": 54300, "text": "Chili's good. Bring the cornbread mix too. And don't forget a can opener, we forgot it last time." },
+    { "speaker": 0, "startMs": 55000, "endMs": 59600, "text": "Ugh, we had to open the beans with a knife. Never again." },
+    { "speaker": 1, "startMs": 60100, "endMs": 66500, "text": "What time do you want to leave Friday? Traffic on the highway is brutal after four." },
+    { "speaker": 0, "startMs": 67100, "endMs": 70900, "text": "Can we leave at two? I'll take the afternoon off." },
+    { "speaker": 1, "startMs": 71400, "endMs": 78800, "text": "Two works. I'll pick you up at your place. Pack light, honestly, the site is a ten-minute walk from parking." },
+    { "speaker": 0, "startMs": 79100, "endMs": 84400, "text": "Got it. I'm so excited, I really need a weekend without my phone." },
+    { "speaker": 1, "startMs": 85300, "endMs": 90200, "text": "Same. No signal up there anyway, so you won't have a choice." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      1,
+      3
+    ],
+    "revisits": [],
+    "pending": [
+      {
+        "keywords": [
+          "soccer"
+        ],
+        "raisedAt": "u4",
+        "final": "unexplored"
+      }
+    ]
+  }
+}

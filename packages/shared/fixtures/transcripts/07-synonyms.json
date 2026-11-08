@@ -1,0 +1,49 @@
+{
+  "id": "07-synonyms",
+  "title": "Synonyms: working out and going to the gym",
+  "description": "Tomás talks about working out more, they switch to a movie, then Jess brings the topic back as going to the gym. Expect the exercise talk to be one thread: the later gym segment is a revisit of the first, not a separate topic.",
+  "speakers": ["Tomás", "Jess"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 5300, "text": "I've been working out a lot more since September. Like four times a week." },
+    { "speaker": 1, "startMs": 5800, "endMs": 9600, "text": "Wait, seriously? You used to make fun of me for that." },
+    { "speaker": 0, "startMs": 10300, "endMs": 17900, "text": "I know, I know. My doctor said my back problems were from sitting all day, so I kind of had to." },
+    { "speaker": 1, "startMs": 18700, "endMs": 21200, "text": "What are you doing, weights or cardio?" },
+    { "speaker": 0, "startMs": 22000, "endMs": 26900, "text": "Mostly weights. Squats, deadlifts, rows. The back pain is basically gone already." },
+    { "speaker": 1, "startMs": 27700, "endMs": 32800, "text": "That's amazing. Strength training is the thing that fixed my shoulders too." },
+    { "speaker": 0, "startMs": 33400, "endMs": 38500, "text": "Did you see the new Villeneuve movie, by the way? I went Saturday." },
+    { "speaker": 1, "startMs": 39100, "endMs": 42300, "text": "Not yet! Is it good? The trailer looked incredible." },
+    { "speaker": 0, "startMs": 43100, "endMs": 50400, "text": "The visuals are insane. The story's a bit slow in the middle, but the last hour is so good." },
+    { "speaker": 1, "startMs": 51100, "endMs": 56300, "text": "I'll probably wait for the IMAX showing next week then. Was the soundtrack Zimmer again?" },
+    { "speaker": 0, "startMs": 56900, "endMs": 60000, "text": "Yeah, and it's loud. Like, your seat shakes." },
+    { "speaker": 1, "startMs": 60700, "endMs": 66900, "text": "Okay, so, real question, when do you even go to the gym? You work until seven." },
+    { "speaker": 0, "startMs": 67200, "endMs": 75100, "text": "Six in the morning. I hated it for two weeks and now I actually like it, the gym is empty." },
+    { "speaker": 1, "startMs": 75500, "endMs": 79000, "text": "Six? No way. I'm barely human at six." },
+    { "speaker": 0, "startMs": 79700, "endMs": 86700, "text": "It helps that I go with my roommate. If one of us bails, the other one bangs on the door." },
+    { "speaker": 1, "startMs": 87400, "endMs": 94100, "text": "Okay, that's a good system. Maybe I need a gym buddy too, I keep skipping leg day." },
+    { "speaker": 0, "startMs": 94600, "endMs": 100600, "text": "Come with us Thursday. Worst case you hate it and we get breakfast after." }
+  ],
+  "expect": {
+    "topicCountRange": [
+      2,
+      4
+    ],
+    "boundaries": [
+      "u7",
+      "u12"
+    ],
+    "tolerance": 1,
+    "revisits": [
+      {
+        "at": "u12",
+        "of": "u1"
+      }
+    ],
+    "sameThread": [
+      [
+        "u1",
+        "u12"
+      ]
+    ],
+    "pending": []
+  }
+}
