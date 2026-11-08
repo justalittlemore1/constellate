@@ -3,15 +3,17 @@ import {
   calculateMedian,
   calculateStability,
   calculateWer,
+  createSyntheticAudioPattern,
   createSyntheticPcm,
+  detectSpeechPauses,
   extractWavPcm,
   FakeWebSocket,
+  findReferenceSpeechEnd,
   formatReport,
   loadReferenceData,
   normalizeText,
   streamAudioToLive,
   type SttScenarioResult,
-  type UtteranceTiming,
 } from './stt-runner';
 
 describe('STT Runner Utilities', () => {
@@ -91,6 +93,54 @@ describe('STT Runner Utilities', () => {
     });
   });
 
+  describe('detectSpeechPauses', () => {
+    test('detects pause timestamps from synthetic PCM with tone, silence, and tone', () => {
+      // 1000 ms tone, 800 ms silence, 1200 ms tone, 900 ms silence
+      const pcm = createSyntheticAudioPattern([
+        { durationMs: 1000, isTone: true },
+        { durationMs: 800, isTone: false },
+        { durationMs: 1200, isTone: true },
+        { durationMs: 900, isTone: false },
+      ]);
+
+      const pauses = detectSpeechPauses(pcm);
+      // Speeches ended at 1000 ms and 3000 ms (1000 + 800 + 1200)
+      expect(pauses).toEqual([1000, 3000]);
+    });
+
+    test('ignores pauses shorter than minSilenceMs (700 ms)', () => {
+      // 1000 ms tone, 400 ms silence (not a pause), 1000 ms tone, 800 ms silence (qualifies)
+      const pcm = createSyntheticAudioPattern([
+        { durationMs: 1000, isTone: true },
+        { durationMs: 400, isTone: false },
+        { durationMs: 1000, isTone: true },
+        { durationMs: 800, isTone: false },
+      ]);
+
+      const pauses = detectSpeechPauses(pcm);
+      // Continuous speech across the 400ms gap until final silence at 2400 ms
+      expect(pauses).toEqual([2400]);
+    });
+  });
+
+  describe('findReferenceSpeechEnd', () => {
+    test('matches elapsed timestamp to the most recent speech end', () => {
+      const speechEnds = [1000, 3000, 6000];
+      // Arrived at 1500 ms -> matches 1000 ms (latency = +500 ms)
+      expect(findReferenceSpeechEnd(1500, speechEnds)).toBe(1000);
+      // Arrived at 3800 ms -> matches 3000 ms (latency = +800 ms)
+      expect(findReferenceSpeechEnd(3800, speechEnds)).toBe(3000);
+    });
+
+    test('identifies early arrival arriving before upcoming speech end as misaligned', () => {
+      const speechEnds = [1000, 3000, 6000];
+      // Arrived at 2900 ms, just 100 ms before speech end 3000 ms
+      expect(findReferenceSpeechEnd(2900, speechEnds)).toBe(3000);
+      // Arrived at 800 ms, before first speech end at 1000 ms
+      expect(findReferenceSpeechEnd(800, speechEnds)).toBe(1000);
+    });
+  });
+
   describe('calculateMedian', () => {
     test('computes median for odd and even number of items', () => {
       expect(calculateMedian([])).toBeNull();
@@ -148,6 +198,14 @@ describe('STT Runner Utilities', () => {
       expect(res.refText.length).toBeGreaterThan(0);
     });
 
+    test('enforces exact fixture-id match and ignores prefix-only matches', () => {
+      // 01-nonexistent should NOT match 01-simple-shift
+      const res = loadReferenceData('01-nonexistent', 'non-existent-dir', 'packages/shared/fixtures/transcripts');
+      expect(res.hasKey).toBe(false);
+      expect(res.refSource).toBe('none');
+      expect(res.refText).toBe('');
+    });
+
     test('handles unkeyed audio files gracefully (podcasts)', () => {
       const res = loadReferenceData('podcast-clip-01', 'non-existent-dir', 'packages/shared/fixtures/transcripts');
       expect(res.hasKey).toBe(false);
@@ -175,6 +233,7 @@ describe('STT Runner Utilities', () => {
           medianFinalLatencyMs: 1350,
           latencyTargetMs: 2500,
           latencyPassed: true,
+          misalignedCount: 0,
           stability: 0.98,
           overallPassed: true,
         },
@@ -193,6 +252,7 @@ describe('STT Runner Utilities', () => {
           medianFinalLatencyMs: 1100,
           latencyTargetMs: 2500,
           latencyPassed: true,
+          misalignedCount: 0,
           stability: 0.95,
           overallPassed: true,
         },
@@ -274,23 +334,22 @@ describe('STT Runner Utilities', () => {
       // 300 ms of synthetic PCM = 3 frames
       const pcmBuffer = createSyntheticPcm(300);
 
-      const utterances: UtteranceTiming[] = [
-        { text: 'Did you catch the game', startMs: 0, endMs: 200 },
-        { text: 'That overtime was unreal', startMs: 800, endMs: 1200 },
-      ];
+      // Speech pauses at 200ms and 1200ms
+      const speechEnds = [200, 1200];
 
       const result = await streamAudioToLive(
         pcmBuffer,
         'ws://fake-gateway/live',
         'mock-token',
-        utterances,
+        speechEnds,
         MockSocket,
       );
 
       expect(result.hypText).toBe('Did you catch the game That overtime was unreal');
       expect(result.captions.length).toBe(2);
+      expect(result.misalignedCount).toBe(0);
 
-      // Clip 0 ends at 200ms. Caption arrived at ~700ms after stream start.
+      // Speech end 0 is at 200ms. Caption arrived at ~700ms after stream start.
       // Latency after pause = 700 - 200 = ~500ms (well under the 2500ms gate).
       expect(result.firstFinalLatencyMs).not.toBeNull();
       expect(result.firstFinalLatencyMs!).toBeGreaterThanOrEqual(400);
@@ -300,6 +359,65 @@ describe('STT Runner Utilities', () => {
       expect(result.medianFinalLatencyMs).not.toBeNull();
       expect(result.medianFinalLatencyMs!).toBeGreaterThanOrEqual(350);
       expect(result.medianFinalLatencyMs!).toBeLessThanOrEqual(650);
+    });
+
+    test('flags early/misaligned captions arriving before speech pause as misaligned', async () => {
+      class EarlyMockSocket implements FakeWebSocket {
+        onopen?: () => void;
+        onmessage?: (event: { data: unknown }) => void;
+        onerror?: (err: unknown) => void;
+        onclose?: () => void;
+
+        constructor(_url: string) {
+          setTimeout(() => {
+            this.onopen?.();
+          }, 10);
+        }
+
+        send(data: string | Buffer | Uint8Array) {
+          if (typeof data === 'string') {
+            const parsed = JSON.parse(data);
+            if (parsed.t === 'hello') {
+              this.onmessage?.({
+                data: JSON.stringify({ t: 'ready', conversationId: 'conv-mock' }),
+              });
+
+              // Speech end is at 800ms, but caption arrives very early at 150ms:
+              setTimeout(() => {
+                this.onmessage?.({
+                  data: JSON.stringify({
+                    t: 'caption',
+                    text: 'Early caption',
+                    final: true,
+                    startMs: 0,
+                  }),
+                });
+              }, 150);
+            }
+          }
+        }
+
+        close() {
+          this.onclose?.();
+        }
+      }
+
+      const pcmBuffer = createSyntheticPcm(200);
+      const speechEnds = [800]; // speech end is at 800ms
+
+      const result = await streamAudioToLive(
+        pcmBuffer,
+        'ws://fake-gateway/live',
+        'mock-token',
+        speechEnds,
+        EarlyMockSocket,
+      );
+
+      // Caption arrived at 150ms before pause at 800ms (latency ~ -650ms)
+      expect(result.misalignedCount).toBe(1);
+      // Negative latencies are excluded from valid first-final latency
+      expect(result.firstFinalLatencyMs).toBeNull();
+      expect(result.medianFinalLatencyMs).toBeNull();
     });
   });
 });

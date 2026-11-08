@@ -60,6 +60,7 @@ export interface SttScenarioResult {
   medianFinalLatencyMs: number | null;
   latencyTargetMs: number;
   latencyPassed: boolean;
+  misalignedCount: number;
   stability: number;
   overallPassed: boolean;
 }
@@ -218,6 +219,138 @@ export function calculateMedian(values: number[]): number | null {
 }
 
 /**
+ * Detects speech pause timestamps (in ms from audio start) by analyzing RMS energy across 20 ms frames.
+ * A pause is detected when energy falls below silenceDb (default -40 dBFS) for at least minSilenceMs (default 700 ms).
+ * Returns an array of timestamps (in ms) marking the end of each preceding speech segment.
+ */
+export function detectSpeechPauses(
+  pcmBuffer: Buffer,
+  sampleRate = 16000,
+  silenceDb = -40,
+  minSilenceMs = 700,
+): number[] {
+  const frameMs = 20;
+  const samplesPerFrame = (sampleRate * frameMs) / 1000; // 320 samples for 16 kHz
+  const bytesPerFrame = samplesPerFrame * 2; // 2 bytes per 16-bit sample (640 bytes)
+  const totalFrames = Math.floor(pcmBuffer.length / bytesPerFrame);
+
+  if (totalFrames === 0) return [];
+
+  // Amplitude ratio threshold for silence: 10^(dB / 20)
+  // E.g. -40 dBFS = 0.01 amplitude ratio relative to max 32768 (raw RMS ~ 327.68)
+  const thresholdRatio = Math.pow(10, silenceDb / 20);
+  const minSilenceFrames = Math.ceil(minSilenceMs / frameMs); // 35 frames for 700 ms
+
+  const speechEnds: number[] = [];
+  let inSpeech = false;
+  let lastSpeechEndMs = 0;
+  let silenceFrames = 0;
+  let pauseRecorded = false;
+
+  for (let k = 0; k < totalFrames; k++) {
+    const frameOffset = k * bytesPerFrame;
+    let sumSquares = 0;
+
+    for (let s = 0; s < samplesPerFrame; s++) {
+      const sampleVal = pcmBuffer.readInt16LE(frameOffset + s * 2);
+      const normalized = sampleVal / 32768;
+      sumSquares += normalized * normalized;
+    }
+
+    const rms = Math.sqrt(sumSquares / samplesPerFrame);
+    const frameEndTimeMs = (k + 1) * frameMs;
+
+    if (rms >= thresholdRatio) {
+      // Speech frame
+      inSpeech = true;
+      lastSpeechEndMs = frameEndTimeMs;
+      silenceFrames = 0;
+      pauseRecorded = false;
+    } else {
+      // Silence frame
+      if (inSpeech) {
+        silenceFrames++;
+        if (silenceFrames >= minSilenceFrames && !pauseRecorded) {
+          speechEnds.push(lastSpeechEndMs);
+          pauseRecorded = true;
+        }
+      }
+    }
+  }
+
+  // If the audio ended while in speech (or silence was shorter than minSilenceFrames at the tail),
+  // record the last speech end
+  if (inSpeech && !pauseRecorded && lastSpeechEndMs > 0) {
+    speechEnds.push(lastSpeechEndMs);
+  }
+
+  return speechEnds;
+}
+
+/**
+ * Matches an elapsed audio timestamp to the most relevant speech end.
+ * If elapsed is before any speech end or within earlyThresholdMs (default 300 ms) before the upcoming
+ * speech end, returns that upcoming end (which results in a negative latency indicating a misaligned/early arrival).
+ */
+export function findReferenceSpeechEnd(
+  elapsedMs: number,
+  speechEnds: number[],
+  earlyThresholdMs = 300,
+): number | null {
+  if (speechEnds.length === 0) return null;
+
+  let lastBefore: number | null = null;
+  for (const end of speechEnds) {
+    if (end <= elapsedMs) {
+      lastBefore = end;
+    } else {
+      break;
+    }
+  }
+
+  if (lastBefore !== null) {
+    const nextAfter = speechEnds.find((end) => end > elapsedMs);
+    // If within earlyThresholdMs before upcoming speech end, this final arrived early for that upcoming pause
+    if (nextAfter !== undefined && nextAfter - elapsedMs <= earlyThresholdMs) {
+      return nextAfter;
+    }
+    return lastBefore;
+  }
+
+  // If elapsedMs is before all speech ends, return the first speech end (will yield negative latency)
+  return speechEnds[0]!;
+}
+
+/**
+ * Synthesizes a 16 kHz mono 16-bit PCM buffer with alternating tone and silence segments.
+ */
+export function createSyntheticAudioPattern(
+  segments: Array<{ durationMs: number; isTone: boolean }>,
+  sampleRate = 16000,
+): Buffer {
+  const totalMs = segments.reduce((sum, s) => sum + s.durationMs, 0);
+  const totalSamples = (sampleRate * totalMs) / 1000;
+  const buffer = Buffer.alloc(totalSamples * 2);
+
+  let currentSample = 0;
+  for (const seg of segments) {
+    const count = (sampleRate * seg.durationMs) / 1000;
+    for (let i = 0; i < count; i++) {
+      if (seg.isTone) {
+        // 440 Hz tone at amplitude 10,000 (~0.30 RMS, well above -40 dBFS)
+        const sample = Math.sin((2 * Math.PI * 440 * i) / sampleRate) * 10_000;
+        buffer.writeInt16LE(Math.round(sample), (currentSample + i) * 2);
+      } else {
+        buffer.writeInt16LE(0, (currentSample + i) * 2);
+      }
+    }
+    currentSample += count;
+  }
+
+  return buffer;
+}
+
+/**
  * Extracts raw 16-bit PCM samples from a WAV container buffer.
  */
 export function extractWavPcm(wavBuffer: Buffer): Buffer {
@@ -294,7 +427,7 @@ export function loadReferenceData(
     }
   }
 
-  // Fallback to transcript fixture
+  // Fallback to transcript fixture (exact id match only, e.g. 03-return-revisit)
   const transcriptPath = join(transcriptsDir, `${id}.json`);
   if (existsSync(transcriptPath)) {
     const data = JSON.parse(readFileSync(transcriptPath, 'utf8'));
@@ -306,23 +439,6 @@ export function loadReferenceData(
       hasKey: true,
       refSource: 'transcript',
     };
-  }
-
-  // Also match by prefix if transcriptsDir exists
-  if (existsSync(transcriptsDir)) {
-    const prefix = id.split('-')[0];
-    const match = readdirSync(transcriptsDir).find((f) => f.endsWith('.json') && f.startsWith(`${prefix}-`));
-    if (match) {
-      const data = JSON.parse(readFileSync(join(transcriptsDir, match), 'utf8'));
-      const refText = data.utterances.map((u: { text: string }) => u.text).join(' ');
-      return {
-        title: data.title || id,
-        utterances: data.utterances,
-        refText,
-        hasKey: true,
-        refSource: 'transcript',
-      };
-    }
   }
 
   // Unkeyed WAV (e.g. podcast clips)
@@ -347,15 +463,16 @@ export interface FakeWebSocket {
 export type WebSocketConstructor = new (url: string) => FakeWebSocket;
 
 /**
- * Streams PCM buffer over WebSocket in real time, matching final captions to utterance end times
- * to calculate latency after each speaker pause:
- *   latency = receivedAt - (streamStartTime + sidecar.utterances[i].endMs)
+ * Streams PCM buffer over WebSocket in real time, matching final captions to reference speech ends
+ * to calculate latency strictly after each speaker pause:
+ *   latency = receivedAt - (streamStartTime + speechEnd)
+ * Early/misaligned arrivals (latency < 0) are tracked as misaligned and excluded from passing gates.
  */
 export async function streamAudioToLive(
   pcmBuffer: Buffer,
   wsUrl: string,
   token: string,
-  utterances: UtteranceTiming[] = [],
+  speechEnds: number[] = [],
   WSImpl: WebSocketConstructor = WebSocket as unknown as WebSocketConstructor,
 ): Promise<{
   hypText: string;
@@ -363,6 +480,7 @@ export async function streamAudioToLive(
   medianFinalLatencyMs: number | null;
   captions: Array<{ text: string; final: boolean; startMs: number; receivedAt: number }>;
   latencies: number[];
+  misalignedCount: number;
   stability: number;
 }> {
   return new Promise((resolve, reject) => {
@@ -370,8 +488,6 @@ export async function streamAudioToLive(
     const captions: Array<{ text: string; final: boolean; startMs: number; receivedAt: number }> = [];
     const latencies: number[] = [];
     let streamStartTime = 0;
-    let finalCount = 0;
-    let firstFinalLatencyMs: number | null = null;
     let intervalId: ReturnType<typeof setInterval> | null = null;
 
     const cleanup = () => {
@@ -410,12 +526,17 @@ export async function streamAudioToLive(
             cleanup();
             const finalCaptions = captions.filter((c) => c.final).map((c) => c.text);
             const stability = calculateStability(captions);
+            const validLatencies = latencies.filter((l) => l >= 0);
+            const misalignedCount = latencies.filter((l) => l < 0).length;
+            const firstFinalLatencyMs = validLatencies.length > 0 ? validLatencies[0]! : null;
+            const medianFinalLatencyMs = calculateMedian(validLatencies);
             resolve({
               hypText: finalCaptions.join(' '),
               firstFinalLatencyMs,
-              medianFinalLatencyMs: calculateMedian(latencies),
+              medianFinalLatencyMs,
               captions,
               latencies,
+              misalignedCount,
               stability,
             });
           }, 2500);
@@ -441,18 +562,11 @@ export async function streamAudioToLive(
           });
 
           if (msg.final) {
-            // Match this final caption by index to its rendered utterance clip
-            const clip = utterances[finalCount] || utterances[0];
-            finalCount++;
-
-            // Measure latency strictly after speaker pause:
-            // receivedAt - (streamStartTime + clip.endMs)
-            const pauseTime = streamStartTime + (clip ? clip.endMs : 0);
-            const latencyMs = Math.max(0, now - pauseTime);
-            latencies.push(latencyMs);
-
-            if (firstFinalLatencyMs === null) {
-              firstFinalLatencyMs = latencyMs;
+            const elapsedMs = now - streamStartTime;
+            const refSpeechEnd = findReferenceSpeechEnd(elapsedMs, speechEnds);
+            if (refSpeechEnd !== null) {
+              const latencyMs = elapsedMs - refSpeechEnd;
+              latencies.push(latencyMs);
             }
           }
         } else if (msg.t === 'error' && msg.fatal) {
@@ -492,11 +606,21 @@ export function formatReport(results: SttScenarioResult[]): string {
     const refWordsCount = r.hasKey ? String(normalizeText(r.refText).length) : 'N/A';
     const werPercent = r.wer !== null ? (r.wer * 100).toFixed(1) + ' %' : 'N/A';
     const targetPercent = r.werTarget !== null ? '< ' + (r.werTarget * 100).toFixed(0) + ' %' : 'N/A';
-    const firstFinalSec = r.firstFinalLatencyMs !== null ? (r.firstFinalLatencyMs / 1000).toFixed(2) + ' s' : 'N/A';
-    const medianFinalSec = r.medianFinalLatencyMs !== null ? (r.medianFinalLatencyMs / 1000).toFixed(2) + ' s' : 'N/A';
+    const firstFinalSec =
+      r.firstFinalLatencyMs !== null
+        ? (r.firstFinalLatencyMs / 1000).toFixed(2) + ' s'
+        : r.misalignedCount > 0
+          ? 'misaligned'
+          : 'N/A';
+    const medianFinalSec =
+      r.medianFinalLatencyMs !== null
+        ? (r.medianFinalLatencyMs / 1000).toFixed(2) + ' s'
+        : r.misalignedCount > 0
+          ? 'misaligned'
+          : 'N/A';
     const targetLatency = '≤ ' + (r.latencyTargetMs / 1000).toFixed(1) + ' s';
     const werBadge = r.hasKey ? (r.werPassed ? 'PASS' : 'FAIL') : 'N/A';
-    const latencyBadge = r.latencyPassed ? 'PASS' : 'FAIL';
+    const latencyBadge = r.latencyPassed ? 'PASS' : r.misalignedCount > 0 ? 'MISALIGNED' : 'FAIL';
     const stabilityPercent = (r.stability * 100).toFixed(1) + ' %';
     const overallBadge = r.overallPassed ? '**PASS**' : '**FAIL**';
 
@@ -597,6 +721,7 @@ export async function main() {
         medianFinalLatencyMs: simulatedMedianMs,
         latencyTargetMs,
         latencyPassed,
+        misalignedCount: 0,
         stability: simulatedStability,
         overallPassed: werPassed && latencyPassed,
       };
@@ -628,8 +753,13 @@ export async function main() {
     console.log(`[STT Runner] Streaming ${wavFile} (${keyLabel})...`);
     const pcmData = extractWavPcm(readFileSync(wavPath));
 
+    const speechEnds =
+      refData.hasKey && refData.refSource === 'sidecar' && refData.utterances.length > 0
+        ? refData.utterances.map((u) => u.endMs)
+        : detectSpeechPauses(pcmData);
+
     try {
-      const streamRes = await streamAudioToLive(pcmData, wsUrl, token, refData.utterances);
+      const streamRes = await streamAudioToLive(pcmData, wsUrl, token, speechEnds);
 
       let wer: number | null = null;
       let werPassed: boolean | null = null;
@@ -641,7 +771,9 @@ export async function main() {
       }
 
       const latencyPassed =
-        streamRes.firstFinalLatencyMs !== null && streamRes.firstFinalLatencyMs <= latencyTargetMs;
+        streamRes.firstFinalLatencyMs !== null &&
+        streamRes.firstFinalLatencyMs <= latencyTargetMs &&
+        streamRes.misalignedCount === 0;
 
       const overallPassed = refData.hasKey ? Boolean(werPassed && latencyPassed) : latencyPassed;
 
@@ -660,6 +792,7 @@ export async function main() {
         medianFinalLatencyMs: streamRes.medianFinalLatencyMs,
         latencyTargetMs,
         latencyPassed,
+        misalignedCount: streamRes.misalignedCount,
         stability: streamRes.stability,
         overallPassed,
       });
