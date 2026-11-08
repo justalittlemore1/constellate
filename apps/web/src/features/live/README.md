@@ -31,7 +31,7 @@ Mock mode never touches the microphone: whatever the source, it runs as a transc
 
 | File | What |
 | --- | --- |
-| `flags.ts` | Feature switches — hidden, never deleted. `parkThought: false` hides Park a thought (button + sheet). `flagNotes: false` degrades hold / Shift+F to a plain flag. |
+| `flags.ts` | Feature switches — hidden, never deleted. `parkThought: false` hides Park a thought (button + sheet). `beforeYouGo: false` skips the "Before you go" sheet: once stopped (server `stopped` + upload, or the stop timeout) the screen goes straight to `/c/:id?diary=1`. `flagNotes: false` degrades hold / Shift+F to a plain flag. |
 | `FlagButton.tsx` | Tap = flag. Press and hold 600 ms (bar + "Keep holding…") = note for that flag. Slide off = cancel. Enter/Space = flag; Shift+F = flag with note (`useFlagTrigger`'s `onNote`). |
 | `sheets.tsx` (frames) | Consent, Before you go and the flag note are A4's `<BottomSheet>` (`ui`, #60): attached to the bottom, height-capped, star-chart frame. |
 | `styles.ts` | `BAR_BUTTON` (48 px, 16 px, icon after text), `SHEET_BUTTON`, and `HOVER_WASH` = A4's `.hover-wash`. |
