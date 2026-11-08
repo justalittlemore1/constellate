@@ -139,8 +139,34 @@ export function relationWords(state: GraphState, n: TopicNode): string[] {
 }
 
 /** Accessible name for a node on the canvas and in the outline. */
-export function nodeAccessibleName(state: GraphState, n: TopicNode, activeNodeId: string | null): string {
-  return [n.label, statusWords(n, activeNodeId), timeRange(n), ...relationWords(state, n)].join(', ');
+export interface NodeSubState {
+  active: boolean;
+  playing: boolean;
+  showTime: boolean;
+}
+
+/** The small line under a node's label on the canvas ("now", "playing", "02:40", "picked up"). */
+export function nodeSubLabel(n: TopicNode, s: NodeSubState): string | undefined {
+  if (n.kind === 'topic') {
+    if (s.active) return 'now';
+    if (s.playing) return 'playing';
+    return s.showTime ? formatClock(n.startMs) : undefined;
+  }
+  if (s.showTime) return formatClock(n.mentionedAtMs ?? n.startMs);
+  return n.status === 'resolved' ? 'picked up' : undefined;
+}
+
+/** Exactly the text a sighted person sees on the node: label, then the sub-line. */
+export function nodeVisibleText(n: TopicNode, sub: string | undefined): string {
+  return sub ? `${n.label} ${sub}` : n.label;
+}
+
+/**
+ * Accessible name for a node on the canvas and in the outline. It starts with exactly the visible
+ * text, so voice-control users can say what they see (WCAG 2.5.3, axe label-content-name-mismatch).
+ */
+export function nodeAccessibleName(state: GraphState, n: TopicNode, activeNodeId: string | null, sub?: string): string {
+  return [nodeVisibleText(n, sub), statusWords(n, activeNodeId), timeRange(n), ...relationWords(state, n)].join(', ');
 }
 
 // ───────────────────────── visibility by detail level ─────────────────────────

@@ -106,3 +106,12 @@
 .cmap-preview {
   animation: cmap-preview-in 160ms ease-out;
 }
+
+/* badge glyphs (↺ ★ +N, flag count) come from CSS so they are not DOM text: the visible text of a
+   node stays exactly its label + sub-line, which its accessible name starts with */
+.cmap-badge[data-glyph]::after {
+  content: attr(data-glyph);
+}
+.cmap-badge[data-glyph] > svg {
+  margin-right: 2px;
+}
