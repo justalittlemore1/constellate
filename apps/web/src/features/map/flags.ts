@@ -17,6 +17,8 @@ export interface MapFlags {
   revisitArcs: boolean;
   /** dots drifting along flow edges */
   particles: boolean;
+  /** parked-thought nodes (off: the humans are replacing Park with flag notes) */
+  parkedThoughts: boolean;
 }
 
 export const MAP_FLAGS: MapFlags = {
@@ -27,6 +29,7 @@ export const MAP_FLAGS: MapFlags = {
   jumpToNow: false,
   revisitArcs: false,
   particles: false,
+  parkedThoughts: false,
 };
 
 export function resolveFlags(over?: Partial<MapFlags>): MapFlags {

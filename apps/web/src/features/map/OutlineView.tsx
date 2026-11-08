@@ -35,14 +35,17 @@ export function OutlineView({
   state,
   activeNodeId,
   selectedNodeId,
+  hideParked = false,
   onOpen,
 }: {
   state: GraphState;
   activeNodeId: string | null;
   selectedNodeId?: string | null;
+  /** keep the outline in step with the map when parked thoughts are hidden */
+  hideParked?: boolean;
   onOpen(n: TopicNode): void;
 }) {
-  const nodes = nodesInOrder(state);
+  const nodes = nodesInOrder(state).filter((n) => !hideParked || n.kind !== 'parked');
   const [focusId, setFocusId] = useState<string | null>(selectedNodeId ?? null);
   const current = focusId && state.nodes[focusId] ? focusId : (nodes[0]?.id ?? null);
   const items = useRef(new Map<string, HTMLLIElement>());

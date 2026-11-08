@@ -45,11 +45,13 @@ export function topicRadius(n: Pick<TopicNode, 'startMs' | 'endMs' | 'level'>): 
   return radiusForMs(durationMs(n), n.level);
 }
 
-/** Hollow ring radius for pending / parked threads. */
-export const THREAD_RADIUS = 16;
+/** The ember (deferred / unexplored thread) is small: a dashed shell of radius 10. */
+export const THREAD_RADIUS = 10;
 
+/** Topics and picked-up ("rekindled") threads size by time; open threads are small embers. */
 export function nodeRadius(n: TopicNode): number {
-  return n.kind === 'topic' ? topicRadius(n) : THREAD_RADIUS;
+  if (n.kind === 'topic' || n.status === 'resolved') return topicRadius(n);
+  return THREAD_RADIUS;
 }
 
 export function isThread(n: Pick<TopicNode, 'kind'>): boolean {
@@ -240,6 +242,8 @@ export interface VisibleOptions {
    * branch out from it. Revisit edges become self-loops and disappear. Data is unchanged.
    */
   mergeReturns?: boolean;
+  /** hide parked thoughts (flag `parkedThoughts` off: the humans are replacing Park with flag notes) */
+  hideParked?: boolean;
 }
 
 /**
@@ -272,7 +276,14 @@ export const noteNodeId = (annotationId: string) => `note:${annotationId}`;
  */
 export function visibleGraph(state: GraphState, detail: DetailLevel, opts: VisibleOptions = {}): VisibleGraph {
   const merged = opts.mergeReturns ? threadStars(state) : new Map<string, string>();
-  const all = nodesInOrder(state).filter((n) => !merged.has(n.id));
+  const hidden = new Set(
+    opts.hideParked
+      ? nodesInOrder(state)
+          .filter((n) => n.kind === 'parked')
+          .map((n) => n.id)
+      : [],
+  );
+  const all = nodesInOrder(state).filter((n) => !merged.has(n.id) && !hidden.has(n.id));
   const folded = new Map<string, string>(); // hidden id → visible stand-in id
   if (detail === 'broad') {
     let lastMain: TopicNode | null = null;
@@ -316,7 +327,7 @@ export function visibleGraph(state: GraphState, detail: DetailLevel, opts: Visib
         node: highlighted === n.highlighted ? n : { ...n, highlighted },
         occurrences: occ,
         totalMs,
-        radius: n.kind === 'topic' ? radiusForMs(totalMs, n.level) : THREAD_RADIUS,
+        radius: n.kind === 'topic' || n.status === 'resolved' ? radiusForMs(totalMs, n.level) : THREAD_RADIUS,
         hiddenChildren: hiddenCount.get(n.id) ?? 0,
         isRevisit: revisitSources.has(n.id),
         flags: occ.reduce((sum, o) => sum + flagsOn(state, o.id), 0),
@@ -329,7 +340,7 @@ export function visibleGraph(state: GraphState, detail: DetailLevel, opts: Visib
   for (const e of Object.values(state.edges)) {
     const s = starOf(e.sourceId);
     const t = starOf(e.targetId);
-    if (s === t || !state.nodes[s] || !state.nodes[t]) continue;
+    if (s === t || !state.nodes[s] || !state.nodes[t] || hidden.has(s) || hidden.has(t)) continue;
     const key = `${e.kind}|${s}|${t}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -345,7 +356,7 @@ export function visibleGraph(state: GraphState, detail: DetailLevel, opts: Visib
     });
   }
 
-  const notes = detail === 'broad' ? [] : state.annotations;
+  const notes = detail === 'broad' ? [] : state.annotations.filter((a) => !a.nodeId || !hidden.has(a.nodeId));
   for (const a of notes) {
     if (a.nodeId && state.nodes[a.nodeId]) {
       edges.push({

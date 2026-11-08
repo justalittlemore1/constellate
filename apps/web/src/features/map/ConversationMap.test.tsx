@@ -20,6 +20,7 @@ const LEGACY: MapFlags = {
   jumpToNow: true,
   revisitArcs: true,
   particles: true,
+  parkedThoughts: true,
 };
 
 beforeAll(() => installFlowDomStubs());
@@ -73,13 +74,13 @@ describe('ConversationMap on the fixture graph', () => {
   it('draws each node kind with a non-colour cue', () => {
     render(<ConversationMap flags={LEGACY} state={demo} />);
     expect(tile(nodeOf('Sunday Service'))).toHaveAttribute('data-kind', 'topic');
-    // threads: hollow dashed ring + glyph per kind / status
+    // threads: the ember is a dashed shell (a different shape from a star); parked adds a pencil;
+    // picked up = a rekindled star
     const soccer = tile(nodeOf('Intramural Soccer'));
-    expect(within(soccer).getByTestId('thread-ring')).toHaveAttribute('stroke-dasharray');
-    expect(within(soccer).getByTestId('glyph-pending')).toBeInTheDocument();
+    expect(within(soccer).getByTestId('ember-shell')).toHaveAttribute('stroke-dasharray', '2 3');
     expect(within(tile(nodeOf('Ask About Internship'))).getByTestId('glyph-parked')).toBeInTheDocument();
     const resolved = Object.values(demo.nodes).find((n) => n.kind === 'pending' && n.status === 'resolved')!;
-    expect(within(tile(resolved)).getByTestId('glyph-resolved')).toBeInTheDocument();
+    expect(within(tile(resolved)).getByTestId('y4-star')).toHaveAttribute('data-palette', 'rekindled');
     // revisit ↺ badge, flag pin, highlight ring
     const back = tile(nodeOf('Resurrection Accounts', 1));
     expect(within(back).getByTestId('revisit-badge')).toHaveAttribute('data-glyph', '↺');
@@ -134,11 +135,11 @@ describe('live statuses and motion', () => {
     render(<ConversationMap flags={LEGACY} state={g} followLatest />);
     const a = tile(g.nodes.a!);
     expect(a).toHaveAttribute('data-active', 'true');
-    expect(within(a).getByTestId('active-ring')).toBeInTheDocument();
+    expect(within(a).getByTestId('active-core')).toBeInTheDocument();
     expect(within(a).getByText('now')).toBeInTheDocument();
     expect(document.querySelector('.cmap-pulse')).toBeNull();
-    // the only motion: a slow colour shift on the active star
-    expect(within(a).getByTestId('colour-shift')).toHaveClass('cmap-shift');
+    // the only motion: a slow colour shift of the light facets
+    expect(within(a).getByTestId('y4-light')).toHaveClass('cmap-shift-fill');
     const b = tile(g.nodes.b!);
     expect(b.style.opacity).toBe('0.4');
     expect(wrapper(g.nodes.b!).getAttribute('aria-label')).toContain('tentative');
@@ -148,7 +149,7 @@ describe('live statuses and motion', () => {
     usePrefs.getState().set({ reduceMotion: true });
     const g = liveGraph();
     render(<ConversationMap flags={LEGACY} state={g} followLatest />);
-    expect(screen.queryByTestId('colour-shift')).toBeNull();
+    expect(document.querySelector('.cmap-shift-fill')).toBeNull();
     expect(screen.queryByTestId('particle')).toBeNull();
     expect(within(tile(g.nodes.a!)).getByText('now')).toBeInTheDocument();
     usePrefs.getState().reset();
