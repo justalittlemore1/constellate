@@ -29,7 +29,10 @@ export default defineConfig({
         command: `pnpm --filter @constellate/web exec vite --port ${PORT} --strictPort`,
         url: `http://localhost:${PORT}`,
         reuseExistingServer: !process.env.CI,
-        env: { VITE_USE_MOCKS: process.env.E2E_REAL ? '0' : '1' },
+        env: {
+          VITE_USE_MOCKS: process.env.E2E_REAL ? '0' : '1',
+          VITE_MOCK_SIGNED_IN: '1',
+        },
         timeout: 60_000,
       },
 });
