@@ -1,0 +1,32 @@
+/*
+ * Design tokens (owner: A4). Colour carries meaning on the map; never use it alone to encode
+ * an edge or node type — pair it with dash pattern, shape or a badge (see docs/PLAN.md).
+ * --text and --text-2 are both ≥ 4.5:1 on --bg.
+ */
+:root {
+  --bg: #070a17;
+  --surface: rgba(22, 28, 52, 0.72);
+  --surface-blur: 16px;
+  --border: rgba(163, 172, 200, 0.18);
+  --text: #e8ecf8;
+  --text-2: #a3acc8;
+
+  --topic: #6fe3ff; /* topic nodes, flow edges */
+  --revisit: #c79bff; /* revisit arcs */
+  --thread: #ffc46b; /* pending / unexplored / parked */
+  --highlight: #ffd84d; /* highlighted nodes and branches */
+  --flag: #ff7a90; /* flag pins */
+
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-size: 1; /* user setting 1–1.5, applied to canvas labels too */
+  --touch: 44px;
+  --radius: 16px;
+
+  color-scheme: dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0;
+  }
+}

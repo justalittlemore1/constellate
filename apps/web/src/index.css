@@ -1,0 +1,30 @@
+@import 'tailwindcss';
+@import './ui/tokens.css';
+
+@theme {
+  --color-bg: var(--bg);
+  --color-ink: var(--text);
+  --color-ink-2: var(--text-2);
+  --color-topic: var(--topic);
+  --color-revisit: var(--revisit);
+  --color-thread: var(--thread);
+  --color-highlight: var(--highlight);
+  --color-flag: var(--flag);
+  --font-sans: var(--font);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--topic);
+  outline-offset: 2px;
+}

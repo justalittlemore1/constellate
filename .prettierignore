@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+packages/shared/fixtures/
+packages/interpreter/eval/reports/
+docs/PLAN.md

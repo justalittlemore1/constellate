@@ -1,0 +1,558 @@
+{
+  "conversation": {
+    "id": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+    "userId": "e5a1691e-fff3-4f34-a767-4c0738a34cd0",
+    "folderId": null,
+    "title": "Faith, Camus and a Road Trip",
+    "summary": "From church and the historical Jesus to Camus, with a road trip planned and soccer left for next time.",
+    "macroAnchor": "Religion and belief",
+    "status": "ready",
+    "isSolo": false,
+    "isFavorite": true,
+    "location": "Koerner Library cafe",
+    "reflection": "Sam surprised me on the historical evidence. Follow up on Camus.",
+    "startedAt": "2026-11-07T20:00:00.000Z",
+    "endedAt": "2026-11-07T20:10:20.000Z",
+    "durationMs": 620000,
+    "audioPath": "e5a1691e-fff3-4f34-a767-4c0738a34cd0/8d13b192-38d0-4ba3-a3c8-7834f6573947.webm"
+  },
+  "nodes": {
+    "ab5b0bba-dced-43d8-a220-6db0ca3f2e47": {
+      "id": "ab5b0bba-dced-43d8-a220-6db0ca3f2e47",
+      "kind": "topic",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Sunday Service",
+      "summary": "Sam describes the new church he has started attending on Sundays.",
+      "details": "Sam has started attending a small evangelical church near campus and likes the community more than the services.",
+      "parentId": null,
+      "threadId": "6d178274-761a-47a4-98a8-ac407d8a8bfc",
+      "seq": 1,
+      "startMs": 0,
+      "endMs": 70000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u1",
+        "u2",
+        "u3",
+        "u4",
+        "u5",
+        "u6"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 147,
+      "y": 0
+    },
+    "c4c70f89-0996-476d-9248-b2147e91bc33": {
+      "id": "c4c70f89-0996-476d-9248-b2147e91bc33",
+      "kind": "topic",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Historical Jesus",
+      "summary": "Whether Jesus existed as a historical figure and what historians agree on.",
+      "details": "Both agree most historians accept a historical Jesus; they disagree on how much the gospels can tell us about him.",
+      "parentId": null,
+      "threadId": "5791f582-193e-4de5-9f78-c17aab0af694",
+      "seq": 2,
+      "startMs": 70000,
+      "endMs": 160000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u7",
+        "u8",
+        "u9",
+        "u10",
+        "u11",
+        "u12",
+        "u13",
+        "u14"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 127,
+      "y": 96
+    },
+    "db390006-9da5-4b1e-a77e-29b51750b50b": {
+      "id": "db390006-9da5-4b1e-a77e-29b51750b50b",
+      "kind": "topic",
+      "level": 2,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Gospel Sources",
+      "summary": "How the gospels were written, dated and copied, and the Q source idea.",
+      "details": "Alex explains Markan priority and the Q hypothesis; Sam had never heard the gospels were written decades later.",
+      "parentId": "c4c70f89-0996-476d-9248-b2147e91bc33",
+      "threadId": "7df378ff-e367-42a7-995f-b7fb6871ca64",
+      "seq": 3,
+      "startMs": 160000,
+      "endMs": 230000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u15",
+        "u16",
+        "u17",
+        "u18",
+        "u19",
+        "u20"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 289,
+      "y": 192
+    },
+    "c3c188c0-93a2-4b8e-9d13-a5aee4ae35f3": {
+      "id": "c3c188c0-93a2-4b8e-9d13-a5aee4ae35f3",
+      "kind": "pending",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "unexplored",
+      "label": "Intramural Soccer",
+      "summary": "Alex wanted to tell Sam about intramural soccer later.",
+      "details": null,
+      "parentId": null,
+      "threadId": "82ae6b46-5c48-481e-810a-384c9fb969ad",
+      "seq": 4,
+      "startMs": 200000,
+      "endMs": null,
+      "mentionedAtMs": 200000,
+      "utteranceIds": [
+        "u21"
+      ],
+      "speakers": [],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 462,
+      "y": 192
+    },
+    "7cac8df4-1933-4aca-91ec-d2df6dd730f5": {
+      "id": "7cac8df4-1933-4aca-91ec-d2df6dd730f5",
+      "kind": "topic",
+      "level": 2,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Resurrection Accounts",
+      "summary": "Comparing the gospel accounts of the empty tomb and what they agree on.",
+      "details": "They compare the empty-tomb stories across Mark, Matthew, Luke and John and note where the details diverge.",
+      "parentId": "c4c70f89-0996-476d-9248-b2147e91bc33",
+      "threadId": "7aa33a5f-0fa0-4d26-9ac3-79f8e9a9de4b",
+      "seq": 5,
+      "startMs": 230000,
+      "endMs": 310000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u22",
+        "u23",
+        "u24",
+        "u25",
+        "u26",
+        "u27",
+        "u28"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": true,
+      "createdBy": "ai",
+      "x": 269,
+      "y": 288
+    },
+    "e61da021-a6cc-4ba4-87d2-f0a23bb1b7f5": {
+      "id": "e61da021-a6cc-4ba4-87d2-f0a23bb1b7f5",
+      "kind": "topic",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Faith vs Evidence",
+      "summary": "Whether belief needs evidence, or whether faith is a different kind of knowing.",
+      "details": "Sam argues faith is trust rather than a claim about evidence; Alex is unconvinced but finds the distinction useful.",
+      "parentId": null,
+      "threadId": "de7c541c-ec3d-4d51-b92a-004b9aa7dd2f",
+      "seq": 6,
+      "startMs": 310000,
+      "endMs": 380000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u29",
+        "u30",
+        "u31",
+        "u32",
+        "u33",
+        "u34",
+        "u35"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 137,
+      "y": 384
+    },
+    "b97203b6-7d88-4b2a-a9a2-8e8421c26246": {
+      "id": "b97203b6-7d88-4b2a-a9a2-8e8421c26246",
+      "kind": "topic",
+      "level": 2,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Personal Doubts",
+      "summary": "Alex shares the moments that made them doubt what they were raised with.",
+      "details": "Alex describes growing up religious and the specific moments that started their doubts.",
+      "parentId": "e61da021-a6cc-4ba4-87d2-f0a23bb1b7f5",
+      "threadId": "7ffcd767-330f-44c6-b3d9-19df7fba9f90",
+      "seq": 8,
+      "startMs": 380000,
+      "endMs": 420000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u37",
+        "u38",
+        "u39",
+        "u40",
+        "u41"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 292,
+      "y": 480
+    },
+    "7659dce6-7aad-4525-a54f-e3d6f9b2cffe": {
+      "id": "7659dce6-7aad-4525-a54f-e3d6f9b2cffe",
+      "kind": "parked",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "unexplored",
+      "label": "Ask About Internship",
+      "summary": "Parked by the user: ask Sam about the internship.",
+      "details": null,
+      "parentId": null,
+      "threadId": "3cc2fe09-1de0-408f-8d2f-439911ed766c",
+      "seq": 9,
+      "startMs": 400000,
+      "endMs": null,
+      "mentionedAtMs": 400000,
+      "utteranceIds": [],
+      "speakers": [],
+      "highlighted": false,
+      "createdBy": "user",
+      "x": 463,
+      "y": 480
+    },
+    "a3973b4d-5cd5-4232-91e1-f5e550f17d4b": {
+      "id": "a3973b4d-5cd5-4232-91e1-f5e550f17d4b",
+      "kind": "topic",
+      "level": 2,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Resurrection Accounts",
+      "summary": "Back to the resurrection: could the accounts be read metaphorically?",
+      "details": "Returning to the resurrection, they discuss metaphorical readings and whether those still count as belief.",
+      "parentId": "c4c70f89-0996-476d-9248-b2147e91bc33",
+      "threadId": "7aa33a5f-0fa0-4d26-9ac3-79f8e9a9de4b",
+      "seq": 10,
+      "startMs": 420000,
+      "endMs": 470000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u42",
+        "u43",
+        "u44",
+        "u45",
+        "u46"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": true,
+      "createdBy": "ai",
+      "x": 286,
+      "y": 576
+    },
+    "303c758b-a316-4f69-a139-45c6e1c17782": {
+      "id": "303c758b-a316-4f69-a139-45c6e1c17782",
+      "kind": "topic",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Camus and Absurdism",
+      "summary": "Camus on meaning without God, and the myth of Sisyphus.",
+      "details": "Alex introduces Camus: meaning is made, not found, and Sisyphus can be imagined happy.",
+      "parentId": null,
+      "threadId": "993dc641-cbac-4c5f-8208-93c89e9161f3",
+      "seq": 11,
+      "startMs": 470000,
+      "endMs": 520000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u47",
+        "u48",
+        "u49",
+        "u50",
+        "u51"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 133,
+      "y": 672
+    },
+    "c59339bd-667f-4947-bce9-cc6a7a8a1272": {
+      "id": "c59339bd-667f-4947-bce9-cc6a7a8a1272",
+      "kind": "pending",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "resolved",
+      "label": "Summer Road Trip",
+      "summary": "Sam said they should plan the summer road trip before leaving.",
+      "details": null,
+      "parentId": null,
+      "threadId": "502eedcf-130d-4e53-8007-ba83d1e7d457",
+      "seq": 12,
+      "startMs": 480000,
+      "endMs": null,
+      "mentionedAtMs": 480000,
+      "utteranceIds": [
+        "u52"
+      ],
+      "speakers": [],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 466,
+      "y": 672
+    },
+    "cef756d5-3d24-4000-bea6-6232b67ad289": {
+      "id": "cef756d5-3d24-4000-bea6-6232b67ad289",
+      "kind": "topic",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Summer Road Trip",
+      "summary": "Planning a road trip through the Rockies in July.",
+      "details": "They sketch a two-week trip through the Rockies in July, starting in Banff.",
+      "parentId": null,
+      "threadId": "6cb082c4-ce66-4e9d-bf30-fc173db0c696",
+      "seq": 13,
+      "startMs": 520000,
+      "endMs": 570000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u53",
+        "u54",
+        "u55",
+        "u56",
+        "u57"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 124,
+      "y": 768
+    },
+    "5b0aead5-457a-402b-8025-11eaf8d59158": {
+      "id": "5b0aead5-457a-402b-8025-11eaf8d59158",
+      "kind": "topic",
+      "level": 1,
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "status": "closed",
+      "label": "Faith vs Evidence",
+      "summary": "Returning to faith and evidence, now through Camus.",
+      "details": "Bringing Camus back to faith: both think choosing to live meaningfully is a kind of faith.",
+      "parentId": null,
+      "threadId": "de7c541c-ec3d-4d51-b92a-004b9aa7dd2f",
+      "seq": 14,
+      "startMs": 570000,
+      "endMs": 620000,
+      "mentionedAtMs": null,
+      "utteranceIds": [
+        "u58",
+        "u59",
+        "u60",
+        "u61",
+        "u62"
+      ],
+      "speakers": [
+        0,
+        1
+      ],
+      "highlighted": false,
+      "createdBy": "ai",
+      "x": 143,
+      "y": 864
+    }
+  },
+  "edges": {
+    "74c41829-3789-4dc2-9131-f109f28ec6cf": {
+      "id": "74c41829-3789-4dc2-9131-f109f28ec6cf",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "ab5b0bba-dced-43d8-a220-6db0ca3f2e47",
+      "targetId": "c4c70f89-0996-476d-9248-b2147e91bc33",
+      "kind": "flow"
+    },
+    "373309c2-568c-4b09-bd6d-e36ad6a78db7": {
+      "id": "373309c2-568c-4b09-bd6d-e36ad6a78db7",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "c4c70f89-0996-476d-9248-b2147e91bc33",
+      "targetId": "db390006-9da5-4b1e-a77e-29b51750b50b",
+      "kind": "flow"
+    },
+    "30d2142a-0524-4438-95c9-5827f3535b6a": {
+      "id": "30d2142a-0524-4438-95c9-5827f3535b6a",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "db390006-9da5-4b1e-a77e-29b51750b50b",
+      "targetId": "c3c188c0-93a2-4b8e-9d13-a5aee4ae35f3",
+      "kind": "tether"
+    },
+    "614043b3-ce3e-4b55-989e-f03fd96f391c": {
+      "id": "614043b3-ce3e-4b55-989e-f03fd96f391c",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "db390006-9da5-4b1e-a77e-29b51750b50b",
+      "targetId": "7cac8df4-1933-4aca-91ec-d2df6dd730f5",
+      "kind": "flow"
+    },
+    "1b892e27-b461-44a7-8c74-f11e8e6badf9": {
+      "id": "1b892e27-b461-44a7-8c74-f11e8e6badf9",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "7cac8df4-1933-4aca-91ec-d2df6dd730f5",
+      "targetId": "e61da021-a6cc-4ba4-87d2-f0a23bb1b7f5",
+      "kind": "flow"
+    },
+    "e94ccddc-330f-4d7e-90d9-e7d80dff8e7a": {
+      "id": "e94ccddc-330f-4d7e-90d9-e7d80dff8e7a",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "e61da021-a6cc-4ba4-87d2-f0a23bb1b7f5",
+      "targetId": "b97203b6-7d88-4b2a-a9a2-8e8421c26246",
+      "kind": "flow"
+    },
+    "863e0f6e-49e9-49e9-852d-854975c93751": {
+      "id": "863e0f6e-49e9-49e9-852d-854975c93751",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "b97203b6-7d88-4b2a-a9a2-8e8421c26246",
+      "targetId": "7659dce6-7aad-4525-a54f-e3d6f9b2cffe",
+      "kind": "tether"
+    },
+    "9b6c4460-4e45-4f7b-b333-fd247df1f7c0": {
+      "id": "9b6c4460-4e45-4f7b-b333-fd247df1f7c0",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "b97203b6-7d88-4b2a-a9a2-8e8421c26246",
+      "targetId": "a3973b4d-5cd5-4232-91e1-f5e550f17d4b",
+      "kind": "flow"
+    },
+    "e7057de5-2034-49f3-a2eb-08f3f14af75f": {
+      "id": "e7057de5-2034-49f3-a2eb-08f3f14af75f",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "a3973b4d-5cd5-4232-91e1-f5e550f17d4b",
+      "targetId": "7cac8df4-1933-4aca-91ec-d2df6dd730f5",
+      "kind": "revisit"
+    },
+    "caeb93b0-4bdd-4022-b1eb-4f5dca8bf532": {
+      "id": "caeb93b0-4bdd-4022-b1eb-4f5dca8bf532",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "a3973b4d-5cd5-4232-91e1-f5e550f17d4b",
+      "targetId": "303c758b-a316-4f69-a139-45c6e1c17782",
+      "kind": "flow"
+    },
+    "fc2c4535-5c3f-466a-bf95-84eea70fd711": {
+      "id": "fc2c4535-5c3f-466a-bf95-84eea70fd711",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "303c758b-a316-4f69-a139-45c6e1c17782",
+      "targetId": "c59339bd-667f-4947-bce9-cc6a7a8a1272",
+      "kind": "tether"
+    },
+    "f2641647-11b0-440b-b36b-ffffd42015c5": {
+      "id": "f2641647-11b0-440b-b36b-ffffd42015c5",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "303c758b-a316-4f69-a139-45c6e1c17782",
+      "targetId": "cef756d5-3d24-4000-bea6-6232b67ad289",
+      "kind": "flow"
+    },
+    "8a078838-506f-49eb-9640-18ad2e63fa2b": {
+      "id": "8a078838-506f-49eb-9640-18ad2e63fa2b",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "c59339bd-667f-4947-bce9-cc6a7a8a1272",
+      "targetId": "cef756d5-3d24-4000-bea6-6232b67ad289",
+      "kind": "tether"
+    },
+    "0e922f25-6d02-42ee-b6a9-f3d17190e265": {
+      "id": "0e922f25-6d02-42ee-b6a9-f3d17190e265",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "cef756d5-3d24-4000-bea6-6232b67ad289",
+      "targetId": "5b0aead5-457a-402b-8025-11eaf8d59158",
+      "kind": "flow"
+    },
+    "222f986b-96ab-49af-ad94-f2d2a1635c7c": {
+      "id": "222f986b-96ab-49af-ad94-f2d2a1635c7c",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "sourceId": "5b0aead5-457a-402b-8025-11eaf8d59158",
+      "targetId": "e61da021-a6cc-4ba4-87d2-f0a23bb1b7f5",
+      "kind": "revisit"
+    }
+  },
+  "activeNodeId": null,
+  "flags": [
+    {
+      "id": "c2356ff5-4d7a-4e3c-a0e4-15d7f1dd8fa7",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "atMs": 195000,
+      "nodeId": "db390006-9da5-4b1e-a77e-29b51750b50b",
+      "note": null,
+      "source": "key"
+    },
+    {
+      "id": "07ee5986-5233-4c4e-91e2-26fafebfb24f",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "atMs": 445000,
+      "nodeId": "a3973b4d-5cd5-4232-91e1-f5e550f17d4b",
+      "note": null,
+      "source": "media"
+    }
+  ],
+  "commitments": [
+    {
+      "id": "40aea01f-8089-4574-ae88-f809f6fc49a6",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "nodeId": "7cac8df4-1933-4aca-91ec-d2df6dd730f5",
+      "text": "Send Sam the reading list on the resurrection debate",
+      "speaker": 0,
+      "atMs": 270000,
+      "done": false
+    }
+  ],
+  "annotations": [
+    {
+      "id": "1b5ee436-2d5c-4fa2-afe7-d61e1ff2cf62",
+      "conversationId": "8d13b192-38d0-4ba3-a3c8-7834f6573947",
+      "nodeId": "7cac8df4-1933-4aca-91ec-d2df6dd730f5",
+      "text": "Look up the Q source hypothesis",
+      "x": 339,
+      "y": 252
+    }
+  ],
+  "lastSeq": 23
+}

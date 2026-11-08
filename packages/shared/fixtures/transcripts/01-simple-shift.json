@@ -1,0 +1,26 @@
+{
+  "id": "01-simple-shift",
+  "title": "Simple shift: hockey to music",
+  "description": "Format example owned by A0; A2 adds the other scenarios. Two friends talk about last night's hockey game, then move to a concert. Expect exactly two level-1 nodes joined by one flow edge, boundary at u6 (utterance ids are u1, u2, … in file order).",
+  "speakers": ["Maya", "Jordan"],
+  "utterances": [
+    { "speaker": 0, "startMs": 0, "endMs": 5200, "text": "Did you catch the Canucks game last night? That overtime was unreal." },
+    { "speaker": 1, "startMs": 5600, "endMs": 11800, "text": "I watched the third period at the pub. The goalie stole that game, honestly." },
+    { "speaker": 0, "startMs": 12100, "endMs": 19400, "text": "Thirty-eight saves. And the power play finally worked, two goals on three chances." },
+    { "speaker": 1, "startMs": 19800, "endMs": 26500, "text": "If they keep that up they might actually make the playoffs this year." },
+    { "speaker": 0, "startMs": 26900, "endMs": 33000, "text": "Don't jinx it. Every year we say that and every year it falls apart in March." },
+    { "speaker": 1, "startMs": 33400, "endMs": 38100, "text": "Fair. Okay, totally different thing, are you still going to the concert Friday?" },
+    { "speaker": 0, "startMs": 38500, "endMs": 45200, "text": "Yes! I finally got floor tickets. The opener is that indie band from Victoria." },
+    { "speaker": 1, "startMs": 45600, "endMs": 52300, "text": "Oh I love them. Their new album is so much moodier than the last one." },
+    { "speaker": 0, "startMs": 52700, "endMs": 59800, "text": "Right? I think the producer changed. The synths sound way more like the eighties now." },
+    { "speaker": 1, "startMs": 60200, "endMs": 66900, "text": "I might try to get a resale ticket. Text me if anyone in your group drops out." }
+  ],
+  "expect": {
+    "topicCount": 2,
+    "boundaries": ["u6"],
+    "tolerance": 1,
+    "revisits": [],
+    "pending": [],
+    "commitments": []
+  }
+}
