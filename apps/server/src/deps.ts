@@ -16,6 +16,7 @@ import { GeminiLiveUpstream } from './speech/gemini-live';
 import { loadTranscriptFixture, TranscriptReplayAdapter } from './speech/replay';
 import { RotatingSpeechAdapter } from './speech/rotating';
 import type { SpeechAdapter } from './speech/types';
+import { withEphemeralVectors } from './store/ephemeral-vectors';
 import { MemoryStore } from './store/memory';
 import { SupabaseStore } from './store/supabase';
 import type { Store } from './store/types';
@@ -67,12 +68,14 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
   const db = overrides.store && overrides.auth ? null : createServiceClient(env);
   if (!db && !overrides.store)
     log('config.no_supabase', { note: 'using the in-memory store; every token is rejected' });
-  const store: Store = overrides.store ?? (db ? new SupabaseStore(db) : new MemoryStore());
+  const baseStore: Store = overrides.store ?? (db ? new SupabaseStore(db) : new MemoryStore());
   const auth: Auth = overrides.auth ?? (db ? supabaseAuth(db) : rejectAllAuth);
   const gemini = overrides.gemini !== undefined ? overrides.gemini : realGemini(env, log);
   const embedMode = embeddingsMode(env);
   if (embedMode === 'local')
     log('config.embeddings', { mode: 'local', note: 'offline stand-in; set EMBEDDINGS=gemini for real ones' });
+  // stand-in vectors never reach a persistent (shared) database; they stay in this process
+  const store: Store = embedMode === 'local' && isPersistent(baseStore) ? withEphemeralVectors(baseStore) : baseStore;
   const embed: Embedder =
     embedMode === 'local'
       ? localEmbedder
@@ -103,7 +106,6 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
   };
 
   return {
-    store,
     auth,
     hub: new GraphHub(store, log),
     registry: new LiveRegistry(),
@@ -126,7 +128,14 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
         : lazyMergeDecider(realAnthropic(env.ANTHROPIC_API_KEY)),
     gemini,
     ...overrides,
+    // after the overrides: an injected persistent store is still wrapped in local mode
+    store,
   };
+}
+
+/** Anything but the in-memory store writes to a database other processes read. */
+export function isPersistent(store: Store): boolean {
+  return !(store instanceof MemoryStore);
 }
 
 function realGemini(env: Env, log: Log): GeminiGateway | null {

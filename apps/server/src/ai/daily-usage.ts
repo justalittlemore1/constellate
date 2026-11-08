@@ -1,6 +1,10 @@
 /**
  * Per-day request counts for the shared Gemini client, persisted to disk so a restart does not
  * reset them (AGENTS.md → API budget: hard daily caps counted from midnight Pacific).
+ *
+ * This is a per-machine guard rail, not the quota itself: Google counts every laptop and the
+ * server together, and Render's filesystem is ephemeral, so a deploy there starts again at 0.
+ * The humans' ~350/day headroom is the real buffer. (Possible later: keep the count in Supabase.)
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
