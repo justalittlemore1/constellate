@@ -218,7 +218,7 @@ test.describe('Main loop: Mock mode E2E', () => {
   test('Node preview hover strip requires 700 ms hover dwell (mouse pointer)', async ({ page }) => {
     await page.goto(`/c/${DEMO_CONVERSATION_ID}`);
 
-    const placeholder = page.getByText(/Placeholder — built by A3 + A4/i);
+    const placeholder = page.getByText(/Placeholder — built by A3 \+ A4/i);
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
@@ -247,24 +247,24 @@ test.describe('Main loop: Mock mode E2E', () => {
   test('Saved conversation with ?diary=1 keeps stars hidden until diary closes', async ({ page }) => {
     await page.goto(`/c/${DEMO_CONVERSATION_ID}?diary=1`);
 
-    const placeholder = page.getByText(/Placeholder — built by A3 + A4/i);
+    const placeholder = page.getByText(/Placeholder — built by A3 \+ A4/i);
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
     const diaryDialog = page.getByRole('dialog', { name: 'Diary' });
     await expect(diaryDialog).toBeVisible({ timeout: 10_000 });
 
-    const stars = page.locator('[data-testid^="map-node-"]');
-    const isHeld = (await stars.count()) === 0;
-    test.fixme(!isHeld, 'Owned by A4: ConversationScreen revealHold wiring lands in A4 PR');
+    // Wait for the map section (aria-label "Conversation map") to mount so a count of 0 means held, not still loading
+    const mapSection = page.locator('section[aria-label="Conversation map"]');
+    await expect(mapSection).toBeVisible({ timeout: 10_000 });
 
-    if (isHeld) {
-      await expect(stars).toHaveCount(0);
-      const closeBtn = diaryDialog.getByRole('button', { name: 'Close' });
-      await closeBtn.click();
-      await expect(diaryDialog).not.toBeVisible();
-      await expect(page.getByRole('button', { name: /^Sunday Service/ })).toBeVisible({ timeout: 10_000 });
-    }
+    const stars = page.locator('[data-testid^="map-node-"]');
+    await expect(stars).toHaveCount(0);
+
+    const closeBtn = diaryDialog.getByRole('button', { name: 'Close' });
+    await closeBtn.click();
+    await expect(diaryDialog).not.toBeVisible();
+    await expect(page.getByRole('button', { name: /^Sunday Service/ })).toBeVisible({ timeout: 10_000 });
   });
 
   test('Step 8: Toggle highlight on a node and verify persistence', async ({ page }) => {
