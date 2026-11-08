@@ -32,6 +32,7 @@ import {
   effectiveDetail,
   latestNode,
   nodeAccessibleName,
+  nodeSubLabel,
   pathInOrder,
   stepNode,
   tracePath,
@@ -201,8 +202,20 @@ function MapInner({
     [activeNodeId, playingNodeId, selectedId, shown, motion, traced, keyboardHintId],
   );
   const nodes = useMemo(
-    () => toFlowNodes(vg, flowFlags, (v) => nodeAccessibleName(state, v.node, activeNodeId)),
-    [vg, flowFlags, state, activeNodeId],
+    () =>
+      toFlowNodes(vg, flowFlags, (v) =>
+        nodeAccessibleName(
+          state,
+          v.node,
+          activeNodeId,
+          nodeSubLabel(v.node, {
+            active: v.node.id === activeNodeId,
+            playing: v.node.id === playingNodeId,
+            showTime: shown === 'detailed',
+          }),
+        ),
+      ),
+    [vg, flowFlags, state, activeNodeId, playingNodeId, shown],
   );
   // same flags as the nodes, so edges leave below the time line in Detailed
   const edges = useMemo(() => toFlowEdges(vg, state, flowFlags), [vg, state, flowFlags]);
@@ -502,7 +515,7 @@ function MapInner({
             <div className="surface pointer-events-auto flex flex-col rounded-full border border-line">
               {onEdit && (
                 <IconButton
-                  label="Highlighter: tap topics to paint them gold"
+                  label="Paint topics gold (highlighter)"
                   aria-pressed={paintingOn}
                   className={cx(paintingOn && 'bg-highlight text-bg hover:bg-highlight/90')}
                   onClick={() => {

@@ -9,9 +9,9 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Check, Clock, Flag, Pencil, StickyNote } from 'lucide-react';
 import { createContext, useContext, useRef, type PointerEvent as ReactPointerEvent } from 'react';
-import { formatClock } from '../../lib/format';
 import { cx } from '../../ui';
 import type { NoteFlowNode, TopicFlowNode } from './flow';
+import { nodeSubLabel } from './model';
 
 export interface MapNodeActions {
   onLongPress(nodeId: string): void;
@@ -76,10 +76,13 @@ function Label({ box, offset, text, sub }: { box: number; offset: number; text: 
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute flex w-[136px] flex-col items-center text-center"
+      data-testid="node-label"
+      className="absolute flex w-[136px] flex-col items-center text-center"
       style={{ left: box - 68, top: box + offset }}
     >
       <span className="cmap-label line-clamp-2">{text}</span>
+      {/* the space keeps the DOM text "Label sub" (= the start of the accessible name) */}
+      {sub && ' '}
       {sub && <span className="cmap-sub mt-0.5 tabular-nums">{sub}</span>}
     </div>
   );
@@ -91,6 +94,7 @@ function Badge({
   r,
   angle,
   className,
+  glyph,
   children,
   testId,
 }: {
@@ -98,7 +102,9 @@ function Badge({
   r: number;
   angle: number;
   className: string;
-  children: React.ReactNode;
+  /** drawn with CSS `content`, so it is not DOM text (the node's accessible name carries the meaning) */
+  glyph?: string;
+  children?: React.ReactNode;
   testId?: string;
 }) {
   const rad = (angle * Math.PI) / 180;
@@ -108,8 +114,9 @@ function Badge({
     <span
       aria-hidden
       data-testid={testId}
+      data-glyph={glyph}
       className={cx(
-        'pointer-events-none absolute flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-[var(--bg)] px-1 text-[10.5px] font-bold leading-none',
+        'cmap-badge pointer-events-none absolute flex h-[18px] min-w-[18px] items-center justify-center rounded-full border bg-[var(--bg)] px-1 text-[10.5px] font-bold leading-none',
         className,
       )}
       style={{ left: cx_, top: cy_, transform: 'translate(-50%, -50%)' }}
@@ -127,7 +134,7 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
   const provisional = n.status === 'provisional';
   const press = useLongPress(id);
   const gradId = `cmap-g-${id}`;
-  const sub = active ? 'now' : playing ? 'playing' : showTime ? formatClock(n.startMs) : undefined;
+  const sub = nodeSubLabel(n, { active, playing, showTime });
 
   return (
     <div
@@ -210,25 +217,30 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
         </g>
       </svg>
       {view.isRevisit && (
-        <Badge box={box} r={r} angle={-135} className="border-revisit text-revisit" testId="revisit-badge">
-          ↺
-        </Badge>
+        <Badge box={box} r={r} angle={-135} className="border-revisit text-revisit" testId="revisit-badge" glyph="↺" />
       )}
       {view.flags > 0 && (
-        <Badge box={box} r={r} angle={-45} className="border-flag text-flag" testId="flag-badge">
+        <Badge
+          box={box}
+          r={r}
+          angle={-45}
+          className="border-flag text-flag"
+          testId="flag-badge"
+          glyph={view.flags > 1 ? String(view.flags) : undefined}
+        >
           <Flag size={10} strokeWidth={2.5} />
-          {view.flags > 1 && <span className="ml-0.5">{view.flags}</span>}
         </Badge>
       )}
-      {n.highlighted && (
-        <Badge box={box} r={r} angle={135} className="border-highlight text-highlight">
-          ★
-        </Badge>
-      )}
+      {n.highlighted && <Badge box={box} r={r} angle={135} className="border-highlight text-highlight" glyph="★" />}
       {view.hiddenChildren > 0 && (
-        <Badge box={box} r={r} angle={45} className="border-topic text-topic" testId="child-badge">
-          +{view.hiddenChildren}
-        </Badge>
+        <Badge
+          box={box}
+          r={r}
+          angle={45}
+          className="border-topic text-topic"
+          testId="child-badge"
+          glyph={`+${view.hiddenChildren}`}
+        />
       )}
       <Label box={box} offset={r + 5} text={n.label} sub={sub} />
     </div>
@@ -243,7 +255,7 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
   const resolved = n.status === 'resolved';
   const press = useLongPress(id);
   const Glyph = resolved ? Check : n.kind === 'parked' ? Pencil : Clock;
-  const sub = showTime ? formatClock(n.mentionedAtMs ?? n.startMs) : resolved ? 'picked up' : undefined;
+  const sub = nodeSubLabel(n, { active: false, playing: false, showTime });
 
   return (
     <div
