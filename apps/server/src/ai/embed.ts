@@ -9,6 +9,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { MODELS } from '@constellate/shared';
 
+/**
+ * One unit vector per text, or `[]` when embeddings are unavailable right now (daily cap reached):
+ * callers then degrade (no revisit candidates; the Brain merges by name). Never partial.
+ */
 export type Embedder = (texts: string[]) => Promise<number[][]>;
 type Log = (event: string, data?: Record<string, unknown>) => void;
 
@@ -95,7 +99,11 @@ interface Pending {
   reject: (e: unknown) => void;
 }
 
-/** Cache first, then batched provider requests for the misses. Errors reach only the affected callers. */
+/**
+ * Cache first, then batched provider requests for the misses. Errors reach only the affected
+ * callers; if the provider returns nothing (cap reached) those callers get `[]`. Cache hits are
+ * always served, even past the cap.
+ */
 export function cachedEmbedder(opts: CachedEmbedderOptions): Embedder {
   const maxBatch = opts.maxBatch ?? 100;
   const windowMs = opts.windowMs ?? 25;
@@ -108,10 +116,16 @@ export function cachedEmbedder(opts: CachedEmbedderOptions): Embedder {
     queue = [];
     const misses = [...new Set(batch.flatMap((p) => p.texts).filter((t) => !opts.cache.get(t)))];
     const failed = new Map<string, unknown>();
+    const unavailable = new Set<string>();
     for (let i = 0; i < misses.length; i += maxBatch) {
       const chunk = misses.slice(i, i + maxBatch);
       try {
         const vectors = await opts.fetch(chunk);
+        if (vectors.length === 0) {
+          // provider declined (daily cap): nothing to cache, callers degrade
+          for (const t of chunk) unavailable.add(t);
+          continue;
+        }
         if (vectors.length !== chunk.length || vectors.some((v) => v.length !== MODELS.embedDims)) {
           throw new Error(`embedding response has ${vectors.length} vectors for ${chunk.length} texts`);
         }
@@ -124,6 +138,7 @@ export function cachedEmbedder(opts: CachedEmbedderOptions): Embedder {
     for (const p of batch) {
       const err = p.texts.map((t) => failed.get(t)).find((e) => e !== undefined);
       if (err !== undefined) p.reject(err);
+      else if (p.texts.some((t) => unavailable.has(t))) p.resolve([]);
       else p.resolve(p.texts.map((t) => opts.cache.get(t)!));
     }
   }
@@ -149,3 +164,17 @@ export function embedCacheFile(setting: string | undefined): string | null {
   if (setting) return path.resolve(setting);
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.cache/embeddings.jsonl');
 }
+
+/**
+ * Offline stand-in for development (EMBEDDINGS=local): a deterministic hashed bag of words, so
+ * shared words give similar vectors. No network, no quota. Not for production quality.
+ */
+export const localEmbedder: Embedder = async (texts) =>
+  texts.map((text) => {
+    const v = new Array<number>(MODELS.embedDims).fill(0);
+    for (const word of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+      const h = createHash('sha256').update(word).digest();
+      v[h.readUInt16BE(0) % MODELS.embedDims]! += h[2]! & 1 ? 1 : -1;
+    }
+    return l2normalize(v);
+  });

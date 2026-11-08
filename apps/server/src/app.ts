@@ -40,6 +40,7 @@ export async function buildApp(env: Env, overrides: Partial<ServerDeps> = {}): P
     interpreter: env.INTERPRETER_PROVIDER,
     interpreterModel: MODELS.interpreter[env.INTERPRETER_PROVIDER],
     sttFile: deps.sttFile.state,
+    embeddings: deps.embeddings,
     gemini: deps.gemini?.usage() ?? null,
     keys: {
       gemini: Boolean(env.GEMINI_API_KEY),
