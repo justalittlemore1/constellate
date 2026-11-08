@@ -87,6 +87,8 @@ export interface FavoriteMoment {
   label: string;
   summary: string;
   atMs: Ms;
+  /** a highlighted node's end (flags are a moment: no end) */
+  endMs?: Ms | null;
 }
 
 /** Fields the user may edit (the server owns status, timing and the recording path). */

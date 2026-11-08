@@ -1,22 +1,38 @@
 import { Pause, Play } from 'lucide-react';
 import { useState } from 'react';
-import { useApi } from '../../lib/api';
-import { playMoment, stopPlayback, usePlayback } from '../../lib/audio';
+import type { Utterance } from '@constellate/shared';
+import { stopPlayback, usePlayback, usePlayMoment } from '../../lib/audio';
 import { spokenClock } from '../../lib/format';
 import { IconButton, useToast } from '../../ui';
 
 export interface PlayMomentButtonProps {
   /** unique per moment (e.g. node id) */
   momentKey: string;
+  conversationId: string;
   audioPath: string | null;
   atMs: number;
+  /** end of the moment (a node's endMs); null plays a default-length clip */
+  endMs?: number | null;
+  /** pass when known; otherwise fetched for the transcript fallback */
+  utterances?: Utterance[];
   /** what is being played, for the accessible name */
   label: string;
 }
 
-/** Plays the recording from 1 s before `atMs`; toggles to pause. `aria-pressed` while playing. */
-export function PlayMomentButton({ momentKey, audioPath, atMs, label }: PlayMomentButtonProps) {
-  const api = useApi();
+/**
+ * Plays the moment from 1 s before `atMs`: the recording when there is one, otherwise its
+ * transcript as timed captions in the now-playing bar. Toggles to stop; `aria-pressed` while playing.
+ */
+export function PlayMomentButton({
+  momentKey,
+  conversationId,
+  audioPath,
+  atMs,
+  endMs = null,
+  utterances,
+  label,
+}: PlayMomentButtonProps) {
+  const play = usePlayMoment();
   const toast = useToast();
   const { isPlaying } = usePlayback();
   const [loading, setLoading] = useState(false);
@@ -29,12 +45,7 @@ export function PlayMomentButton({ momentKey, audioPath, atMs, label }: PlayMome
     }
     setLoading(true);
     try {
-      const url = await api.audioUrl(audioPath);
-      if (!url) {
-        toast('No recording is available for this conversation.', 'error');
-        return;
-      }
-      await playMoment(momentKey, url, atMs);
+      await play({ key: momentKey, conversationId, startMs: atMs, endMs, audioPath, utterances });
     } catch {
       toast('Couldn’t play the recording.', 'error');
     } finally {

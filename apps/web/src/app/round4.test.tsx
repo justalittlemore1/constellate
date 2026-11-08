@@ -237,12 +237,14 @@ describe('7. the diary promise cue field', () => {
   it('is one clean, solid underline across the input on the text line, with a 44 px touch target', async () => {
     const promises = await openPromises();
     const cue = within(promises).getByRole('textbox', { name: 'When should you do this?' });
-    expect(cue).toHaveClass('border-b', 'border-solid', 'w-40', 'h-[1.35em]', 'align-baseline');
+    expect(cue).toHaveClass('border-b', 'border-solid', 'w-40', 'h-[1.25em]', 'align-baseline');
     expect(cue.className).not.toMatch(/border-dashed|min-h-11/); // no second line below the text
     expect(cue).not.toHaveAttribute('placeholder', '___'); // the "3 underscores" were a placeholder
     const target = within(promises).getByTestId('promise-cue-target');
     expect(target).toContainElement(cue);
-    expect(target).toHaveClass('py-3'); // 1.35em line + 2 × 12 px ≥ 44 px
+    // the 44 px target is the label's ::before, which takes no layout space (round 5)
+    expect(target.className).toContain('before:h-11');
+    expect(target.className).not.toMatch(/(^|\s)py-/);
   });
 
   it('has no stray dotted line: open-thread rows dash only their left edge', async () => {
