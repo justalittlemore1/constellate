@@ -12,6 +12,8 @@ export const UI_FLAG_DEFAULTS = {
   homeSettingsButton: false,
   /** Home: the slow pulse around the mic orb (no pulsing glows in the new style) */
   homeOrbPulse: false,
+  /** Home: the wave-0 mic orb (replaced by the F4 filament star in wave 2) */
+  homeMicOrb: false,
 
   /** Sidebar: the gradient "Generate Brain" button pinned at the top (replaced by a plain "Brain" link) */
   sidebarGenerateBrain: false,

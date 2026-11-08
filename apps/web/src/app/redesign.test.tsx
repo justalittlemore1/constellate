@@ -32,7 +32,8 @@ describe('ui flags', () => {
 });
 
 describe('Home (wave 1)', () => {
-  it('hides the tagline, the orb hint and the Settings icon; the orb no longer pulses', () => {
+  it('hides the tagline, the orb hint and the Settings icon; the (flagged) orb no longer pulses', () => {
+    setUiFlags({ homeMicOrb: true }); // the wave-0 orb, replaced in wave 2
     renderApp();
     expect(screen.getByRole('heading', { name: 'Welcome, Demo' })).toBeInTheDocument();
     expect(screen.queryByText('Where will your conversation take you?')).not.toBeInTheDocument();
@@ -45,7 +46,13 @@ describe('Home (wave 1)', () => {
   });
 
   it('the flags bring each item back', () => {
-    setUiFlags({ homeTagline: true, homeOrbHint: true, homeSettingsButton: true, homeOrbPulse: true });
+    setUiFlags({
+      homeTagline: true,
+      homeOrbHint: true,
+      homeSettingsButton: true,
+      homeOrbPulse: true,
+      homeMicOrb: true,
+    });
     renderApp();
     expect(screen.getByText('Where will your conversation take you?')).toBeInTheDocument();
     const orb = screen.getByRole('button', { name: 'Start a conversation' });

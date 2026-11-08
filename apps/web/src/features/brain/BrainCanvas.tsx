@@ -16,7 +16,7 @@ import {
 } from './brainLayout';
 
 import { defaultRenderers, LABEL_FONT, LABEL_PX, type BrainRenderers } from './brainRenderers';
-import { starOpacity } from './starReveal';
+import { linkProgress, starOpacity } from './starReveal';
 
 type N = NodeObject<GalaxyNode>;
 type L = LinkObject<GalaxyNode, GalaxyLink>;
@@ -29,6 +29,8 @@ export interface BrainCanvasProps {
   reduced: boolean;
   /** while stars are appearing: when each revealed concept appeared; null = all visible */
   revealedAt?: Map<string, number> | null;
+  /** while revealing: when the links start drawing in (null = after the stars) */
+  linksFrom?: number | null;
   /** how nodes and links are drawn (wave 2 swaps in star art and comet trails) */
   renderers?: BrainRenderers;
 }
@@ -39,11 +41,6 @@ function labelWidth(name: string, px: number): number {
   if (!ctx) return name.length * px * 0.5;
   ctx.font = LABEL_FONT(px);
   return ctx.measureText(name).width;
-}
-
-/** force-graph replaces link ends with node objects once the simulation starts */
-function endId(end: unknown): string {
-  return typeof end === 'object' && end !== null ? String((end as { id: unknown }).id) : String(end);
 }
 
 /** The canvas is one picture to assistive tech; the List view carries the content. */
@@ -62,6 +59,7 @@ export function BrainCanvas({
   onSelect,
   reduced,
   revealedAt = null,
+  linksFrom = null,
   renderers = defaultRenderers,
 }: BrainCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -99,10 +97,11 @@ export function BrainCanvas({
   const footprints = useMemo(() => {
     const m = new Map<string, Footprint>();
     for (const n of data.nodes) {
-      m.set(n.id, footprint(n.radius, labelled.has(n.id) ? labelWidth(n.name, LABEL_PX * textSize) : null));
+      const reach = renderers.reach?.(n.radius) ?? n.radius; // spikes, rays… (label goes below)
+      m.set(n.id, footprint(reach, labelled.has(n.id) ? labelWidth(n.name, LABEL_PX * textSize) : null));
     }
     return m;
-  }, [data, labelled, textSize]);
+  }, [data, labelled, textSize, renderers]);
 
   useEffect(() => {
     const g = fg.current;
@@ -158,10 +157,11 @@ export function BrainCanvas({
           onNodeClick={(n) => onSelect(String(n.id))}
           onNodeHover={(n) => setHoverId(n ? String(n.id) : null)}
           onBackgroundClick={() => onSelect(null)}
-          // stars still to appear are hidden; the canvas keeps redrawing while they fade in
+          // stars still to appear are hidden; links wait until every star is out, then draw in.
+          // The canvas keeps redrawing for the slow colour shift (paused under reduced motion).
           nodeVisibility={(n) => !revealedAt || revealedAt.has(String(n.id))}
-          linkVisibility={(l) => !revealedAt || (revealedAt.has(endId(l.source)) && revealedAt.has(endId(l.target)))}
-          autoPauseRedraw={!revealedAt}
+          linkVisibility={() => !revealedAt || linksFrom !== null}
+          autoPauseRedraw={reduced && !revealedAt}
           linkCanvasObjectMode={() => 'replace'}
           linkCanvasObject={(l, ctx, scale) => {
             const a = l.source as N;
@@ -175,12 +175,8 @@ export function BrainCanvas({
               relation: l.relation,
               weight: l.weight ?? 0,
               lit: Boolean(lit && lit.has(String(a.id)) && lit.has(String(b.id))),
-              opacity: revealedAt
-                ? Math.min(
-                    starOpacity(revealedAt.get(String(a.id)), now),
-                    starOpacity(revealedAt.get(String(b.id)), now),
-                  )
-                : 1,
+              opacity: 1,
+              progress: revealedAt ? linkProgress(linksFrom, now) : 1,
               scale,
             });
           }}
@@ -205,6 +201,8 @@ export function BrainCanvas({
               showLabel: labelled.has(id) || id === hoverId || (lit?.has(id) ?? false),
               glow,
               textSize,
+              now: performance.now(),
+              reduced,
             });
           }}
         />

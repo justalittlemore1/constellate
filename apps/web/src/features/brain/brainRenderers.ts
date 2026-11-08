@@ -38,6 +38,10 @@ export interface NodeDraw {
   glow: number;
   /** Text size setting, 1–1.5 */
   textSize: number;
+  /** performance.now() of this frame (slow colour shifts) */
+  now?: number;
+  /** reduced motion / low stimulation: no colour shift */
+  reduced?: boolean;
 }
 
 export interface LinkDraw {
@@ -51,15 +55,20 @@ export interface LinkDraw {
   lit: boolean;
   opacity: number;
   scale: number;
+  /** 0–1: how much of the link is drawn (links draw in after the stars appear); default 1 */
+  progress?: number;
+  /** for `broader`: `from` is the broader concept */
 }
 
 export interface BrainRenderers {
   drawNode(d: NodeDraw): void;
   drawLink(d: LinkDraw): void;
+  /** how far the art reaches from the centre (labels go below it; layout keeps it clear) */
+  reach?(radius: number): number;
 }
 
 /** Wave 1: glowing dots with serif labels, relation shown by dash pattern (never colour alone). */
-export const defaultRenderers: BrainRenderers = {
+export const dotRenderers: BrainRenderers = {
   drawNode({ ctx, x, y, radius, name, scale, opacity, dimmed, selected, showLabel, glow, textSize }) {
     ctx.save();
     ctx.globalAlpha = opacity * (dimmed ? 0.15 : 1);
@@ -117,3 +126,163 @@ export const defaultRenderers: BrainRenderers = {
     ctx.restore();
   },
 };
+
+// ── wave 2: "O1: six diffraction spikes" stars, comet trails, constellation lines, stardust ──
+
+export const STAR_ART = {
+  spike: '#DDEBFF',
+  coreA: '#DCE8FF',
+  coreB: '#E9E0FF',
+  centre: '#fff',
+  /** one full colour-shift loop between coreA and coreB */
+  shiftMs: 10_000,
+  /** spike half-length relative to the core radius */
+  spikeRatio: 2.0,
+} as const;
+
+function hexToRgb(hex: string): [number, number, number] {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** The core colour at time `now`: a slow loop between two close blue-whites; fixed when reduced. */
+export function coreColour(now: number | undefined, reduced: boolean | undefined): string {
+  if (reduced || now === undefined) return STAR_ART.coreA;
+  const t = (1 - Math.cos((2 * Math.PI * now) / STAR_ART.shiftMs)) / 2; // 0→1→0 over shiftMs
+  const a = hexToRgb(STAR_ART.coreA);
+  const b = hexToRgb(STAR_ART.coreB);
+  const c = a.map((v, i) => Math.round(v + (b[i]! - v) * t));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/** Stars scale in as they fade in (40 % → 100 %). */
+export function appearScale(opacity: number): number {
+  return 0.4 + 0.6 * Math.max(0, Math.min(1, opacity));
+}
+
+/** Deterministic 0–1 jitter so stardust is static (it never drifts). */
+function jitter(i: number, seed: number): number {
+  const x = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+export const starRenderers: BrainRenderers = {
+  drawNode({ ctx, x, y, radius, name, scale, opacity, dimmed, selected, showLabel, textSize, now, reduced }) {
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, opacity)) * (dimmed ? 0.15 : 1);
+    const r = radius * appearScale(opacity);
+    const spike = r * STAR_ART.spikeRatio;
+    const fullSpike = radius * STAR_ART.spikeRatio; // labels stay put while the star scales in
+
+    // diffraction spikes: one vertical (1 px), two diagonals (0.7 px), round caps
+    ctx.strokeStyle = STAR_ART.spike;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 1 / scale;
+    ctx.beginPath();
+    ctx.moveTo(x, y - spike);
+    ctx.lineTo(x, y + spike);
+    ctx.stroke();
+    ctx.lineWidth = 0.7 / scale;
+    const d = spike * 0.72;
+    ctx.beginPath();
+    ctx.moveTo(x - d, y - d);
+    ctx.lineTo(x + d, y + d);
+    ctx.moveTo(x + d, y - d);
+    ctx.lineTo(x - d, y + d);
+    ctx.stroke();
+
+    // core (slow colour shift) and white centre
+    ctx.fillStyle = coreColour(now, reduced);
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = STAR_ART.centre;
+    ctx.beginPath();
+    ctx.arc(x, y, r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (selected) {
+      // gold ring (shape + colour, not colour alone)
+      ctx.strokeStyle = BRAIN_COLOURS.selected;
+      ctx.lineWidth = 2 / scale;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 5 / scale, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (showLabel) {
+      const px = (LABEL_PX * textSize) / scale;
+      const ty = y + fullSpike + LABEL_GAP / scale; // below the vertical spike
+      ctx.font = LABEL_FONT(px);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 4 / scale;
+      ctx.strokeStyle = BRAIN_COLOURS.halo;
+      ctx.strokeText(name, x, ty);
+      ctx.fillStyle = BRAIN_COLOURS.label;
+      ctx.fillText(name, x, ty);
+    }
+    ctx.restore();
+  },
+
+  reach: (radius) => radius * STAR_ART.spikeRatio,
+
+  drawLink({ ctx, from, to, relation, weight, lit, opacity, scale, progress = 1 }) {
+    const p = Math.max(0, Math.min(1, progress));
+    if (p === 0) return;
+    const end = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p };
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, opacity)) * (lit ? 1 : 0.7);
+    ctx.lineCap = 'round';
+
+    if (relation === 'broader') {
+      // comet trail: bright at the broader concept, fading toward the narrower one, tapering
+      const g = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+      g.addColorStop(0, 'rgba(221,235,255,0.95)');
+      g.addColorStop(1, 'rgba(221,235,255,0)');
+      ctx.strokeStyle = g;
+      ctx.setLineDash([]);
+      ctx.lineWidth = (1.2 + 1.2 * weight) / scale;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    } else if (relation === 'related') {
+      // thin classic constellation line
+      ctx.strokeStyle = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.55)';
+      ctx.setLineDash([]);
+      ctx.lineWidth = 0.8 / scale;
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+    } else {
+      // co-discussed: sparse dotted stardust, static (deterministic jitter, never drifts)
+      ctx.fillStyle = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.6)';
+      const len = Math.hypot(end.x - from.x, end.y - from.y);
+      const gap = 9 / scale;
+      const n = Math.max(1, Math.floor(len / gap));
+      const nx = len ? -(end.y - from.y) / len : 0;
+      const ny = len ? (end.x - from.x) / len : 0;
+      const seed = Math.round(from.x + to.y);
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        const off = (jitter(i, seed) - 0.5) * (2.4 / scale);
+        ctx.beginPath();
+        ctx.arc(
+          from.x + (end.x - from.x) * t + nx * off,
+          from.y + (end.y - from.y) * t + ny * off,
+          (0.5 + 0.5 * jitter(i + 7, seed)) / scale,
+          0,
+          Math.PI * 2,
+        );
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  },
+};
+
+/** What BrainCanvas draws with unless told otherwise. */
+export const defaultRenderers: BrainRenderers = starRenderers;

@@ -3,10 +3,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { LibraryDrawer } from '../features/library/LibraryDrawer';
 import { useUser } from '../lib/auth';
-import { usePrefs } from '../lib/prefs';
+import { useMotionReduced, usePrefs } from '../lib/prefs';
 import { routes } from '../lib/routes';
 import { uiFlag } from '../lib/uiFlags';
 import { Button, IconButton, cx } from '../ui';
+import { RecordStar } from './RecordStar';
 import { Starfield } from './Starfield';
 
 /** `/` — starfield, welcome, the microphone orb, a demo replay, and the library drawer. */
@@ -16,6 +17,7 @@ export function HomeScreen() {
   const lowStim = usePrefs((s) => s.lowStimulation);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const showHint = uiFlag('homeOrbHint');
+  const reduced = useMotionReduced();
 
   return (
     <main className="relative flex h-full flex-col overflow-hidden">
@@ -29,18 +31,30 @@ export function HomeScreen() {
 
         <div className="flex flex-col items-center gap-4">
           {/* A6's live screen asks everyone for consent before any audio is captured */}
-          <button
-            type="button"
-            aria-label="Start a conversation"
-            aria-describedby={showHint ? 'orb-hint' : undefined}
-            onClick={() => navigate(routes.newLive())}
-            className={cx(
-              'flex size-32 items-center justify-center rounded-full border border-topic/50 bg-topic/10 text-topic hover:bg-topic/20',
-              uiFlag('homeOrbPulse') ? 'orb' : 'orb-still',
-            )}
-          >
-            <Mic aria-hidden size={48} />
-          </button>
+          {uiFlag('homeMicOrb') ? (
+            <button
+              type="button"
+              aria-label="Start a conversation"
+              aria-describedby={showHint ? 'orb-hint' : undefined}
+              onClick={() => navigate(routes.newLive())}
+              className={cx(
+                'flex size-32 items-center justify-center rounded-full border border-topic/50 bg-topic/10 text-topic hover:bg-topic/20',
+                uiFlag('homeOrbPulse') ? 'orb' : 'orb-still',
+              )}
+            >
+              <Mic aria-hidden size={48} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label="Start a conversation"
+              aria-describedby={showHint ? 'orb-hint' : undefined}
+              onClick={() => navigate(routes.newLive())}
+              className="flex size-36 items-center justify-center rounded-full"
+            >
+              <RecordStar still={reduced} className="size-36" />
+            </button>
+          )}
           {showHint && (
             <p id="orb-hint" className="text-ink-2 text-sm">
               Tap to start. Everyone is asked to agree first.
