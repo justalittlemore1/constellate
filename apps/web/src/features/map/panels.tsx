@@ -2,10 +2,12 @@
  * Map overlays: preview card (tap a node), detail sheet (tap the card), quick actions
  * (long-press) and the legend sheet. Built on A4's `Sheet` primitive.
  */
-import type { GraphState, TopicNode, Utterance } from '@constellate/shared';
-import { ChevronRight, Play, Route, X } from 'lucide-react';
+import type { Annotation, GraphState, TopicNode, Utterance } from '@constellate/shared';
+import { ChevronRight, Highlighter, Pause, Pencil, Play, Route, StickyNote, X } from 'lucide-react';
+import { useState } from 'react';
 import { formatClock } from '../../lib/format';
-import { Button, Chip, IconButton, Sheet } from '../../ui';
+import { Button, Chip, IconButton, Sheet, TextArea } from '../../ui';
+import { NOTE_MAX_CHARS } from './edits';
 import { relationWords, statusWords, timeRange, isThread, revisitTarget } from './model';
 
 export function PreviewCard({
@@ -75,6 +77,52 @@ function paragraphs(md: string): string[] {
     .filter(Boolean);
 }
 
+/** Edits the detail sheet can make; absent → the sheet is read-only (e.g. the live screen). */
+export interface NodeEditActions {
+  onToggleHighlight(n: TopicNode): void;
+  onSaveNote(n: TopicNode, text: string, existing?: Annotation): void;
+}
+
+function NoteEditor({
+  initial,
+  label,
+  onSave,
+  onCancel,
+}: {
+  initial: string;
+  label: string;
+  onSave(text: string): void;
+  onCancel(): void;
+}) {
+  const [text, setText] = useState(initial);
+  const clean = text.trim();
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (clean) onSave(clean);
+      }}
+    >
+      <TextArea
+        label={label}
+        value={text}
+        maxLength={NOTE_MAX_CHARS}
+        autoFocus
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="flex gap-2">
+        <Button type="submit" variant="primary" disabled={!clean}>
+          Save note
+        </Button>
+        <Button variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
 export function NodeDetailSheet({
   state,
   node,
@@ -82,7 +130,9 @@ export function NodeDetailSheet({
   utterances,
   onClose,
   onPlay,
+  isPlaying,
   onTrace,
+  edit,
 }: {
   state: GraphState;
   node: TopicNode | null;
@@ -90,15 +140,23 @@ export function NodeDetailSheet({
   utterances?: Utterance[] | undefined;
   onClose(): void;
   onPlay?: ((n: TopicNode) => void) | undefined;
+  isPlaying?: boolean;
   onTrace(n: TopicNode): void;
+  edit?: NodeEditActions | undefined;
 }) {
   const open = Boolean(node);
+  // which note is being edited: 'new', an annotation id, or nothing
+  const [editing, setEditing] = useState<string | null>(null);
   const evidence = node && utterances ? utterances.filter((u) => node.utteranceIds.includes(u.id)) : [];
   const flags = node ? state.flags.filter((f) => f.nodeId === node.id) : [];
   const notes = node ? state.annotations.filter((a) => a.nodeId === node.id) : [];
   const back = node ? revisitTarget(state, node.id) : null;
+  const close = () => {
+    setEditing(null);
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={onClose} title={node?.label ?? ''} testId="node-detail-sheet">
+    <Sheet open={open} onClose={close} title={node?.label ?? ''} testId="node-detail-sheet">
       {node && (
         <div className="flex flex-col gap-4 pt-1">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -110,6 +168,31 @@ export function NodeDetailSheet({
           </div>
 
           <p className="text-[0.9375rem] leading-relaxed">{node.summary}</p>
+
+          <div className="flex flex-wrap gap-2">
+            {onPlay && (
+              <Button
+                variant="primary"
+                aria-pressed={Boolean(isPlaying)}
+                icon={isPlaying ? <Pause aria-hidden size={18} /> : <Play aria-hidden size={18} />}
+                onClick={() => onPlay(node)}
+              >
+                {isPlaying ? 'Pause' : 'Play this moment'}
+              </Button>
+            )}
+            {edit && (
+              <Button
+                aria-pressed={node.highlighted}
+                icon={<Highlighter aria-hidden size={18} />}
+                onClick={() => edit.onToggleHighlight(node)}
+              >
+                {node.highlighted ? 'Remove highlight' : 'Highlight'}
+              </Button>
+            )}
+            <Button icon={<Route aria-hidden size={18} />} onClick={() => onTrace(node)}>
+              How did we get here?
+            </Button>
+          </div>
 
           {node.details && (
             <section aria-labelledby="cmap-details-h">
@@ -123,18 +206,6 @@ export function NodeDetailSheet({
               ))}
             </section>
           )}
-
-          <section aria-labelledby="cmap-rel-h">
-            <h3 id="cmap-rel-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
-              Where it sits
-            </h3>
-            <ul className="list-disc pl-5 text-[0.9375rem] leading-relaxed">
-              {relationWords(state, node).map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-              {relationWords(state, node).length === 0 && <li>Level {node.level} topic</li>}
-            </ul>
-          </section>
 
           {evidence.length > 0 && (
             <section aria-labelledby="cmap-ev-h">
@@ -155,34 +226,77 @@ export function NodeDetailSheet({
             </section>
           )}
 
-          {notes.length > 0 && (
+          <section aria-labelledby="cmap-rel-h">
+            <h3 id="cmap-rel-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+              Where it sits
+            </h3>
+            <ul className="list-disc pl-5 text-[0.9375rem] leading-relaxed">
+              {relationWords(state, node).map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+              {relationWords(state, node).length === 0 && <li>Level {node.level} topic</li>}
+            </ul>
+          </section>
+
+          {(notes.length > 0 || edit) && (
             <section aria-labelledby="cmap-notes-h">
               <h3 id="cmap-notes-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
                 Your notes
               </h3>
-              <ul className="flex flex-col gap-1">
-                {notes.map((a) => (
-                  <li
-                    key={a.id}
-                    className="rounded-lg border border-highlight/40 bg-[#2a2614]/80 px-3 py-2 text-[0.9375rem]"
-                  >
-                    {a.text}
-                  </li>
-                ))}
+              <ul className="flex flex-col gap-2">
+                {notes.map((a) =>
+                  editing === a.id && edit ? (
+                    <li key={a.id}>
+                      <NoteEditor
+                        initial={a.text}
+                        label="Edit note"
+                        onCancel={() => setEditing(null)}
+                        onSave={(t) => {
+                          edit.onSaveNote(node, t, a);
+                          setEditing(null);
+                        }}
+                      />
+                    </li>
+                  ) : (
+                    <li
+                      key={a.id}
+                      className="flex items-start gap-1 rounded-lg border border-highlight/40 bg-[#2a2614]/80 py-1 pl-3 pr-1 text-[0.9375rem]"
+                    >
+                      <span className="flex-1 py-1.5">{a.text}</span>
+                      {edit && (
+                        <IconButton label={`Edit note: ${a.text}`} onClick={() => setEditing(a.id)}>
+                          <Pencil aria-hidden size={16} />
+                        </IconButton>
+                      )}
+                    </li>
+                  ),
+                )}
               </ul>
+              {edit &&
+                (editing === 'new' ? (
+                  <div className="mt-2">
+                    <NoteEditor
+                      initial=""
+                      label={`Note on ${node.label}`}
+                      onCancel={() => setEditing(null)}
+                      onSave={(t) => {
+                        edit.onSaveNote(node, t);
+                        setEditing(null);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className="mt-1"
+                    icon={<StickyNote aria-hidden size={18} />}
+                    onClick={() => setEditing('new')}
+                  >
+                    Add a note
+                  </Button>
+                ))}
             </section>
           )}
-
-          <div className="flex flex-wrap gap-2">
-            {onPlay && (
-              <Button variant="primary" icon={<Play aria-hidden size={18} />} onClick={() => onPlay(node)}>
-                Play this moment
-              </Button>
-            )}
-            <Button icon={<Route aria-hidden size={18} />} onClick={() => onTrace(node)}>
-              How did we get here?
-            </Button>
-          </div>
         </div>
       )}
     </Sheet>
@@ -195,12 +309,14 @@ export function QuickActionsSheet({
   onOpen,
   onPlay,
   onTrace,
+  edit,
 }: {
   node: TopicNode | null;
   onClose(): void;
   onOpen(n: TopicNode): void;
   onPlay?: ((n: TopicNode) => void) | undefined;
   onTrace(n: TopicNode): void;
+  edit?: NodeEditActions | undefined;
 }) {
   return (
     <Sheet
@@ -217,6 +333,16 @@ export function QuickActionsSheet({
           {onPlay && (
             <Button block onClick={() => onPlay(node)} icon={<Play aria-hidden size={18} />}>
               Play this moment
+            </Button>
+          )}
+          {edit && (
+            <Button
+              block
+              aria-pressed={node.highlighted}
+              onClick={() => edit.onToggleHighlight(node)}
+              icon={<Highlighter aria-hidden size={18} />}
+            >
+              {node.highlighted ? 'Remove highlight' : 'Highlight'}
             </Button>
           )}
           <Button block onClick={() => onTrace(node)} icon={<Route aria-hidden size={18} />}>

@@ -43,6 +43,8 @@ export type MapEdgeData = {
   targetRadius: number;
   highlighted: boolean;
   dimmed: boolean;
+  /** part of the "How did we get here?" chain: drawn brighter and thicker */
+  onPath?: boolean;
   motion: boolean;
   /** height of the source's label block, so forward edges start below the text */
   labelGap: number;
@@ -156,6 +158,7 @@ export function toFlowEdges(graph: VisibleGraph, state: GraphState, flags: MapNo
         targetRadius: radius.get(e.targetId) ?? (state.nodes[e.targetId] ? 18 : 0),
         highlighted,
         dimmed: Boolean(flags.traced && !edgeTraced(e, flags.traced)),
+        onPath: Boolean(flags.traced && edgeTraced(e, flags.traced)),
         motion: flags.motion,
         labelGap: src
           ? labelBlockHeight(

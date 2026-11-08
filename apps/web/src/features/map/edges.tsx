@@ -85,9 +85,9 @@ function strokeOf(props: P, colour: string): { stroke: string; width: number; op
   const d = props.data;
   return {
     stroke: colour,
-    width: d?.highlighted ? 2.75 : 1.5,
+    width: d?.highlighted || d?.onPath ? 2.75 : 1.5,
     opacity: d?.dimmed ? 0.15 : 1,
-    style: d?.highlighted ? { filter: `drop-shadow(0 0 calc(4px * var(--glow)) ${colour})` } : {},
+    style: d?.highlighted || d?.onPath ? { filter: `drop-shadow(0 0 calc(4px * var(--glow)) ${colour})` } : {},
   };
 }
 
