@@ -1,7 +1,7 @@
-import type { Commitment, Conversation, GraphState } from '@constellate/shared';
+import { applyOps, type Conversation, type GraphState, type OpBatch } from '@constellate/shared';
 import { loadDemoGraph } from '../fixtures';
 import { mockBrainFromGraphs } from './mockBrain';
-import type { Api, BrainPayload, FavoriteMoment, Folder, Participant, RecallCard } from './types';
+import type { Api, BrainPayload, DeletedCounts, FavoriteMoment, Folder, Participant, RecallCard } from './types';
 
 let counter = 0;
 const newId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(counter++).toString(36)}`;
@@ -23,14 +23,6 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
     const g = graphs.get(id);
     if (!g) throw new Error('Conversation not found');
     return g;
-  }
-
-  function commitment(id: string): Commitment {
-    for (const g of graphs.values()) {
-      const c = g.commitments.find((x) => x.id === id);
-      if (c) return c;
-    }
-    throw new Error('Promise not found');
   }
 
   const api: Api = {
@@ -84,8 +76,18 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
       participants = participants.filter((p) => p.id !== id);
     },
 
-    async updateCommitment(id, patch) {
-      Object.assign(commitment(id), patch);
+    async postOps(conversationId, ops) {
+      // the same reducer and refusals as the server, so a refetch shows exactly what was saved
+      const g = graph(conversationId);
+      const batch: OpBatch = {
+        conversationId,
+        seq: g.lastSeq + 1,
+        at: new Date().toISOString(),
+        source: 'user',
+        ops: clone(ops),
+      };
+      graphs.set(conversationId, applyOps(g, batch));
+      return { batch: clone(batch) };
     },
 
     async listRecallCards(conversationId) {
@@ -157,19 +159,20 @@ export function createMockApi(seed: GraphState[] = [loadDemoGraph()], extra: { r
     },
 
     async deleteMyData() {
-      const conversationsTotal = graphs.size;
+      const deleted: DeletedCounts = {
+        conversations: graphs.size,
+        folders: folders.length,
+        concepts: brain.concepts.length,
+        conceptLinks: brain.links.length,
+        recordings: [...graphs.values()].filter((g) => g.conversation.audioPath).length,
+      };
       graphs.clear();
       folders = [];
       participants = [];
       recall = [];
       brain = { concepts: [], links: [], occurrences: {} };
       built = false;
-      return {
-        conversationsTotal,
-        conversationsDeleted: conversationsTotal,
-        foldersDeleted: true,
-        conceptsDeleted: true,
-      };
+      return { outcome: 'deleted', deleted };
     },
 
     capabilities: { editCommitments: true },

@@ -1,6 +1,7 @@
+import type { GraphState } from '@constellate/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { createMockApi } from '../../lib/api';
 import { loadDemoGraph } from '../../lib/fixtures';
 import { renderApp } from '../../test/render';
@@ -17,11 +18,11 @@ const resurrection = Object.values(demo.nodes).find((n) => n.label === 'Resurrec
 
 async function openDiary(api = createMockApi()) {
   const user = userEvent.setup();
-  renderApp({ route: `/c/${id}`, api });
+  const { qc } = renderApp({ route: `/c/${id}`, api });
   const button = await screen.findByRole('button', { name: 'Open diary' });
   await waitFor(() => expect(button).toBeEnabled()); // enabled once the graph has loaded
   await user.click(button);
-  return { api, user, diary: screen.getByRole('dialog', { name: 'Diary' }) };
+  return { api, qc, user, diary: screen.getByRole('dialog', { name: 'Diary' }) };
 }
 
 describe('diary sheet', () => {
@@ -127,6 +128,42 @@ describe('diary sheet', () => {
     expect(target).toContainElement(within(section).getByRole('checkbox', { name: 'Done' }));
     await user.click(target);
     await waitFor(async () => expect((await api.getGraph(id)).commitments[0]!.done).toBe(true));
+  });
+
+  it('promise edits are commitment.update user ops and survive a refetch', async () => {
+    const api = createMockApi();
+    const postOps = vi.spyOn(api, 'postOps');
+    const { qc, user, diary } = await openDiary(api);
+    const section = within(diary).getByRole('region', { name: 'Promises' });
+    const promiseId = demo.commitments[0]!.id;
+    const text = 'When I get home tonight, I will send Sam the reading list on the resurrection debate';
+
+    await user.type(within(section).getByRole('textbox', { name: 'When should you do this?' }), 'I get home tonight');
+    await user.tab();
+    await user.click(within(section).getByRole('checkbox', { name: 'Done' }));
+    await waitFor(() => expect(postOps).toHaveBeenCalledTimes(2));
+    expect(postOps.mock.calls.map((c) => c[1])).toEqual([
+      [{ op: 'commitment.update', id: promiseId, patch: { text } }],
+      [{ op: 'commitment.update', id: promiseId, patch: { done: true } }],
+    ]);
+
+    // a fresh GET /conversations/:id (the server replays the op log) still has both edits
+    await qc.refetchQueries({ queryKey: ['graph', id] });
+    const refetched = qc.getQueryData<GraphState>(['graph', id])!;
+    expect(refetched.commitments[0]).toMatchObject({ text, done: true });
+    expect(within(section).getByRole('checkbox', { name: 'Done' })).toBeChecked();
+  });
+
+  it('a refused promise edit rolls back to what is saved and says so', async () => {
+    const api = createMockApi();
+    api.postOps = async () => {
+      throw new Error('commitment does not exist');
+    };
+    const { user, diary } = await openDiary(api);
+    const section = within(diary).getByRole('region', { name: 'Promises' });
+    await user.click(within(section).getByRole('checkbox', { name: 'Done' }));
+    expect(await screen.findByText('Couldn’t save that promise. It shows what is saved.')).toBeInTheDocument();
+    await waitFor(() => expect(within(section).getByRole('checkbox', { name: 'Done' })).not.toBeChecked());
   });
 
   it('recall cards ask first, then reveal the node and record the result', async () => {
