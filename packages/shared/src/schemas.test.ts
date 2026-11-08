@@ -90,6 +90,19 @@ describe('ws message schemas', () => {
     expect(ClientMsgSchema.safeParse({ t: 'park', text: 'x'.repeat(81), atMs: 1 }).success).toBe(false);
   });
 
+  it('flag accepts an optional note of 1–140 characters, trimmed', () => {
+    const flag = (note?: unknown) => ClientMsgSchema.safeParse({ t: 'flag', atMs: 1_000, source: 'button', note });
+    expect(flag().success).toBe(true); // note stays optional
+    const parsed = flag('  ask Sam about the essay  ');
+    expect(parsed.success && parsed.data.t === 'flag' && parsed.data.note).toBe('ask Sam about the essay');
+    expect(flag('x'.repeat(140)).success).toBe(true);
+    expect(flag(`  ${'x'.repeat(140)}  `).success).toBe(true); // length counts after trimming
+    expect(flag('x'.repeat(141)).success).toBe(false);
+    expect(flag('').success).toBe(false);
+    expect(flag('   ').success).toBe(false);
+    expect(flag(42).success).toBe(false);
+  });
+
   it('round-trips server messages', () => {
     const msgs = [
       { t: 'ready', conversationId: 'c1' },

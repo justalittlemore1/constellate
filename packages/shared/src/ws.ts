@@ -27,7 +27,13 @@ export type ClientMsg =
       resumeAtMs?: number;
       consent: true;
     }
-  | { t: 'flag'; atMs: number; source: FlagSource }
+  | {
+      t: 'flag';
+      atMs: number;
+      source: FlagSource;
+      /** optional note typed with the flag: 1–140 chars after trimming; stored as Flag.note */
+      note?: string;
+    }
   | { t: 'park'; text: string; atMs: number }
   | { t: 'stop' }
   | { t: 'ping' };
