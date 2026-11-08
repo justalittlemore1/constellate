@@ -58,7 +58,18 @@ test.describe('Keyboard-only operation', () => {
 
     // 2. On /live/:id, navigate to Stop button and press Enter
     await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
-    const stopBtn = page.getByRole('button', { name: /stop/i });
+
+    const livePlaceholder = page.getByText(/Placeholder — built by A6 \+ A3/i);
+    const hasLivePlaceholder = await livePlaceholder.isVisible().catch(() => false);
+    test.fixme(hasLivePlaceholder, 'Blocked at step 2 by A6: Live screen not yet mounted');
+
+    // Consent sheet (A6): accept if presented (it has autofocus on the primary button)
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await page.keyboard.press('Enter');
+    }
+
+    const stopBtn = page.getByRole('button', { name: 'Stop', exact: true });
     const hasStop = await stopBtn.isVisible().catch(() => false);
     test.fixme(!hasStop, 'Blocked at step 2 by A6: Live screen stop control not yet implemented');
 
@@ -67,9 +78,9 @@ test.describe('Keyboard-only operation', () => {
 
     // 3. On saved conversation /c/:id, focus and open a node
     await page.goto(`/c/${DEMO_CONVERSATION_ID}`);
-    const placeholder = page.getByText(/Placeholder — built by A3 \+ A4/i);
-    const hasPlaceholder = await placeholder.isVisible().catch(() => false);
-    test.fixme(hasPlaceholder, 'Blocked at step 3 by A3: Saved conversation node navigation not yet implemented');
+    const savedPlaceholder = page.getByText(/Placeholder — built by A3 \+ A4/i);
+    const hasSavedPlaceholder = await savedPlaceholder.isVisible().catch(() => false);
+    test.fixme(hasSavedPlaceholder, 'Blocked at step 3 by A3: Saved conversation node navigation not yet implemented');
 
     // Tab through nodes or outline tree
     await page.keyboard.press('Tab');
