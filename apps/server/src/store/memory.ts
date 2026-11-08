@@ -220,6 +220,41 @@ export class MemoryStore implements Store {
     this.convs.delete(conversationId);
   }
 
+  /** folders exist only in Supabase in production (A4 writes them); tests seed this map */
+  readonly folders = new Map<string, { userId: string; name: string }>();
+
+  async deleteUserData(userId: string) {
+    this.check('deleteUserData');
+    const conversations = [...this.convs.values()].filter((r) => r.row.conversation.userId === userId);
+    for (const r of conversations) await this.deleteConversation(r.row.conversation.id);
+    const conceptLinks = this.links.filter((l) => l.userId === userId).length;
+    this.links = this.links.filter((l) => l.userId !== userId);
+    let concepts = 0;
+    for (const [id, c] of this.concepts) {
+      if (c.userId !== userId) continue;
+      this.concepts.delete(id);
+      concepts++;
+    }
+    let folders = 0;
+    for (const [id, f] of this.folders) {
+      if (f.userId !== userId) continue;
+      this.folders.delete(id);
+      folders++;
+    }
+    return { conversations: conversations.length, folders, concepts, conceptLinks, atomic: true };
+  }
+
+  async deleteUserRecordings(userId: string) {
+    this.check('deleteUserRecordings');
+    let n = 0;
+    for (const path of [...this.recordings.keys()]) {
+      if (!path.startsWith(`${userId}/`)) continue;
+      this.recordings.delete(path);
+      n++;
+    }
+    return n;
+  }
+
   async downloadRecording(path: string) {
     this.check('downloadRecording');
     return this.recordings.get(path) ?? null;

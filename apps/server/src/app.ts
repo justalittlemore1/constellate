@@ -9,6 +9,7 @@ import { LiveConnection, type LiveDeps, type Log } from './live/session';
 import { Finalizer } from './finalize/finalizer';
 import { conversationRoutes } from './routes/conversations';
 import { brainRoutes } from './routes/brain';
+import { meRoutes } from './routes/me';
 
 /**
  * Builds the Fastify app (A1):
@@ -16,6 +17,7 @@ import { brainRoutes } from './routes/brain';
  *   WS   /live            live pipeline (live/session.ts)
  *   /conversations/...    REST (routes/conversations.ts)
  *   /brain/...            Brain build and view (routes/brain.ts)
+ *   DELETE /me/data       delete everything the caller owns (routes/me.ts)
  * `overrides` replaces any dependency (tests use an in-memory store, fake auth and fake speech).
  */
 export async function buildApp(env: Env, overrides: Partial<ServerDeps> = {}): Promise<FastifyInstance> {
@@ -51,6 +53,7 @@ export async function buildApp(env: Env, overrides: Partial<ServerDeps> = {}): P
 
   conversationRoutes(app, deps, finalizer, log);
   brainRoutes(app, deps, log);
+  meRoutes(app, deps, log);
 
   app.register(async (scope) => {
     scope.get('/live', { websocket: true }, (socket) => {

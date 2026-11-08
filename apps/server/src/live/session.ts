@@ -193,6 +193,8 @@ export class LiveSession {
   private stopping: Promise<void> | null = null;
   private abandonTimer: NodeJS.Timeout | null = null;
   private unsubscribe: () => void = () => {};
+  /** set by abort(): late interpreter output and embeddings are dropped */
+  aborted = false;
 
   private constructor(
     private readonly deps: LiveDeps,
@@ -246,6 +248,7 @@ export class LiveSession {
       conversationId,
       getState: () => cell.state,
       emit: (ops) => {
+        if (s.aborted) return;
         try {
           cell.commit(ops, 'live');
         } catch (err) {
@@ -259,8 +262,10 @@ export class LiveSession {
         await cell.flush();
         return deps.store.matchNodes(conversationId, embedding, k, excludeId);
       },
-      saveEmbedding: (nodeId, embedding) =>
-        cell.enqueue(`embedding ${nodeId}`, () => deps.store.saveEmbedding(nodeId, embedding)),
+      saveEmbedding: async (nodeId, embedding) => {
+        if (s.aborted) return;
+        await cell.enqueue(`embedding ${nodeId}`, () => deps.store.saveEmbedding(nodeId, embedding));
+      },
       nowMs: () => clock.nowMs(),
       setStage: (stage) => s.setStage(stage),
       log: (event, data) => deps.log(event, { conversationId, ...data }),
@@ -391,6 +396,29 @@ export class LiveSession {
       default:
         return;
     }
+  }
+
+  /**
+   * The conversation is being deleted: stop listening, ignore anything the interpreter still
+   * emits, write nothing more and never finalise.
+   */
+  abort(reason: string): Promise<void> {
+    this.aborted = true;
+    if (!this.stopping) {
+      this.stopping = (async () => {
+        if (this.abandonTimer) clearTimeout(this.abandonTimer);
+        await this.stopSpeech();
+        this.unsubscribe();
+        this.send(errorMsg('protocol', reason, true));
+        this.sink?.close(1000, 'deleted');
+        this.sink = null;
+        if (this.deps.registry.sessions.get(this.conversationId) === this) {
+          this.deps.registry.sessions.delete(this.conversationId);
+          this.deps.hub.release(this.cell);
+        }
+      })();
+    }
+    return this.stopping;
   }
 
   /** flush speech → interpreter → mark processing → persist → `stopped` → finalisation */

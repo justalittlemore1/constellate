@@ -6,6 +6,15 @@ export interface OwnedConversation {
   brainBuiltAt: string | null;
 }
 
+export interface UserDataDeleted {
+  conversations: number;
+  folders: number;
+  concepts: number;
+  conceptLinks: number;
+  /** false when the transactional database function was unavailable and rows went one table at a time */
+  atomic: boolean;
+}
+
 export interface NodeMatch {
   id: string;
   similarity: number;
@@ -75,6 +84,13 @@ export interface Store {
     ids: { nodes: string[]; edges: string[]; flags: string[]; commitments: string[]; annotations: string[] },
   ): Promise<string[]>;
   deleteConversation(conversationId: string): Promise<void>;
+  /**
+   * Every row the user owns (conversations with all their children, folders, concepts, concept
+   * links) in one transaction where the database supports it (`delete_user_data`, migration 0002).
+   */
+  deleteUserData(userId: string): Promise<UserDataDeleted>;
+  /** every object under `recordings/{userId}/`; returns how many were removed */
+  deleteUserRecordings(userId: string): Promise<number>;
 
   /** recordings bucket */
   downloadRecording(path: string): Promise<Buffer | null>;

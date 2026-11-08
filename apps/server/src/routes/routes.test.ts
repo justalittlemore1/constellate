@@ -250,14 +250,19 @@ describe('DELETE /conversations/:id', () => {
     expect((await get(id)).statusCode).toBe(404);
   });
 
-  it('stops a live session before deleting', async () => {
-    h = await makeHarness();
+  it('aborts a live session before deleting, without finalising it', async () => {
+    const onStopped = vi.fn();
+    h = await makeHarness({ onStopped });
     const c = await connect(h.app);
     c.send({ t: 'hello', token: 'token-a', source: 'mic', consent: true });
     const { conversationId } = await c.waitFor('ready');
     const res = await h.app.inject({ method: 'DELETE', url: `/conversations/${conversationId}`, headers: auth() });
     expect(res.statusCode).toBe(204);
-    await c.waitFor('stopped');
+    expect(await c.waitFor('error')).toMatchObject({ fatal: true, message: 'this conversation was deleted' });
+    await c.closed;
+    expect(c.messages.some((m) => m.t === 'stopped')).toBe(false);
+    expect(onStopped).not.toHaveBeenCalled();
+    expect(h.adapters[0]!.stopped).toBe(true);
     expect(h.store.convs.has(conversationId)).toBe(false);
   });
 });
