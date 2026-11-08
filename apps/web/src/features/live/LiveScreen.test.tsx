@@ -1,7 +1,10 @@
 import { emptyGraph } from '@constellate/shared';
 import { makeConversation, makeNode, TEST_CONVERSATION_ID } from '@constellate/shared/testing';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { usePrefs } from '../../lib/prefs';
+import { installFlowDomStubs } from '../map/testing';
+import { MapBoundary } from './LiveMap';
 import type { LiveDeps } from './controller';
 import { mockDeps } from './deps';
 import { LiveNodeList } from './LiveNodeList';
@@ -12,6 +15,8 @@ import { fakeDeps } from './testing';
 
 const advance = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
 
+beforeAll(() => installFlowDomStubs());
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.spyOn(console, 'info').mockImplementation(() => undefined);
@@ -20,14 +25,21 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  usePrefs.getState().reset();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
-function renderScreen(deps: LiveDeps, source: Parameters<typeof LiveScreen>[0]['initialSource'] = { kind: 'mic' }) {
+function renderScreen(
+  deps: LiveDeps,
+  source: Parameters<typeof LiveScreen>[0]['initialSource'] = { kind: 'mic' },
+  speed?: number,
+) {
   const onDone = vi.fn();
   const onCancel = vi.fn();
-  const utils = render(<LiveScreen initialSource={source} deps={deps} onDone={onDone} onCancel={onCancel} />);
+  const utils = render(
+    <LiveScreen initialSource={source} deps={deps} speed={speed} onDone={onDone} onCancel={onCancel} />,
+  );
   return { onDone, onCancel, ...utils };
 }
 
@@ -52,7 +64,8 @@ describe('LiveScreen on the mock server', () => {
     expect(screen.getByText('Recording')).toBeInTheDocument();
   });
 
-  it('grows the list of topics, shows captions, flags and parks, then lists open threads before leaving', async () => {
+  it('in the node list (low-stimulation): grows topics, shows captions, flags and parks, then lists open threads', async () => {
+    usePrefs.getState().set({ lowStimulation: true });
     const { onDone } = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' });
     await advance(0);
     fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
@@ -306,5 +319,104 @@ describe('LiveScreen inside the PhoneFrame', () => {
     expect(document.getElementById('overlay-root')!.contains(start)).toBe(true);
     expect(start).toHaveFocus();
     server.dispose();
+  });
+});
+
+/** a map node button whose accessible name mentions the label */
+const mapNode = (label: string) =>
+  [...document.querySelectorAll<HTMLElement>('.react-flow__node[role="button"]')].find((el) =>
+    el.getAttribute('aria-label')?.includes(label),
+  );
+
+describe('LiveScreen map (A3)', () => {
+  let server: MockLiveServer;
+  let deps: LiveDeps;
+  beforeEach(() => {
+    ({ server, deps } = mockDeps({ speed: 4 }));
+  });
+  afterEach(() => server.dispose());
+
+  async function startDemo(speed?: number) {
+    const utils = renderScreen(deps, { kind: 'transcript', fixture: 'demo-religion' }, speed);
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Start the demo' }));
+    await advance(10);
+    return utils;
+  }
+
+  it('explains the empty map, then mounts the constellation following the newest node', async () => {
+    await startDemo();
+    expect(screen.getByText('Topics appear here as the conversation goes.')).toBeInTheDocument();
+    await advance(5_000); // first topic at 2.5 s of conversation (0.6 s at 4×)
+    const content = screen.getByTestId('live-content');
+    expect(content.querySelector('.react-flow')).not.toBeNull();
+    expect(mapNode('Sunday Service')).toBeDefined();
+    expect(screen.queryByRole('list', { name: 'Topics so far' })).not.toBeInTheDocument();
+    await advance(20_000); // second topic at 70 s (17.5 s at 4×)
+    expect(mapNode('Historical Jesus')).toBeDefined();
+  });
+
+  it('keeps the node list in low-stimulation mode', async () => {
+    usePrefs.getState().set({ lowStimulation: true });
+    await startDemo();
+    await advance(5_000);
+    expect(screen.getByRole('list', { name: 'Topics so far' })).toBeInTheDocument();
+    expect(screen.getByTestId('live-content').querySelector('.react-flow')).toBeNull();
+  });
+
+  it('labels a sped-up demo replay', async () => {
+    await startDemo(4);
+    expect(screen.getByText('Demo replay ×4')).toBeInTheDocument();
+  });
+
+  it('labels a real-time demo replay without a multiplier', async () => {
+    await startDemo(1);
+    expect(screen.getByText('Demo replay')).toBeInTheDocument();
+  });
+});
+
+describe('MapBoundary', () => {
+  it('shows the fallback if the map throws, and the fallback keeps updating', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const Boom = () => {
+      throw new Error('canvas broke');
+    };
+    const { rerender } = render(
+      <MapBoundary fallback={<p>list v1</p>}>
+        <Boom />
+      </MapBoundary>,
+    );
+    expect(screen.getByText('list v1')).toBeInTheDocument();
+    rerender(
+      <MapBoundary fallback={<p>list v2</p>}>
+        <Boom />
+      </MapBoundary>,
+    );
+    expect(screen.getByText('list v2')).toBeInTheDocument();
+  });
+});
+
+describe('caption strip', () => {
+  it('cuts long captions at a word, with an ellipsis and a fade, never mid-word', async () => {
+    const f = fakeDeps({ graph: () => emptyGraph(makeConversation()) });
+    renderScreen(f.deps);
+    await advance(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Everyone agrees — start' }));
+    await advance(0);
+    const long = 'Whether Jesus existed as a historical figure and what historians mostly agree on today.';
+    act(() => {
+      f.net.last.open();
+      f.net.last.push({ t: 'ready', conversationId: TEST_CONVERSATION_ID });
+      f.net.last.push({ t: 'caption', text: long, final: true, startMs: 0, utteranceId: 'u1' });
+    });
+    const line = screen.getByTestId('caption-line');
+    expect(line.className).toContain('mask-image');
+    const text = line.textContent!;
+    expect(text.startsWith('…')).toBe(true);
+    const shown = text.slice(1);
+    expect(long.endsWith(shown)).toBe(true);
+    expect(long[long.length - shown.length - 1]).toBe(' '); // starts at a word boundary
+    // screen readers still get the whole caption
+    expect(screen.getByText(long)).toHaveClass('sr-only');
   });
 });

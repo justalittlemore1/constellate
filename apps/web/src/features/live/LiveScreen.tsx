@@ -7,7 +7,8 @@ import { Flag, Moon, NotebookPen, Square, WifiOff } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useFocusTrap } from '../../ui';
 import type { LiveController, LiveDeps, LiveSourceSpec } from './controller';
-import { LiveNodeList } from './LiveNodeList';
+import { captionTail } from './captions';
+import { LiveMap } from './LiveMap';
 import { formatClock, openThreads } from './openThreads';
 import { BeforeYouGo, ConsentSheet, MicRecovery, ParkSheet } from './sheets';
 import { useFlagTrigger } from './useFlagTrigger';
@@ -23,11 +24,14 @@ export interface LiveScreenProps {
   onDone(conversationId: string): void;
   /** leave without recording */
   onCancel(): void;
-  /** mock replay speed */
+  /**
+   * transcript-replay speed: drives the mock server and the replay timer, and is shown as
+   * "Demo replay ×4". Microphone and WAV sources always run on the real audio clock.
+   */
   speed?: number;
   /** tests */
   deps?: LiveDeps;
-  /** A3's <ConversationMap>; defaults to a plain list of nodes */
+  /** override the map (tests); defaults to <LiveMap>: A3's map, with the node list as fallback */
   renderMap?: (graph: GraphState | null) => ReactNode;
 }
 
@@ -182,8 +186,15 @@ function LiveSessionView({
           ? STAGE_TEXT[s.stage]
           : '';
   const lastCaption = s.captions.at(-1)?.text ?? '';
+  const caption = captionTail(lastCaption, s.interim);
   const sourceLabel =
-    source.kind === 'transcript' ? 'Demo replay' : source.kind === 'wav' ? `Replaying ${source.name ?? 'audio file'}` : null;
+    source.kind === 'transcript'
+      ? speed && speed > 1
+        ? `Demo replay ×${speed}`
+        : 'Demo replay'
+      : source.kind === 'wav'
+        ? `Replaying ${source.name ?? 'audio file'}`
+        : null;
 
   // opened only once the session reaches 'consenting' (an effect after mount): on the very first render
   // the PhoneFrame's #overlay-root does not exist yet, and a sheet portalled then would move containers
@@ -230,14 +241,19 @@ function LiveSessionView({
         <p className="sr-only" aria-live="polite">
           {lastCaption}
         </p>
-        <p aria-hidden className="flex min-w-0 flex-1 justify-end overflow-hidden whitespace-nowrap">
-          <span className="shrink-0">{lastCaption}</span>
-          {s.interim && <span className="ml-1 shrink-0 text-ink-2/70 italic">{s.interim}</span>}
+        <p
+          aria-hidden
+          data-testid="caption-line"
+          className="flex min-w-0 flex-1 justify-end overflow-hidden whitespace-nowrap [mask-image:linear-gradient(to_right,transparent,black_1.5rem)]"
+        >
+          {caption.cut && <span className="mr-1 shrink-0 text-ink-2">…</span>}
+          {caption.final && <span className="shrink-0">{caption.final}</span>}
+          {caption.interim && <span className="ml-1 shrink-0 text-ink-2/70 italic">{caption.interim}</span>}
           {!lastCaption && !s.interim && <span className="text-ink-2">Captions appear here.</span>}
         </p>
       </div>
 
-      <div className="min-h-0 flex-1">{renderMap ? renderMap(s.graph) : <LiveNodeList graph={s.graph} />}</div>
+      <div className="min-h-0 flex-1">{renderMap ? renderMap(s.graph) : <LiveMap graph={s.graph} />}</div>
 
       {/* bottom bar */}
       <nav aria-label="Recording controls" className="grid grid-cols-3 gap-2 border-t border-white/10 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3">

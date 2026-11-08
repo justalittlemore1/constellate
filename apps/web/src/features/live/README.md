@@ -19,8 +19,10 @@ Mock mode never touches the microphone: whatever the source, it runs as a transc
 
 | File | What |
 | --- | --- |
-| `LiveRoute.tsx` | Route element for `/live/:id` — A4: `<Route path="/live/:id" element={<LiveRoute />} />`. `/live/new` = microphone, `/live/demo?fixture=<id>` = transcript replay, `?speed=4` = faster mock replay. |
-| `LiveScreen.tsx` | Consent sheet → top bar (audio-clock timer, recording dot + word, stage), one-line caption strip (interim dimmed), the map (`renderMap` slot for A3's `<ConversationMap>`, default `LiveNodeList`), bottom bar Flag · Park a thought · Stop, toasts, Pocket mode, "Before you go", mic-denied recovery (WAV file or demo). |
+| `LiveRoute.tsx` | Route element for `/live/:id` (wired by A4). `/live/new` = microphone (always real time); `/live/new?replay=<fixture>` or `/live/demo` = transcript replay. Demo speed: 4× in mock mode (`?speed=` overrides); against the real server it is the server's `REPLAY_SPEED`, mirrored by `VITE_DEMO_REPLAY_SPEED` for the timer and label. After Stop → `/c/:id?diary=1`. |
+| `LiveScreen.tsx` | Consent sheet → top bar (audio-clock timer, recording dot + word, stage), one-line caption strip (interim dimmed), the map (`LiveMap`), bottom bar Flag · Park a thought · Stop, toasts, Pocket mode, "Before you go", mic-denied recovery (WAV file or demo). |
 | `useFlagTrigger.ts` | Button, double F/Space within 400 ms, media keys (`nexttrack`/`play`/`pause` with a silent looping `<audio>`), Pocket-mode double-tap; 1.2 s debounce; `navigator.vibrate(60)`. |
-| `LiveNodeList.tsx` | Accessible ordered list of nodes that follows the newest one, with a "Jump to now" chip. |
+| `LiveMap.tsx` | A3's `<ConversationMap followLatest>` (its own "Jump to now" chip); falls back to `LiveNodeList` in low-stimulation mode, before the first topic, and if the canvas throws. |
+| `LiveNodeList.tsx` | Accessible ordered list of nodes that follows the newest one, with a "Jump to now" chip (the fallback above). |
+| `captions.ts` | One-line caption tail: whole words, leading "…" when cut (plus a CSS fade on the left edge). |
 | `sheets.tsx` | Consent, Park a thought (80 chars), Before you go, mic recovery. |

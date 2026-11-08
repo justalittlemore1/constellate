@@ -12,7 +12,8 @@ import { wsTransport } from './transport';
 
 const log = (event: string, data?: Record<string, unknown>) => console.info(`[live] ${event}`, data ?? '');
 
-export function realDeps(): LiveDeps {
+/** `clockRate`: the server's transcript-replay speed, so the replay timer matches it (mic ignores it). */
+export function realDeps(opts: { clockRate?: number } = {}): LiveDeps {
   return {
     transport: wsTransport(env.serverWsUrl),
     getAuth: async () => {
@@ -40,6 +41,7 @@ export function realDeps(): LiveDeps {
       if (error) throw error;
     },
     now: () => Date.now(),
+    clockRate: opts.clockRate && opts.clockRate > 0 ? opts.clockRate : 1,
     log,
   };
 }
@@ -70,5 +72,5 @@ export function defaultDeps(opts: { speed?: number } = {}): { deps: LiveDeps; di
     const { deps, server } = mockDeps(opts);
     return { deps, dispose: () => server.dispose() };
   }
-  return { deps: realDeps(), dispose: () => undefined };
+  return { deps: realDeps({ clockRate: opts.speed }), dispose: () => undefined };
 }
