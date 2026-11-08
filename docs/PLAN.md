@@ -2,7 +2,7 @@
 
 Written 2026-11-07. Exported from the team plan doc.
 
-> **The repository is the source of truth for contracts.** Where this plan and `packages/shared`, `supabase/migrations` or `AGENTS.md` differ, the code wins. Known refinements made while implementing A0: live batches may not move layout, but `finalize` and `user` batches may; `match_concepts` takes an explicit `p_user` (the server calls it with the service role); `MODELS.interpreter.fast` holds the latency fallback; the demo fixture uses levels 1–2 only (level 0 is reserved for the macro anchor).
+> **The repository is the source of truth for contracts.** Where this plan and `packages/shared`, `supabase/migrations` or `AGENTS.md` differ, the code wins. Known refinements made while implementing A0: live batches may not move layout, but `finalize` and `user` batches may; `match_concepts` takes an explicit `p_user` (the server calls it with the service role); `MODELS.interpreter.fast` holds the latency fallback; the demo fixture uses levels 1–2 only (level 0 is reserved for the macro anchor). **API budget (2026-11-07):** all reasoning runs on Claude; the free Gemini key is used only for live transcription and embeddings; test audio is supplied by the team; finalisation keeps the live transcript when file transcription is unavailable — see AGENTS.md → API budget.
 
 ## Summary and locked decisions
 

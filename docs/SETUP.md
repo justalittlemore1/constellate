@@ -13,13 +13,15 @@ Agents can't create accounts or handle secrets. One human does each block; tick 
 ## 2. Keys and `.env` (H1)
 
 - [ ] `cp .env.example .env` at the repo root on each laptop; fill `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Keep `VITE_USE_MOCKS=1` until the H5 checkpoint.
-- [ ] Use a **billing-enabled** Gemini key for any real recordings (check the Gemini API terms on how content from unpaid tiers may be used).
+- [ ] **Anthropic key:** link the Ultra plan's monthly API credit (claude.ai → Settings → Billing → API credits → Link organization), then create the key in that organization at platform.claude.com.
+- [ ] **Gemini key (free tier):** used only for live transcription (unlimited) and embeddings (1,000/day). Set `INTERPRETER_PROVIDER=anthropic`. Turning on billing for the Gemini project raises every limit and stops unpaid-tier data use; recommended before recording real people.
+- [ ] Optional: a Deepgram key (free credit, no card) for speaker labels on recordings, `DEEPGRAM_API_KEY`.
 - [ ] Never paste keys into an agent chat or commit them.
 
 ## 3. GitHub (H1)
 
 - [ ] **Settings → Secrets and variables → Actions**: add `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `TEST_USER_A_EMAIL`, `TEST_USER_A_PASSWORD`, `TEST_USER_B_EMAIL`, `TEST_USER_B_PASSWORD` (for A5's RLS test).
-- [ ] **Settings → Branches**: protect `main` — require the CI checks and one approval.
+- [ ] **Settings → Branches / Rules**: protect `main` — require a pull request and require both CI checks to pass ("lint · typecheck · unit tests" and "e2e"). Set **required approvals to 0**: agents open PRs under your GitHub login and GitHub won't let an author approve their own PR. Humans still merge only when the Reviewer says "Ready for human approval".
 - [ ] Create the label `contract`.
 - [ ] Install `gh` and log in on each laptop (`gh auth login`) so agents can open PRs.
 

@@ -1,9 +1,9 @@
-# Synthetic audio (git-ignored)
+# Test audio (git-ignored)
 
-`scripts/render-tts.ts` (A2) renders six transcript fixtures to 16 kHz mono WAV here with `MODELS.tts`: one voice per speaker, one clip per utterance, seeded 0.3–1.2 s gaps, and with `--noise` a second copy with steady background noise 20 dB below the speech. It needs `GEMINI_API_KEY`:
+**Supplied by the humans**, shared between laptops through Google Drive, never committed.
 
-```bash
-pnpm tsx --env-file-if-exists=.env scripts/render-tts.ts --noise
-```
+- **Name** each file after the transcript fixture it reads, e.g. `03-return-revisit.wav`, so the STT runner can score it against that script. Other audio (podcast clips) can have any name; it gets latency checks only.
+- **Format:** mono 16 kHz WAV if possible: `ffmpeg -i input.mp3 -ac 1 -ar 16000 output.wav`. Other common formats usually work too.
+- **Sources:** your own recordings of the scripts (most realistic), ElevenLabs renders, or podcast clips (never in the repo or the public demo).
 
-Each `<id>.wav` gets a `<id>.json` sidecar with the script text and every clip's rendered `startMs`/`endMs`. The STT runner (A5) streams the WAVs through the gateway at real time and compares captions against the sidecar (word error rate, time to first final caption). Audio processing is plain TypeScript (`packages/interpreter/src/tts/audio.ts`), so no ffmpeg is needed.
+`scripts/render-tts.ts` can render the scripts with Gemini TTS, but our key allows about 10 TTS requests a day and it makes one call per line, so **don't run it** (AGENTS.md → API budget).
