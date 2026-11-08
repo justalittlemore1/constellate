@@ -18,6 +18,9 @@ import { expect, test } from '@playwright/test';
 const DEMO_CONVERSATION_ID = '8d13b192-38d0-4ba3-a3c8-7834f6573947';
 
 test.describe('Keyboard-only operation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+  });
   test('Home page interactive elements are reachable and indicate focus via Tab key', async ({ page }) => {
     await page.goto('/');
 
@@ -82,23 +85,33 @@ test.describe('Keyboard-only operation', () => {
     const hasSavedPlaceholder = await savedPlaceholder.isVisible().catch(() => false);
     test.fixme(hasSavedPlaceholder, 'Blocked at step 3 by A3: Saved conversation node navigation not yet implemented');
 
-    // Focus the node on the map
-    const node = page.getByRole('button', { name: /Sunday Service/i });
+    // Dismiss Diary sheet if opened (?diary=1)
+    const diarySheet = page.getByRole('dialog', { name: 'Diary' });
+    if (await diarySheet.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await expect(diarySheet).not.toBeVisible();
+    }
+
+    // Focus the node on the map by role and accessible name
+    const node = page.getByRole('button', { name: /^Sunday Service/ });
+    await expect(node).toBeVisible({ timeout: 10_000 });
     await node.focus();
     await page.keyboard.press('Enter');
 
-    // Enter opens preview card; press Enter again or open details for full sheet
-    const openDetailsBtn = page.getByRole('button', { name: /open details/i });
-    if (await openDetailsBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await page.keyboard.press('Enter');
-    }
+    // Preview card opens: aria-label="Preview: …" with "Open details for …" button
+    const preview = page.locator('[aria-label^="Preview:"]');
+    await expect(preview).toBeVisible({ timeout: 5000 });
+    const openDetailsBtn = preview.getByRole('button', { name: /^Open details for/i });
+    await expect(openDetailsBtn).toBeVisible();
+    await openDetailsBtn.focus();
+    await page.keyboard.press('Enter');
 
-    // 4. In detail sheet, verify dialog opens and test Play if audio is available
+    // 4. In detail sheet, verify dialog opens; test Play if available
     const detailSheet = page.getByRole('dialog');
     await expect(detailSheet).toBeVisible();
 
     const playBtn = detailSheet.getByRole('button', { name: /play/i });
-    if (await playBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await playBtn.isVisible().catch(() => false)) {
       await playBtn.focus();
       await page.keyboard.press('Space');
       await expect(playBtn).toHaveAttribute('aria-pressed', 'true');
@@ -112,11 +125,14 @@ test.describe('Keyboard-only operation', () => {
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A3 + A4: Sheets and dialogs not yet present at /c/:id');
 
-    // Once dialog exists:
+    // Open diary sheet via header button
+    const diaryBtn = page.getByRole('button', { name: /open diary/i });
+    await expect(diaryBtn).toBeVisible({ timeout: 10_000 });
+    await diaryBtn.click();
+
     const dialog = page.getByRole('dialog');
-    if (await dialog.isVisible().catch(() => false)) {
-      await page.keyboard.press('Escape');
-      await expect(dialog).not.toBeVisible();
-    }
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
   });
 });

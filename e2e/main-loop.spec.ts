@@ -12,8 +12,12 @@ import { expect, test } from '@playwright/test';
  */
 
 const DEMO_CONVERSATION_ID = '8d13b192-38d0-4ba3-a3c8-7834f6573947';
+const SUNDAY_SERVICE_ID = 'ab5b0bba-dced-43d8-a220-6db0ca3f2e47';
 
 test.describe('Main loop: Mock mode E2E', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+  });
   test('Step 1: Sign in (mock mode bypass / credentials)', async ({ page }) => {
     await page.goto('/login');
 
@@ -115,8 +119,8 @@ test.describe('Main loop: Mock mode E2E', () => {
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
-    // Once A3 ConversationMap renders:
-    await expect(page.getByText(/Sunday Service/i)).toBeVisible();
+    // On A3 SavedMap, node button is accessible via its role and accessible name
+    await expect(page.getByRole('button', { name: /^Sunday Service/ })).toBeVisible({ timeout: 10_000 });
   });
 
   test('Step 7: Open node preview and detail sheet with audio playback', async ({ page }) => {
@@ -126,20 +130,24 @@ test.describe('Main loop: Mock mode E2E', () => {
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
-    const node = page.getByText(/Sunday Service/i);
+    const node = page.getByRole('button', { name: /^Sunday Service/ });
+    await expect(node).toBeVisible({ timeout: 10_000 });
     await node.click();
 
-    // Node preview card opens first; click to open full detail sheet
-    const previewCard = page.locator('[data-testid="preview-card"]');
-    if (await previewCard.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await previewCard.getByRole('button', { name: /open details/i }).click();
-    }
+    // Node preview card: aria-label="Preview: …" with "Open details for …" button
+    const preview = page.locator('[aria-label^="Preview:"]');
+    await expect(preview).toBeVisible({ timeout: 5000 });
+    const openDetailsBtn = preview.getByRole('button', { name: /^Open details for/i });
+    await openDetailsBtn.click();
 
     const detailSheet = page.getByRole('dialog');
     await expect(detailSheet).toBeVisible();
+
+    // In mock mode, no recording is available so Play is omitted; if present, verify it
     const playBtn = detailSheet.getByRole('button', { name: /play/i });
-    if (await playBtn.isVisible({ timeout: 1000 }).catch(() => false)) {
-      await expect(playBtn).toBeVisible();
+    if (await playBtn.isVisible().catch(() => false)) {
+      await playBtn.click();
+      await expect(page.getByText(/no recording is available/i)).toBeVisible();
     }
   });
 
@@ -150,23 +158,44 @@ test.describe('Main loop: Mock mode E2E', () => {
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
-    const node = page.getByText(/Sunday Service/i);
+    const node = page.getByRole('button', { name: /^Sunday Service/ });
+    await expect(node).toBeVisible({ timeout: 10_000 });
     await node.click();
 
-    // If preview card opened, open details
-    const previewCard = page.locator('[data-testid="preview-card"]');
-    if (await previewCard.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await previewCard.getByRole('button', { name: /open details/i }).click();
-    }
+    // Open detail sheet from preview card
+    const preview = page.locator('[aria-label^="Preview:"]');
+    await expect(preview).toBeVisible({ timeout: 5000 });
+    await preview.getByRole('button', { name: /^Open details for/i }).click();
 
-    const highlightButton = page.getByRole('button', { name: /^(highlight|remove highlight|toggle highlight)/i }).first();
-    const hasHighlight = await highlightButton.isVisible().catch(() => false);
-    test.fixme(!hasHighlight, 'Owned by A3: Node highlighter not yet implemented');
+    const detailSheet = page.getByRole('dialog');
+    await expect(detailSheet).toBeVisible();
 
+    const highlightButton = detailSheet.getByRole('button', { name: /^Highlight$/i });
+    await expect(highlightButton).toBeVisible();
     await highlightButton.click();
 
-    await page.reload();
-    await expect(page.locator('[data-highlighted="true"], [data-testid="highlight-ring"]')).toBeVisible();
+    // Detail-sheet Highlight button now has aria-pressed="true"
+    const removeHighlightButton = detailSheet.getByRole('button', { name: /^Remove highlight$/i });
+    await expect(removeHighlightButton).toBeVisible();
+    await expect(removeHighlightButton).toHaveAttribute('aria-pressed', 'true');
+
+    // And target the specific node we highlighted
+    await expect(
+      page.locator(
+        `[data-id="${SUNDAY_SERVICE_ID}"] [data-highlighted="true"], [data-testid="map-node-${SUNDAY_SERVICE_ID}"][data-highlighted="true"]`,
+      ),
+    ).toBeVisible();
+
+    // Toggling off restores the state
+    await removeHighlightButton.click();
+    const restoredHighlightButton = detailSheet.getByRole('button', { name: /^Highlight$/i });
+    await expect(restoredHighlightButton).toBeVisible();
+    await expect(restoredHighlightButton).toHaveAttribute('aria-pressed', 'false');
+    await expect(
+      page.locator(
+        `[data-id="${SUNDAY_SERVICE_ID}"] [data-highlighted="true"], [data-testid="map-node-${SUNDAY_SERVICE_ID}"][data-highlighted="true"]`,
+      ),
+    ).not.toBeVisible();
   });
 
   test('Step 9: Brain galaxy renders merged concepts', async ({ page }) => {
@@ -228,6 +257,13 @@ test.describe('Main loop: Mock mode E2E', () => {
     }
     await page.waitForURL(/\/c\//, { timeout: 15_000 });
 
+    // Dismiss Diary sheet if opened (?diary=1) so the map behind it is interactive
+    if (page.url().includes('diary')) {
+      const diaryCloseBtn = page.getByRole('dialog', { name: 'Diary' }).getByRole('button', { name: 'Close' });
+      await diaryCloseBtn.click({ timeout: 10_000 });
+      await expect(page.getByRole('dialog', { name: 'Diary' })).not.toBeVisible();
+    }
+
     // 6 & 7. Open node in saved conversation
     const isSavedPlaceholder = await page
       .getByText(/Placeholder — built by A3 \+ A4/i)
@@ -236,22 +272,32 @@ test.describe('Main loop: Mock mode E2E', () => {
       .catch(() => false);
     test.fixme(isSavedPlaceholder, 'Owned by A3 + A4: /c/:id saved conversation view not yet implemented');
 
-    await page.getByText(/Sunday Service/i).click();
+    const savedNode = page.getByRole('button', { name: /^Sunday Service/ });
+    await expect(savedNode).toBeVisible({ timeout: 10_000 });
+    await savedNode.click();
 
-    // Node preview card opens first; click to open full detail sheet
-    const preview = page.locator('[data-testid="preview-card"]');
-    if (await preview.isVisible({ timeout: 1500 }).catch(() => false)) {
-      await preview.getByRole('button', { name: /open details/i }).click();
-    }
+    // Node preview card: aria-label="Preview: …" with "Open details for …" button
+    const preview = page.locator('[aria-label^="Preview:"]');
+    await expect(preview).toBeVisible({ timeout: 5000 });
+    await preview.getByRole('button', { name: /^Open details for/i }).click();
 
     const detail = page.getByRole('dialog');
     await expect(detail).toBeVisible();
 
     // 8. Highlight
-    const highlightBtn = page.getByRole('button', { name: /^(highlight|remove highlight|toggle highlight)/i }).first();
-    const hasHighlight = await highlightBtn.isVisible().catch(() => false);
-    test.fixme(!hasHighlight, 'Owned by A3: Node highlighter not yet implemented');
+    const highlightBtn = detail.getByRole('button', { name: /^Highlight$/i });
+    await expect(highlightBtn).toBeVisible();
     await highlightBtn.click();
+
+    // Verify detail-sheet Highlight button has aria-pressed="true" and Sunday Service node is highlighted
+    const removeHighlightBtn = detail.getByRole('button', { name: /^Remove highlight$/i });
+    await expect(removeHighlightBtn).toBeVisible();
+    await expect(removeHighlightBtn).toHaveAttribute('aria-pressed', 'true');
+    await expect(
+      page.locator(
+        `[data-id="${SUNDAY_SERVICE_ID}"] [data-highlighted="true"], [data-testid="map-node-${SUNDAY_SERVICE_ID}"][data-highlighted="true"]`,
+      ),
+    ).toBeVisible();
 
     // 9. Open Brain
     await page.goto('/brain');
