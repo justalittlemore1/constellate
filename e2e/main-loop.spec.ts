@@ -55,6 +55,12 @@ test.describe('Main loop: Mock mode E2E', () => {
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A6 + A3: /live/:id screen and map canvas not yet mounted');
 
+    // Consent sheet (A6): accept demo or live recording if presented
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await consentBtn.click();
+    }
+
     // Expected once A6 (mock replay) and A3 (map canvas) deliver:
     const node = page.getByText(/Sunday Service/i);
     await expect(node).toBeVisible({ timeout: 10_000 });
@@ -63,7 +69,17 @@ test.describe('Main loop: Mock mode E2E', () => {
   test('Step 4: Flag a key moment during live recording', async ({ page }) => {
     await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
 
-    const flagButton = page.getByRole('button', { name: /flag/i });
+    const placeholder = page.getByText(/Placeholder — built by A6 \+ A3/i);
+    const hasPlaceholder = await placeholder.isVisible().catch(() => false);
+    test.fixme(hasPlaceholder, 'Owned by A6 + A3: /live/:id screen and map canvas not yet mounted');
+
+    // Consent sheet (A6): accept demo or live recording if presented
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await consentBtn.click();
+    }
+
+    const flagButton = page.getByRole('button', { name: 'Flag', exact: true });
     const hasFlagBtn = await flagButton.isVisible().catch(() => false);
     test.fixme(!hasFlagBtn, 'Owned by A6: Flag button / useFlagTrigger not yet implemented in live screen');
 
@@ -74,7 +90,17 @@ test.describe('Main loop: Mock mode E2E', () => {
   test('Step 5: Stop recording and see summary before exit', async ({ page }) => {
     await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
 
-    const stopButton = page.getByRole('button', { name: /stop/i });
+    const placeholder = page.getByText(/Placeholder — built by A6 \+ A3/i);
+    const hasPlaceholder = await placeholder.isVisible().catch(() => false);
+    test.fixme(hasPlaceholder, 'Owned by A6 + A3: /live/:id screen and map canvas not yet mounted');
+
+    // Consent sheet (A6): accept demo or live recording if presented
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await consentBtn.click();
+    }
+
+    const stopButton = page.getByRole('button', { name: 'Stop', exact: true });
     const hasStopBtn = await stopButton.isVisible().catch(() => false);
     test.fixme(!hasStopBtn, 'Owned by A6: Stop recording and Before you go banner not yet implemented');
 
@@ -155,23 +181,38 @@ test.describe('Main loop: Mock mode E2E', () => {
       .catch(() => false);
 
     const isLivePlaceholder = await page.getByText(/Live map/i).isVisible().catch(() => false);
-    const hasStopBtn = await page.getByRole('button', { name: /stop/i }).isVisible().catch(() => false);
+    const hasLiveScreen = await page.locator('[data-testid="live-screen"]').isVisible().catch(() => false);
+    const hasConsent = await page.getByRole('button', { name: /(start the demo|everyone agrees)/i }).isVisible().catch(() => false);
+    const hasStop = await page.getByRole('button', { name: 'Stop', exact: true }).isVisible().catch(() => false);
+
     test.fixme(
-      !navigatedToLive || isLivePlaceholder || !hasStopBtn,
+      !navigatedToLive || isLivePlaceholder || (!hasLiveScreen && !hasConsent && !hasStop),
       'Blocked by A6 + A3: Live screen / map canvas still a placeholder',
     );
+
+    // Consent sheet (A6): accept demo or live recording if presented
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await consentBtn.click();
+    }
 
     // 3. Live nodes appear
     const firstNode = page.getByText(/Sunday Service/i);
     await expect(firstNode).toBeVisible({ timeout: 10_000 });
 
     // 4. Flag moment
-    const flagBtn = page.getByRole('button', { name: /flag/i });
+    const flagBtn = page.getByRole('button', { name: 'Flag', exact: true });
     await flagBtn.click();
 
     // 5. Stop recording
-    const stopBtn = page.getByRole('button', { name: /stop/i });
+    const stopBtn = page.getByRole('button', { name: 'Stop', exact: true });
     await stopBtn.click();
+
+    // Dismiss Before you go sheet if shown, or wait for navigation
+    const openMapBtn = page.getByRole('button', { name: /open the map|leave/i });
+    if (await openMapBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await openMapBtn.click();
+    }
     await page.waitForURL(/\/c\//, { timeout: 5000 });
 
     // 6 & 7. Open node in saved conversation
