@@ -17,6 +17,7 @@ export interface CandidateConcept {
 
 export interface MergeNode {
   id: string;
+  level: number;
   label: string;
   summary: string;
   candidates: CandidateConcept[];
@@ -24,17 +25,20 @@ export interface MergeNode {
 
 export interface MergeRequest {
   conversationTitle: string;
+  /** ISO date */
+  conversationDate?: string;
+  conversationSummary?: string | null;
   nodes: MergeNode[];
 }
 
 export const DEFAULT_MERGE_SYSTEM = `You maintain a personal map of concepts discussed across many conversations.
-For each topic from one new conversation, decide whether it is the SAME concept as one of its candidate concepts, or a NEW concept.
-Similar is not the same: "Existentialism" and "Personal Philosophy" are different concepts; "Java" the language and "Java" the island are different concepts. Choose same_as only when the topic is genuinely the same subject, and only from that topic's own candidates.
-For a new concept, give a short name (1-4 words, Title Case) and a one-sentence description of the subject itself, never of the people talking. You may say it is broader_than or narrower_than one of the topic's candidates.
+For each topic node from one new conversation, decide whether it is the SAME concept as one of its candidate concepts, or a NEW concept.
+Similar is not the same: "Existentialism" and "Personal Philosophy" are different concepts; "Java" the language and "Java" the island are different concepts. Choose same_as only when the node is genuinely the same subject, and only from that node's own candidates.
+For a new concept, give a short name (1-4 words, Title Case) and a one-sentence description of the subject itself, never of the people talking. It may be broader_than or narrower_than one of the node's candidates.
 Never describe or infer traits of participants (health, religion, politics); name topics only.
-Return exactly one decision per topic, using the topic ids given.`;
+Return exactly one decision per node. Use only node ids and concept ids from the input.`;
 
-/** Loads A2's prompt if present, else the default. */
+/** Loads A2's prompt (`packages/brain/prompts/merge.md`) if present, else the default. */
 export async function loadMergeSystemPrompt(): Promise<string> {
   try {
     const text = await readFile(new URL('../prompts/merge.md', import.meta.url), 'utf8');
@@ -44,14 +48,46 @@ export async function loadMergeSystemPrompt(): Promise<string> {
   }
 }
 
+/**
+ * Short ids for the prompt (`n1…` for nodes in request order, `c1…` for concepts in order of first
+ * appearance), so the model never copies a UUID. Deterministic from the request.
+ */
+export function mergeAliases(req: MergeRequest): { node: Map<string, string>; concept: Map<string, string> } {
+  const node = new Map<string, string>();
+  const concept = new Map<string, string>();
+  const conceptAlias = new Map<string, string>();
+  req.nodes.forEach((n, i) => {
+    node.set(`n${i + 1}`, n.id);
+    for (const c of n.candidates) {
+      if (!conceptAlias.has(c.id)) {
+        const a = `c${conceptAlias.size + 1}`;
+        conceptAlias.set(c.id, a);
+        concept.set(a, c.id);
+      }
+    }
+  });
+  return { node, concept };
+}
+
+const oneLine = (s: string | null | undefined) => (s ?? '').replace(/\s+/g, ' ').replace(/\|/g, '/').trim();
+
+/** The input format described in A2's prompt: CONVERSATION, then NODES with their candidates. */
 export function buildMergeUserMessage(req: MergeRequest): string {
-  const lines = [`Conversation: ${req.conversationTitle}`, '', 'Topics:'];
+  const { node, concept } = mergeAliases(req);
+  const aliasOfConcept = new Map([...concept].map(([a, id]) => [id, a]));
+  const aliasOfNode = new Map([...node].map(([a, id]) => [id, a]));
+  const lines = [
+    'CONVERSATION',
+    `${oneLine(req.conversationTitle)} | ${req.conversationDate?.slice(0, 10) ?? 'unknown date'} | ${oneLine(req.conversationSummary) || 'no summary'}`,
+    '',
+    'NODES',
+  ];
   for (const n of req.nodes) {
-    lines.push(`- topic ${n.id}: ${n.label} — ${n.summary || '(no summary)'}`);
-    if (!n.candidates.length) lines.push('  candidates: none (must be a new concept)');
+    lines.push(`${aliasOfNode.get(n.id)} | L${n.level} | ${oneLine(n.label)} | ${oneLine(n.summary) || 'no summary'}`);
+    if (!n.candidates.length) lines.push('  (no candidates: must be a new concept)');
     for (const c of n.candidates) {
       lines.push(
-        `  candidate ${c.id}: ${c.name}${c.description ? ` — ${c.description}` : ''} (similarity ${c.similarity.toFixed(2)})`,
+        `  ${aliasOfConcept.get(c.id)} | ${oneLine(c.name)} | ${oneLine(c.description) || 'no description'} | similarity ${c.similarity.toFixed(2)}`,
       );
     }
   }
@@ -60,7 +96,7 @@ export function buildMergeUserMessage(req: MergeRequest): string {
 
 const nullableString = { anyOf: [{ type: 'string' }, { type: 'null' }] };
 
-/** JSON schema for structured output (`output_config.format`). */
+/** JSON schema for structured output (`output_config.format`), field names as in A2's prompt. */
 export const MERGE_RESPONSE_JSON_SCHEMA = {
   type: 'object',
   additionalProperties: false,
@@ -71,9 +107,9 @@ export const MERGE_RESPONSE_JSON_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['node_id', 'same_as', 'new_concept'],
+        required: ['node', 'same_as', 'new_concept'],
         properties: {
-          node_id: { type: 'string' },
+          node: { type: 'string' },
           same_as: nullableString,
           new_concept: {
             anyOf: [
@@ -81,12 +117,13 @@ export const MERGE_RESPONSE_JSON_SCHEMA = {
               {
                 type: 'object',
                 additionalProperties: false,
-                required: ['name', 'description', 'broader_than', 'narrower_than'],
+                required: ['name', 'description', 'broader_than', 'narrower_than', 'related_to'],
                 properties: {
                   name: { type: 'string' },
                   description: { type: 'string' },
                   broader_than: nullableString,
                   narrower_than: nullableString,
+                  related_to: { type: 'array', items: { type: 'string' } },
                 },
               },
             ],
@@ -100,16 +137,18 @@ export const MERGE_RESPONSE_JSON_SCHEMA = {
 export const MergeResponseSchema = z.object({
   decisions: z.array(
     z.object({
-      node_id: z.string(),
-      same_as: z.string().nullable(),
+      node: z.string(),
+      same_as: z.string().nullable().optional(),
       new_concept: z
         .object({
           name: z.string(),
           description: z.string(),
-          broader_than: z.string().nullable(),
-          narrower_than: z.string().nullable(),
+          broader_than: z.string().nullable().optional(),
+          narrower_than: z.string().nullable().optional(),
+          related_to: z.array(z.string()).optional(),
         })
-        .nullable(),
+        .nullable()
+        .optional(),
     }),
   ),
 });
@@ -128,20 +167,26 @@ export function fallbackDecision(n: MergeNode): MergeDecision {
  * model skipped or answered invalidly get a fallback new concept. Exactly one decision per node.
  */
 export function normalizeDecisions(raw: MergeResponse, req: MergeRequest): MergeDecision[] {
-  const byNode = new Map(raw.decisions.map((d) => [d.node_id, d]));
+  const aliases = mergeAliases(req);
+  const realNode = (v: string) => aliases.node.get(v) ?? v;
+  const realConcept = (v: string | null | undefined) => (v ? (aliases.concept.get(v) ?? v) : null);
+  const byNode = new Map(raw.decisions.map((d) => [realNode(d.node), d]));
   return req.nodes.map((n) => {
     const d = byNode.get(n.id);
     const candidateIds = new Set(n.candidates.map((c) => c.id));
-    if (d?.same_as && candidateIds.has(d.same_as)) return { nodeId: n.id, sameAs: d.same_as };
-    if (d?.new_concept && d.new_concept.name.trim()) {
-      const nc = d.new_concept;
+    const sameAs = realConcept(d?.same_as);
+    if (sameAs && candidateIds.has(sameAs)) return { nodeId: n.id, sameAs };
+    const nc = d?.new_concept;
+    if (nc && nc.name.trim()) {
+      const broader = realConcept(nc.broader_than);
+      const narrower = realConcept(nc.narrower_than);
       return {
         nodeId: n.id,
         newConcept: {
           name: titleWords(nc.name),
-          description: nc.description.trim() || n.summary || n.label,
-          ...(nc.broader_than && candidateIds.has(nc.broader_than) ? { broaderThan: nc.broader_than } : {}),
-          ...(nc.narrower_than && candidateIds.has(nc.narrower_than) ? { narrowerThan: nc.narrower_than } : {}),
+          description: (nc.description.trim() || n.summary || n.label).slice(0, 140),
+          ...(broader && candidateIds.has(broader) ? { broaderThan: broader } : {}),
+          ...(narrower && candidateIds.has(narrower) ? { narrowerThan: narrower } : {}),
         },
       };
     }

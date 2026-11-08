@@ -14,44 +14,83 @@ const req: MergeRequest = {
   nodes: [
     {
       id: 'n1',
+      level: 1,
       label: 'Existentialism',
       summary: 'Sartre and freedom.',
       candidates: [{ id: 'c1', name: 'Existentialism', description: null, similarity: 0.95 }],
     },
     {
       id: 'n2',
+      level: 2,
       label: 'Java Island Trip',
       summary: 'Travel plans to Java.',
       candidates: [{ id: 'c2', name: 'Java Programming', description: 'The language', similarity: 0.8 }],
     },
-    { id: 'n3', label: 'Morning Runs', summary: 'Running before work.', candidates: [] },
+    { id: 'n3', level: 1, label: 'Morning Runs', summary: 'Running before work.', candidates: [] },
   ],
 };
 
 describe('merge decisions', () => {
-  it('keeps valid answers and repairs invalid ones, one decision per node', () => {
+  it('maps short ids back, keeps valid answers and repairs invalid ones, one decision per node', () => {
+    // aliases: n1/n2/n3 → n1/n2/n3 ids; c1 → 'c1' (first candidate seen), c2 → 'c2'
     const raw = MergeResponseSchema.parse({
       decisions: [
-        { node_id: 'n1', same_as: 'c1', new_concept: null },
+        { node: 'n1', same_as: 'c1', new_concept: null },
         // same_as outside this node's candidates → rejected, falls back to its new concept
         {
-          node_id: 'n2',
+          node: 'n2',
           same_as: 'c1',
           new_concept: {
             name: 'Java (Island) Travel Plans Indonesia',
             description: 'Travel to Java.',
             broader_than: null,
             narrower_than: 'c9',
+            related_to: [],
           },
         },
-        // n3 skipped by the model
-        { node_id: 'ghost', same_as: 'c1', new_concept: null },
+        // n3 skipped by the model; unknown node ignored
+        { node: 'ghost', same_as: 'c1', new_concept: null },
       ],
     });
     expect(normalizeDecisions(raw, req)).toEqual([
       { nodeId: 'n1', sameAs: 'c1' },
       { nodeId: 'n2', newConcept: { name: 'Java (Island) Travel Plans', description: 'Travel to Java.' } },
       { nodeId: 'n3', newConcept: { name: 'Morning Runs', description: 'Running before work.' } },
+    ]);
+  });
+
+  it('never shows UUIDs to the model and translates aliases back', () => {
+    const uuidReq: MergeRequest = {
+      conversationTitle: 'Run | club',
+      conversationDate: '2026-11-07T20:00:00.000Z',
+      nodes: [
+        {
+          id: '11111111-1111-4111-8111-111111111111',
+          level: 1,
+          label: 'Jogging',
+          summary: 'Morning jogs.',
+          candidates: [
+            {
+              id: '22222222-2222-4222-8222-222222222222',
+              name: 'Running',
+              description: 'Going for runs',
+              similarity: 0.88,
+            },
+          ],
+        },
+      ],
+    };
+    const msg = buildMergeUserMessage(uuidReq);
+    expect(msg).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    expect(msg).toContain('n1 | L1 | Jogging | Morning jogs.');
+    expect(msg).toContain('  c1 | Running | Going for runs | similarity 0.88');
+    expect(msg).toContain('Run / club | 2026-11-07');
+    const decisions = normalizeDecisions(
+      MergeResponseSchema.parse({ decisions: [{ node: 'n1', same_as: 'c1', new_concept: null }] }),
+      uuidReq,
+    );
+    expect(decisions).toEqual([
+      { nodeId: '11111111-1111-4111-8111-111111111111', sameAs: '22222222-2222-4222-8222-222222222222' },
     ]);
   });
 
@@ -65,14 +104,10 @@ describe('merge decisions', () => {
 
   it('the user message lists every topic and candidate id; the schema is strict', () => {
     const msg = buildMergeUserMessage(req);
-    for (const id of ['n1', 'n2', 'n3', 'c1', 'c2']) expect(msg).toContain(id);
-    expect(msg).toContain('none (must be a new concept)');
+    for (const id of ['n1 |', 'n2 |', 'n3 |', 'c1 |', 'c2 |']) expect(msg).toContain(id);
+    expect(msg).toContain('no candidates: must be a new concept');
     expect(MERGE_RESPONSE_JSON_SCHEMA.additionalProperties).toBe(false);
-    expect(MERGE_RESPONSE_JSON_SCHEMA.properties.decisions.items.required).toEqual([
-      'node_id',
-      'same_as',
-      'new_concept',
-    ]);
+    expect(MERGE_RESPONSE_JSON_SCHEMA.properties.decisions.items.required).toEqual(['node', 'same_as', 'new_concept']);
   });
 });
 

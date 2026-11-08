@@ -76,11 +76,17 @@ async function doRebuild(deps: BrainDeps, userId: string): Promise<RebuildResult
     await ensureEmbeddings(deps, nodes);
 
     const byId = new Map(concepts.map((c) => [c.id, c]));
-    const req: MergeRequest = { conversationTitle: conv.conversation.title, nodes: [] };
+    const req: MergeRequest = {
+      conversationTitle: conv.conversation.title,
+      conversationDate: conv.conversation.startedAt,
+      conversationSummary: conv.conversation.summary,
+      nodes: [],
+    };
     for (const n of nodes) {
       const matches = n.embedding ? await store.matchConcepts(userId, n.embedding, BRAIN.conceptCandidateK) : [];
       req.nodes.push({
         id: n.id,
+        level: n.level,
         label: n.label,
         summary: n.summary,
         candidates: matches
