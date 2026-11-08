@@ -38,7 +38,7 @@ export function HomeScreen() {
               aria-describedby={showHint ? 'orb-hint' : undefined}
               onClick={() => navigate(routes.newLive())}
               className={cx(
-                'flex size-32 items-center justify-center rounded-full border border-topic/50 bg-topic/10 text-topic hover:bg-topic/20',
+                'hover-wash flex size-32 items-center justify-center rounded-full border border-topic/50 bg-topic/10 text-topic',
                 uiFlag('homeOrbPulse') ? 'orb' : 'orb-still',
               )}
             >
@@ -50,7 +50,7 @@ export function HomeScreen() {
               aria-label="Start a conversation"
               aria-describedby={showHint ? 'orb-hint' : undefined}
               onClick={() => navigate(routes.newLive())}
-              className="flex size-36 items-center justify-center rounded-full"
+              className="hover-wash flex size-36 items-center justify-center rounded-full"
             >
               <RecordStar still={reduced} className="size-36" />
             </button>

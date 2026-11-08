@@ -1,6 +1,6 @@
 import type { Conversation } from '@constellate/shared';
 import { Check, FolderPlus, MoreHorizontal, Pencil, Settings, Sparkles, Star, Trash2, X } from 'lucide-react';
-import { useId, useMemo, useState, type FormEvent } from 'react';
+import { createContext, useCallback, useContext, useId, useMemo, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { Folder } from '../../lib/api';
 import { formatDate, formatDuration } from '../../lib/format';
@@ -21,8 +21,18 @@ export const SIDEBAR_TITLE = 'Constellate';
  * Generate Brain button, search, the Settings row, folders, the "Recent conversations" header,
  * Solo / Group tags and the per-row ⋯ menu.
  */
+/** Close the sidebar, then navigate; the new screen focuses its heading (`ScreenHeader`). */
+const SidebarGo = createContext<(to: string) => void>(() => {});
+
 export function LibraryDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const navigate = useNavigate();
+  const go = useCallback(
+    (to: string) => {
+      onClose();
+      navigate(to, { state: { focusHeading: true } });
+    },
+    [onClose, navigate],
+  );
   return (
     <Sheet
       open={open}
@@ -43,7 +53,9 @@ export function LibraryDrawer({ open, onClose }: { open: boolean; onClose: () =>
         ) : undefined
       }
     >
-      <LibraryContent />
+      <SidebarGo.Provider value={go}>
+        <LibraryContent />
+      </SidebarGo.Provider>
     </Sheet>
   );
 }
@@ -134,29 +146,47 @@ function LibraryContent() {
       {/* bottom of the sidebar: Brain (navigates only) and a minimal Settings link, which keeps
           "Delete my data" one tap away (privacy baseline) */}
       <nav aria-label="More" className="mt-auto flex flex-col pt-4">
-        <Link
+        <SidebarLink
           to={routes.brain}
-          className="flex min-h-11 items-center border-y border-line text-lg font-semibold tracking-[0.14em] uppercase hover:text-thread"
+          className="hover-wash flex min-h-11 items-center border-y border-line px-2 text-lg font-semibold tracking-[0.14em] uppercase"
         >
           Brain
-        </Link>
-        <Link
+        </SidebarLink>
+        <SidebarLink
           to={routes.settings}
-          className="mt-3 inline-flex min-h-11 items-center self-start text-sm text-ink-2 hover:text-ink"
+          className="hover-wash mt-3 inline-flex min-h-11 items-center self-start px-2 text-sm text-ink-2"
         >
           Settings
-        </Link>
+        </SidebarLink>
       </nav>
     </div>
   );
 }
 
+/** A sidebar destination: a real link (href, middle-click) that closes the sidebar before navigating. */
+function SidebarLink({ to, className, children }: { to: string; className?: string; children: React.ReactNode }) {
+  const go = useContext(SidebarGo);
+  return (
+    <Link
+      to={to}
+      className={className}
+      onClick={(e) => {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        e.preventDefault();
+        go(to);
+      }}
+    >
+      {children}
+    </Link>
+  );
+}
+
 function DrawerLink({ to, icon, children }: { to: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Link to={to} className="flex min-h-11 items-center gap-3 px-2 hover:bg-white/5">
+    <SidebarLink to={to} className="hover-wash flex min-h-11 items-center gap-3 px-2">
       {icon}
       <span className="font-semibold">{children}</span>
-    </Link>
+    </SidebarLink>
   );
 }
 
@@ -281,8 +311,8 @@ function FilterButton({
       aria-pressed={pressed}
       onClick={onClick}
       className={cx(
-        'flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left',
-        pressed ? 'bg-topic/15 font-semibold text-topic' : 'hover:bg-white/5',
+        'hover-wash flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2 text-left',
+        pressed ? 'bg-topic/15 font-semibold text-topic' : '',
       )}
     >
       {children}
@@ -341,7 +371,7 @@ function ConversationRow({ conversation: c, folders }: { conversation: Conversat
   return (
     <li>
       <div className="flex items-center gap-1">
-        <Link to={routes.conversation(c.id)} className="min-h-11 min-w-0 flex-1 py-2">
+        <SidebarLink to={routes.conversation(c.id)} className="hover-wash min-h-11 min-w-0 flex-1 px-2 py-2">
           <span className="block truncate font-semibold">{c.title}</span>
           <span className="flex items-center gap-2 text-xs text-ink-2">
             {formatDate(c.startedAt)} · {formatDuration(c.durationMs)}
@@ -354,7 +384,7 @@ function ConversationRow({ conversation: c, folders }: { conversation: Conversat
               </Chip>
             )}
           </span>
-        </Link>
+        </SidebarLink>
         <IconButton
           label={`Star ${c.title}`}
           aria-pressed={c.isFavorite}

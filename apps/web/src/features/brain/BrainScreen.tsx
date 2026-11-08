@@ -201,8 +201,8 @@ function ViewButton({
       aria-pressed={pressed}
       onClick={onClick}
       className={cx(
-        'inline-flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold',
-        pressed ? 'bg-topic/20 text-topic' : 'text-ink-2 hover:text-ink',
+        'hover-wash inline-flex min-h-11 items-center gap-1.5 px-4 text-sm font-semibold',
+        pressed ? 'bg-topic/20 text-topic' : 'text-ink-2',
       )}
     >
       {icon}
@@ -266,7 +266,7 @@ function ConceptButton({
     <button
       type="button"
       onClick={() => onSelect(c.id)}
-      className="flex min-h-11 w-full items-center justify-between gap-3 py-3 text-left hover:text-thread"
+      className="hover-wash flex min-h-11 w-full items-center justify-between gap-3 py-3 text-left"
     >
       <span className="min-w-0">
         <span className="block truncate font-semibold">{c.name}</span>
@@ -325,7 +325,7 @@ function ConceptSearch({ onSelect }: { onSelect: (id: string) => void }) {
                   <button
                     type="button"
                     onClick={() => onSelect(r.id)}
-                    className="min-h-11 border border-topic/50 px-3 text-sm font-semibold text-topic"
+                    className="hover-wash min-h-11 border border-topic/50 px-3 text-sm font-semibold text-topic"
                   >
                     {r.name}
                   </button>

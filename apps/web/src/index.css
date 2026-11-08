@@ -12,8 +12,8 @@
   --color-highlight: var(--highlight);
   --color-flag: var(--flag);
   --font-sans: var(--font);
-  /* Cormorant runs small: every step ~1–2 px larger than Tailwind's defaults */
-  --text-xs: 0.8125rem; /* 13 px */
+  /* nothing below 14 px: the smallest step is 14 px, body 17 px */
+  --text-xs: 0.875rem; /* 14 px */
   --text-xs--line-height: 1.35;
   --text-sm: 0.9375rem; /* 15 px */
   --text-sm--line-height: 1.4;
@@ -39,8 +39,10 @@ body,
 }
 
 body {
-  font-size: 1.0625rem; /* 17 px body at 100 % (Cormorant reads ~2 px smaller than Inter) */
+  font-size: 1.0625rem; /* 17 px body at 100 % */
   font-weight: 400;
+  /* Fraunces is variable on the optical-size axis: small text gets sturdier, larger text finer */
+  font-optical-sizing: auto;
 }
 
 @layer base {
@@ -78,6 +80,22 @@ body {
   .star-frame::after {
     right: 0;
     border-right: 1px solid var(--frame-line);
+  }
+
+  /* ── the one hover / press effect (A3 and A6: add `hover-wash`) ──
+     a grey wash layered over whatever background the control has (so filled buttons keep their
+     colour): on hover where a mouse can hover, on press for touch. The keyboard focus ring is
+     the separate :focus-visible outline. */
+  .hover-wash {
+    transition: background-image 120ms ease-out;
+  }
+  @media (hover: hover) {
+    .hover-wash:hover {
+      background-image: linear-gradient(var(--fill-ghost-hover), var(--fill-ghost-hover));
+    }
+  }
+  .hover-wash:active {
+    background-image: linear-gradient(var(--fill-ghost-hover), var(--fill-ghost-hover));
   }
 
   /* hairline list rows (sidebar, Highlights, concept lists) */

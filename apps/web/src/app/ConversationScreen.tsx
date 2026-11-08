@@ -24,7 +24,7 @@ export function ConversationScreen() {
         <ScreenHeader title="Conversation" />
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
           <p role="alert">We couldn’t open this conversation. It may have been deleted.</p>
-          <Link to="/" className="inline-flex min-h-11 items-center text-topic underline">
+          <Link to="/" className="hover-wash inline-flex min-h-11 items-center px-2 text-topic underline">
             Go home
           </Link>
         </div>

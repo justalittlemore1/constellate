@@ -39,10 +39,7 @@ export function FavoritesScreen() {
         >
           {favourites.map((c) => (
             <li key={c.id}>
-              <Link
-                to={routes.conversation(c.id)}
-                className="flex min-h-11 flex-col justify-center py-2 hover:text-thread"
-              >
+              <Link to={routes.conversation(c.id)} className="hover-wash flex min-h-11 flex-col justify-center py-2">
                 <span className="font-semibold">{c.title}</span>
                 <span className="text-xs text-ink-2">{formatDate(c.startedAt)}</span>
               </Link>
@@ -132,7 +129,7 @@ function MomentRow({ moment: m }: { moment: FavoriteMoment }) {
       <Link
         to={routes.conversation(m.conversationId, { node: m.nodeId ?? undefined, at: m.atMs })}
         aria-label={`Open ${m.label} in the map`}
-        className="inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink hover:bg-white/10"
+        className="hover-wash inline-flex size-11 shrink-0 items-center justify-center rounded-full text-ink"
       >
         <MapIcon aria-hidden size={18} />
       </Link>
