@@ -37,6 +37,18 @@ describe('app shell', () => {
     expect(screen.getByRole('button', { name: 'Generate Brain' })).toBeInTheDocument();
   });
 
+  it('/live/:id is the live screen (A6), which asks for consent before anything starts', async () => {
+    renderApp({ route: '/live/new' });
+    expect(await screen.findByRole('dialog', { name: 'Before we start' })).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Recording controls' })).toBeInTheDocument();
+    expect(screen.queryByText(/Placeholder/)).not.toBeInTheDocument();
+  });
+
+  it('the demo route opens the live screen in transcript replay', async () => {
+    renderApp({ route: '/live/demo?fixture=demo-religion' });
+    expect(await screen.findByRole('dialog', { name: 'Play the demo conversation' })).toBeInTheDocument();
+  });
+
   it('unknown routes show a not-found page with a way home', () => {
     renderApp({ route: '/nope' });
     expect(screen.getByRole('heading', { name: 'Page not found' })).toBeInTheDocument();

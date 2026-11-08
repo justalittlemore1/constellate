@@ -1,4 +1,5 @@
 import { Link, Outlet, Route, Routes } from 'react-router';
+import { LiveRoute } from '../features/live';
 import { RequireAuth } from '../lib/auth';
 import { HomeScreen } from './HomeScreen';
 import { LoginScreen } from './LoginScreen';
@@ -28,7 +29,7 @@ export function AppRoutes() {
         }
       >
         <Route path="/" element={<HomeScreen />} />
-        <Route path="/live/:id" element={<Placeholder title="Live map" owner="A6 + A3" />} />
+        <Route path="/live/:id" element={<LiveRoute />} />
         <Route path="/c/:id" element={<Placeholder title="Conversation" owner="A3 + A4" />} />
         <Route path="/brain" element={<Placeholder title="Brain" owner="A4" />} />
         <Route path="/favorites" element={<Placeholder title="Favourites" owner="A4" />} />
