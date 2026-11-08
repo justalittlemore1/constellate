@@ -68,10 +68,10 @@ export type ColumnRoute =
   | { kind: 'left-channel'; x: number }
   | { kind: 'tether-direct' }
   | { kind: 'tether-gutter'; x: number }
-  /** weave layout: an S-curve between neighbouring rows */
-  | { kind: 'curve' }
-  /** weave layout: out sideways, along a channel at x, sideways in (either side) */
-  | { kind: 'channel'; x: number };
+  /** weave layout: a straight constellation line, centre to centre */
+  | { kind: 'line' }
+  /** weave layout: one gentle quadratic arc; `bend` = perpendicular offset of the control point */
+  | { kind: 'arc'; bend: number };
 
 export interface ColumnLayout {
   nodes: Map<string, PlacedNode>;
