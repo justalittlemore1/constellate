@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { LiveDeps } from './controller';
 import { mockDeps } from './deps';
 import { LiveNodeList } from './LiveNodeList';
+import { PhoneFrame } from '../../app/PhoneFrame';
 import { LiveScreen } from './LiveScreen';
 import type { MockLiveServer } from './mock-server';
 import { fakeDeps } from './testing';
@@ -204,6 +205,7 @@ describe('LiveScreen accessibility', () => {
     const dialog = screen.getByRole('dialog', { name: 'Play the demo conversation' });
     expect(screen.getByRole('button', { name: 'Start the demo' })).toHaveFocus();
     expect(screen.getByTestId('live-content')).toHaveAttribute('inert');
+    expect(screen.getByTestId('live-content').tagName).toBe('MAIN'); // the screen's main landmark
     press('Escape');
     expect(onCancel).toHaveBeenCalled();
     expect(dialog).toBeInTheDocument(); // the route leaves; nothing was started
@@ -288,5 +290,21 @@ describe('LiveScreen without a conversation id', () => {
     await advance(0);
     expect(onDone).not.toHaveBeenCalled();
     expect(onCancel).toHaveBeenCalled();
+  });
+});
+
+describe('LiveScreen inside the PhoneFrame', () => {
+  it('focuses the consent button on first open even though #overlay-root mounts after the screen', async () => {
+    const { deps, server } = mockDeps({ speed: 4 });
+    render(
+      <PhoneFrame>
+        <LiveScreen initialSource={{ kind: 'transcript', fixture: 'demo-religion' }} deps={deps} onDone={vi.fn()} onCancel={vi.fn()} />
+      </PhoneFrame>,
+    );
+    await advance(0);
+    const start = screen.getByRole('button', { name: 'Start the demo' });
+    expect(document.getElementById('overlay-root')!.contains(start)).toBe(true);
+    expect(start).toHaveFocus();
+    server.dispose();
   });
 });
