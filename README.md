@@ -12,6 +12,8 @@ The original goal of this project was to help busy people remember what they wer
 
 <img src="merged.png" width="600">
 
+[Constellate Tech Demo](https://vimeo.com/1244914074)
+
 ## Quick Start
 
 If the Vercel deployment is running, click the link in the about section of the repository.
