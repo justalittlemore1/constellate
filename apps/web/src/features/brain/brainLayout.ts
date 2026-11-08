@@ -110,7 +110,8 @@ export interface Footprint {
 }
 
 export const LABEL_GAP = 3;
-export const LABEL_LINE = 14;
+/** one line of 14 px Fraunces, with its ascenders and descenders */
+export const LABEL_LINE = 19;
 
 export function footprint(radius: number, labelWidth: number | null, pad = 4): Footprint {
   if (labelWidth === null) return { hw: radius + pad, up: radius + pad, down: radius + pad };

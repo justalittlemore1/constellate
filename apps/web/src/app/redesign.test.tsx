@@ -120,9 +120,9 @@ describe('type tokens', () => {
   // vitest runs in apps/web (CSS imports are stubbed in tests, so read the files)
   const tokensCss = readFileSync(resolve(process.cwd(), 'src/ui/tokens.css'), 'utf8');
   const indexHtml = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
-  it('defines --font and --font-display as self-hosted Cormorant Garamond', () => {
-    expect(tokensCss).toMatch(/--font: 'Cormorant Garamond'/);
-    expect(tokensCss).toMatch(/--font-display: 'Cormorant Garamond'/);
+  it('defines --font and --font-display as the self-hosted serif (Fraunces)', () => {
+    expect(tokensCss).toMatch(/--font: 'Fraunces Variable'/);
+    expect(tokensCss).toMatch(/--font-display: 'Fraunces Variable'/);
     expect(indexHtml).not.toMatch(/fonts\.googleapis|fonts\.gstatic/); // no CDN: works offline
   });
 });

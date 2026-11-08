@@ -4,6 +4,7 @@
  * without touching the layout, selection or reveal logic.
  */
 import type { ConceptRelation } from '../../lib/api';
+import { uiFlag } from '../../lib/uiFlags';
 import { LABEL_GAP, RELATION_DASH } from './brainLayout';
 
 /** Colours from the design tokens (canvas can't read Tailwind classes). */
@@ -16,9 +17,10 @@ export const BRAIN_COLOURS = {
   linkLit: 'rgba(111,227,255,0.85)',
 };
 
-export const LABEL_PX = 12;
+/** canvas labels at 14 px on screen (nothing below 14 px) */
+export const LABEL_PX = 14;
 /** canvas can't read CSS variables cheaply; same face as --font-display */
-export const LABEL_FONT = (px: number) => `600 ${px}px 'Cormorant Garamond', Georgia, serif`;
+export const LABEL_FONT = (px: number) => `600 ${px}px 'Fraunces Variable', Georgia, serif`;
 
 export interface NodeDraw {
   ctx: CanvasRenderingContext2D;
@@ -228,61 +230,127 @@ export const starRenderers: BrainRenderers = {
 
   reach: (radius) => radius * STAR_ART.spikeRatio,
 
-  drawLink({ ctx, from, to, relation, weight, lit, opacity, scale, progress = 1 }) {
-    const p = Math.max(0, Math.min(1, progress));
-    if (p === 0) return;
-    const end = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p };
-    ctx.save();
-    ctx.globalAlpha = Math.max(0, Math.min(1, opacity)) * (lit ? 1 : 0.7);
-    ctx.lineCap = 'round';
+  drawLink: (d) => (uiFlag('brainCometLinks') ? drawCometLink(d) : drawConstellationLink(d)),
+};
 
-    if (relation === 'broader') {
-      // comet trail: bright at the broader concept, fading toward the narrower one, tapering
-      const g = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
-      g.addColorStop(0, 'rgba(221,235,255,0.95)');
-      g.addColorStop(1, 'rgba(221,235,255,0)');
-      ctx.strokeStyle = g;
-      ctx.setLineDash([]);
-      ctx.lineWidth = (1.2 + 1.2 * weight) / scale;
+/** Thin, even line width for every classic constellation link (screen px). */
+export const CONSTELLATION_LINE_PX = 0.9;
+/** Half-size of the broader → narrower chevron at a broader link's midpoint (screen px). */
+export const CHEVRON_PX = 4;
+
+/**
+ * Classic constellation lines: thin, even strokes. `broader` carries a tiny chevron at its midpoint
+ * pointing from the broader concept to the narrower one; `related` is a plain line; `co_discussed`
+ * is evenly dotted. The shape tells the relations apart, not colour.
+ */
+export function drawConstellationLink({ ctx, from, to, relation, lit, opacity, scale, progress = 1 }: LinkDraw): void {
+  const p = Math.max(0, Math.min(1, progress));
+  if (p === 0) return;
+  const end = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p };
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+  const colour = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.55)';
+  ctx.strokeStyle = colour;
+  ctx.fillStyle = colour;
+  ctx.lineCap = 'round';
+  ctx.lineWidth = CONSTELLATION_LINE_PX / scale;
+
+  if (relation === 'co_discussed') {
+    // evenly spaced dots
+    const len = Math.hypot(end.x - from.x, end.y - from.y);
+    const gap = 6 / scale;
+    const n = Math.max(1, Math.floor(len / gap));
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
       ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.stroke();
-    } else if (relation === 'related') {
-      // thin classic constellation line
-      ctx.strokeStyle = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.55)';
-      ctx.setLineDash([]);
-      ctx.lineWidth = 0.8 / scale;
-      ctx.beginPath();
-      ctx.moveTo(from.x, from.y);
-      ctx.lineTo(end.x, end.y);
-      ctx.stroke();
-    } else {
-      // co-discussed: sparse dotted stardust, static (deterministic jitter, never drifts)
-      ctx.fillStyle = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.6)';
-      const len = Math.hypot(end.x - from.x, end.y - from.y);
-      const gap = 9 / scale;
-      const n = Math.max(1, Math.floor(len / gap));
-      const nx = len ? -(end.y - from.y) / len : 0;
-      const ny = len ? (end.x - from.x) / len : 0;
-      const seed = Math.round(from.x + to.y);
-      for (let i = 1; i < n; i++) {
-        const t = i / n;
-        const off = (jitter(i, seed) - 0.5) * (2.4 / scale);
-        ctx.beginPath();
-        ctx.arc(
-          from.x + (end.x - from.x) * t + nx * off,
-          from.y + (end.y - from.y) * t + ny * off,
-          (0.5 + 0.5 * jitter(i + 7, seed)) / scale,
-          0,
-          Math.PI * 2,
-        );
-        ctx.fill();
-      }
+      ctx.arc(from.x + (end.x - from.x) * t, from.y + (end.y - from.y) * t, 0.8 / scale, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
-  },
-};
+    return;
+  }
+
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(from.x, from.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.stroke();
+
+  if (relation === 'broader' && p >= 0.5) {
+    // tiny chevron at the midpoint, pointing broader → narrower
+    const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+    const ux = (to.x - from.x) / len;
+    const uy = (to.y - from.y) / len;
+    const mx = (from.x + to.x) / 2;
+    const my = (from.y + to.y) / 2;
+    const h = CHEVRON_PX / scale;
+    // the tip sits ahead of the midpoint; the arms trail back on either side
+    const tipX = mx + ux * h * 0.6;
+    const tipY = my + uy * h * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(tipX - ux * h - uy * h, tipY - uy * h + ux * h);
+    ctx.lineTo(tipX, tipY);
+    ctx.lineTo(tipX - ux * h + uy * h, tipY - uy * h - ux * h);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** Wave 2's links (comet trail / line / stardust), kept behind `uiFlags.brainCometLinks`. */
+export function drawCometLink({ ctx, from, to, relation, weight, lit, opacity, scale, progress = 1 }: LinkDraw): void {
+  const p = Math.max(0, Math.min(1, progress));
+  if (p === 0) return;
+  const end = { x: from.x + (to.x - from.x) * p, y: from.y + (to.y - from.y) * p };
+  ctx.save();
+  ctx.globalAlpha = Math.max(0, Math.min(1, opacity)) * (lit ? 1 : 0.7);
+  ctx.lineCap = 'round';
+
+  if (relation === 'broader') {
+    // comet trail: bright at the broader concept, fading toward the narrower one, tapering
+    const g = ctx.createLinearGradient(from.x, from.y, to.x, to.y);
+    g.addColorStop(0, 'rgba(221,235,255,0.95)');
+    g.addColorStop(1, 'rgba(221,235,255,0)');
+    ctx.strokeStyle = g;
+    ctx.setLineDash([]);
+    ctx.lineWidth = (1.2 + 1.2 * weight) / scale;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+  } else if (relation === 'related') {
+    // thin classic constellation line
+    ctx.strokeStyle = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.55)';
+    ctx.setLineDash([]);
+    ctx.lineWidth = 0.8 / scale;
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+  } else {
+    // co-discussed: sparse dotted stardust, static (deterministic jitter, never drifts)
+    ctx.fillStyle = lit ? 'rgba(221,235,255,0.9)' : 'rgba(200,212,240,0.6)';
+    const len = Math.hypot(end.x - from.x, end.y - from.y);
+    const gap = 9 / scale;
+    const n = Math.max(1, Math.floor(len / gap));
+    const nx = len ? -(end.y - from.y) / len : 0;
+    const ny = len ? (end.x - from.x) / len : 0;
+    const seed = Math.round(from.x + to.y);
+    for (let i = 1; i < n; i++) {
+      const t = i / n;
+      const off = (jitter(i, seed) - 0.5) * (2.4 / scale);
+      ctx.beginPath();
+      ctx.arc(
+        from.x + (end.x - from.x) * t + nx * off,
+        from.y + (end.y - from.y) * t + ny * off,
+        (0.5 + 0.5 * jitter(i + 7, seed)) / scale,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+}
 
 /** What BrainCanvas draws with unless told otherwise. */
 export const defaultRenderers: BrainRenderers = starRenderers;

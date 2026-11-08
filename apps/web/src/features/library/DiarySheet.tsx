@@ -232,7 +232,7 @@ function ThreadRow({ node, conversationId }: { node: TopicNode; conversationId: 
       <Link
         to={routes.conversation(conversationId, { node: node.id })}
         aria-label={`Show ${node.label} on the map`}
-        className="inline-flex size-11 items-center justify-center rounded-full text-ink hover:bg-white/10"
+        className="hover-wash inline-flex size-11 items-center justify-center rounded-full text-ink"
       >
         <MapIcon aria-hidden size={18} />
       </Link>
@@ -286,7 +286,7 @@ function EditablePromise({ promise }: { promise: Commitment }) {
         <label
           htmlFor={doneId}
           data-testid="promise-done-target"
-          className="-my-2 -ml-2.5 flex size-11 shrink-0 cursor-pointer items-center justify-center hover:bg-white/5"
+          className="hover-wash -my-2 -ml-2.5 flex size-11 shrink-0 cursor-pointer items-center justify-center"
         >
           <input
             id={doneId}
