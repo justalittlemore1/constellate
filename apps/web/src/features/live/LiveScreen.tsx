@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useFocusTrap } from '../../ui';
 import type { LiveController, LiveDeps, LiveSourceSpec } from './controller';
 import { captionTail } from './captions';
-import { BAR_BUTTON, WASH } from './styles';
+import { BAR_BUTTON, HOVER_WASH } from './styles';
 import { FlagButton } from './FlagButton';
 import { LIVE_FEATURES, type LiveFeatures } from './flags';
 import { LiveMap } from './LiveMap';
@@ -268,7 +268,7 @@ function LiveSessionView({
             aria-label="Pocket mode: dim the screen, double-tap anywhere to flag"
             disabled={!live}
             onClick={() => trigger.setPocket(true)}
-            className={`${WASH} flex size-11 items-center justify-center rounded-none text-ink-2 disabled:opacity-40`}
+            className={`${HOVER_WASH} flex size-11 items-center justify-center rounded-none text-ink-2 disabled:opacity-40`}
           >
             <Moon aria-hidden size={20} />
           </button>
@@ -314,7 +314,7 @@ function LiveSessionView({
               type="button"
               disabled={!live}
               onClick={() => setParking(true)}
-              className={`${BAR_BUTTON} ${WASH} border-thread/40 bg-thread/15 text-thread`}
+              className={`${BAR_BUTTON} ${HOVER_WASH} border-thread/40 bg-thread/15 text-thread`}
             >
               Park a thought
               <NotebookPen aria-hidden size={18} />
@@ -324,7 +324,7 @@ function LiveSessionView({
             type="button"
             disabled={!recording}
             onClick={() => void controller?.stop()}
-            className={`${BAR_BUTTON} ${WASH} border-white/20 bg-white/10 text-ink`}
+            className={`${BAR_BUTTON} ${HOVER_WASH} border-white/20 bg-white/10 text-ink`}
           >
             Stop
             <Square aria-hidden size={14} fill="currentColor" />
@@ -386,7 +386,7 @@ function LiveSessionView({
             onPointerUp={(e) => e.stopPropagation()}
             onClick={() => trigger.setPocket(false)}
             aria-label="Exit pocket mode"
-            className={`${WASH} min-h-12 rounded-none border border-white/20 px-6 text-[16px] font-semibold text-ink-2`}
+            className={`${HOVER_WASH} min-h-12 rounded-none border border-white/20 px-6 text-[16px] font-semibold text-ink-2`}
           >
             Exit
           </button>

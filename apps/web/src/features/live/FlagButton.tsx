@@ -8,7 +8,7 @@
 import { Flag } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { FLAG_HOLD_MS } from './flags';
-import { BAR_BUTTON, WASH } from './styles';
+import { BAR_BUTTON, HOVER_WASH } from './styles';
 
 export interface FlagButtonProps {
   disabled: boolean;
@@ -107,7 +107,7 @@ export function FlagButton({
         aria-describedby="flag-hint"
         aria-keyshortcuts={holdEnabled ? 'Shift+F' : undefined}
         data-holding={holding || undefined}
-        className={`${BAR_BUTTON} ${WASH} touch-manipulation select-none overflow-hidden border-flag/40 bg-flag/15 text-flag [-webkit-touch-callout:none]`}
+        className={`${BAR_BUTTON} ${HOVER_WASH} relative touch-manipulation select-none overflow-hidden border-flag/40 bg-flag/15 text-flag [-webkit-touch-callout:none]`}
       >
         <span data-testid="flag-label">{holding ? 'Keep holding…' : 'Flag'}</span>
         <Flag aria-hidden size={18} />

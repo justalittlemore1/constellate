@@ -1,16 +1,16 @@
 /**
- * Dialogs of the live screen. Consent, Before you go and the flag note use the star-chart frame
- * (StarChartSheet: square corners); Park a thought (hidden by flags.ts) stays on A4's <Sheet>. All are
+ * Dialogs of the live screen. Consent, Before you go and the flag note are A4's <BottomSheet>
+ * (attached to the bottom, star-chart frame); Park a thought (hidden by flags.ts) stays on <Sheet>. All are
  * labelled modal dialogs: focus moves in and is trapped, Escape / scrim / Close call onClose, focus
  * returns to the opener.
  */
 import type { TopicNode } from '@constellate/shared';
 import { FileAudio, MicOff, Play, RotateCcw } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { Sheet } from '../../ui';
+import { BottomSheet, Sheet } from '../../ui';
 import { PARK_MAX_CHARS, type LiveSnapshot } from './controller';
 import { FLAG_NOTE_MAX_CHARS } from './flags';
-import { frameBtn, StarChartSheet } from './StarChartSheet';
+import { SHEET_BUTTON } from './styles';
 
 const primaryBtn =
   'flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-topic px-5 font-semibold text-bg disabled:opacity-50';
@@ -33,7 +33,7 @@ export function ConsentSheet({
   notes?: boolean;
 }) {
   return (
-    <StarChartSheet
+    <BottomSheet
       open={open}
       onClose={onCancel}
       title={demo ? 'Play the demo conversation' : 'Before we start'}
@@ -57,14 +57,14 @@ export function ConsentSheet({
         {notes && ' Press and hold Flag (or press Shift+F) to add a note.'}
       </p>
       <div className="mt-5 flex flex-col gap-2">
-        <button data-autofocus type="button" className={frameBtn.primary} onClick={onAgree}>
+        <button data-autofocus type="button" className={SHEET_BUTTON.primary} onClick={onAgree}>
           {demo ? 'Start the demo' : 'Everyone agrees — start'}
         </button>
-        <button type="button" className={frameBtn.secondary} onClick={onCancel}>
+        <button type="button" className={SHEET_BUTTON.secondary} onClick={onCancel}>
           Cancel
         </button>
       </div>
-    </StarChartSheet>
+    </BottomSheet>
   );
 }
 
@@ -84,9 +84,9 @@ export function FlagNoteSheet({
   onCancel(): void;
 }) {
   return (
-    <StarChartSheet open={open} onClose={onCancel} title="Add a note to this flag" testId="flag-note-sheet">
+    <BottomSheet open={open} onClose={onCancel} title="Add a note to this flag" testId="flag-note-sheet">
       <FlagNoteForm onSave={onSave} onFlagOnly={onFlagOnly} />
-    </StarChartSheet>
+    </BottomSheet>
   );
 }
 
@@ -128,10 +128,10 @@ function FlagNoteForm({ onSave, onFlagOnly }: { onSave(note: string): void; onFl
         {text.length}/{FLAG_NOTE_MAX_CHARS} characters
       </p>
       <div className="mt-3 flex gap-2">
-        <button type="button" className={`${frameBtn.secondary} flex-1`} onClick={onFlagOnly}>
+        <button type="button" className={`${SHEET_BUTTON.secondary} flex-1`} onClick={onFlagOnly}>
           Flag without note
         </button>
-        <button type="submit" className={`${frameBtn.primary} flex-1`} disabled={!text.trim()}>
+        <button type="submit" className={`${SHEET_BUTTON.primary} flex-1`} disabled={!text.trim()}>
           Save note
         </button>
       </div>
@@ -211,7 +211,7 @@ export function BeforeYouGo({
 }) {
   const done = snapshot.phase === 'stopped';
   return (
-    <StarChartSheet open={open} onClose={onLeave} title="Before you go" testId="before-you-go">
+    <BottomSheet open={open} onClose={onLeave} title="Before you go" testId="before-you-go">
       {threads.length > 0 ? (
         <>
           <p className="mt-1 text-[15px]">
@@ -238,10 +238,10 @@ export function BeforeYouGo({
       <p className="mt-3 text-[13px] text-ink-2" role="status">
         {statusLine(snapshot)}
       </p>
-      <button type="button" className={`${frameBtn.primary} mt-4 w-full`} disabled={!done} onClick={onOpenMap}>
+      <button type="button" className={`${SHEET_BUTTON.primary} mt-4 w-full`} disabled={!done} onClick={onOpenMap}>
         Open the map
       </button>
-    </StarChartSheet>
+    </BottomSheet>
   );
 }
 
