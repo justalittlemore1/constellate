@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
-const TARGET_URL = process.env.DEPLOYED_URL || process.env.VERCEL_URL || `http://localhost:${PORT}`;
+const TARGET_URL = process.env.DEPLOYED_URL || `http://localhost:${PORT}`;
 
 /**
  * End-to-end tests (owner: A5). CI runs them in mock mode (no server, no Supabase).
@@ -13,7 +13,7 @@ export default defineConfig({
   fullyParallel: true,
   timeout: 60_000,
   forbidOnly: Boolean(process.env.CI),
-  retries: 1,
+  retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   use: {
     baseURL: TARGET_URL,
