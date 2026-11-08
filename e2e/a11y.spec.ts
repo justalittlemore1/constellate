@@ -16,7 +16,7 @@ const ROUTES_TO_AUDIT = [
   { path: '/live/8d13b192-38d0-4ba3-a3c8-7834f6573947', label: 'Live screen' },
   { path: '/c/8d13b192-38d0-4ba3-a3c8-7834f6573947', label: 'Saved conversation' },
   { path: '/brain', label: 'Brain galaxy view' },
-  { path: '/favorites', label: 'Favourites' },
+  { path: '/favorites', label: 'Favourites / Highlights' },
   { path: '/settings', label: 'Settings' },
   { path: '/nonexistent-route-check', label: '404 route' },
 ];

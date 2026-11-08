@@ -91,6 +91,69 @@ test.describe('Main loop: Mock mode E2E', () => {
     await expect(page.getByText(/flagged/i).first()).toBeVisible();
   });
 
+  test('Flag press-and-hold opens note input during live session', async ({ page }) => {
+    await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
+
+    const placeholder = page.getByText(/Placeholder — built by A6 \+ A3/i);
+    const hasPlaceholder = await placeholder.isVisible().catch(() => false);
+    test.fixme(hasPlaceholder, 'Owned by A6 + A3: /live/:id screen and map canvas not yet mounted');
+
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await consentBtn.click();
+    }
+
+    const flagBtn = page.getByRole('button', { name: /^flag$/i });
+    await expect(flagBtn).toBeVisible({ timeout: 10_000 });
+
+    // Press and hold the flag button (pointer down for 650ms)
+    const box = await flagBtn.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.waitForTimeout(650);
+      await page.mouse.up();
+    }
+
+    // Check if note input/dialog appears
+    const noteDialog = page.getByRole('dialog', { name: /(note|flag)/i });
+    const noteInput = page
+      .getByRole('textbox', { name: /(note|thought)/i })
+      .or(page.locator('textarea, input[type="text"]').last());
+    const hasNotePrompt =
+      (await noteDialog.isVisible().catch(() => false)) || (await noteInput.isVisible().catch(() => false));
+
+    test.fixme(!hasNotePrompt, 'Owned by A6: Flag press-and-hold note prompt not yet implemented');
+
+    if (hasNotePrompt) {
+      await noteInput.fill('Important takeaway from this point');
+      const saveBtn = page.getByRole('button', { name: /(save|done|add note)/i });
+      if (await saveBtn.isVisible().catch(() => false)) {
+        await saveBtn.click();
+      } else {
+        await page.keyboard.press('Enter');
+      }
+      await expect(page.getByText(/flagged with a note|note saved|important takeaway/i)).toBeVisible();
+    }
+  });
+
+  test('Optional step: Park a thought during live session (skip if absent)', async ({ page }) => {
+    await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
+
+    const consentBtn = page.getByRole('button', { name: /(start the demo|everyone agrees)/i });
+    if (await consentBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await consentBtn.click();
+    }
+
+    const parkBtn = page.getByRole('button', { name: /park a thought/i });
+    const hasPark = await parkBtn.isVisible().catch(() => false);
+    test.skip(!hasPark, '“Park a thought” control is hidden in this design');
+
+    await parkBtn.click();
+    const parkDialog = page.getByRole('dialog', { name: /park a thought/i });
+    await expect(parkDialog).toBeVisible();
+  });
+
   test('Step 5: Stop recording and see summary before exit', async ({ page }) => {
     await page.goto(`/live/${DEMO_CONVERSATION_ID}`);
 
@@ -134,21 +197,18 @@ test.describe('Main loop: Mock mode E2E', () => {
     await expect(node).toBeVisible({ timeout: 10_000 });
     await node.click();
 
-    // Node preview card: aria-label="Preview: …" with "Open details for …" button
+    // If preview card appears (pre-redesign), open details; in redesigned UI, tapping opens details directly
     const preview = page.locator('[aria-label^="Preview:"]');
-    await expect(preview).toBeVisible({ timeout: 5000 });
     const openDetailsBtn = preview.getByRole('button', { name: /^Open details for/i });
-    await openDetailsBtn.click();
+    if (await openDetailsBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await openDetailsBtn.click();
+    }
 
     const detailSheet = page.getByRole('dialog');
     await expect(detailSheet).toBeVisible();
 
-    // In mock mode, no recording is available so Play is omitted; if present, verify it
-    const playBtn = detailSheet.getByRole('button', { name: /play/i });
-    if (await playBtn.isVisible().catch(() => false)) {
-      await playBtn.click();
-      await expect(page.getByText(/no recording is available/i)).toBeVisible();
-    }
+    // Mock mode has no recording URL, so SavedMap does not offer Play
+    await expect(detailSheet.getByRole('button', { name: /^play/i })).toHaveCount(0);
   });
 
   test('Step 8: Toggle highlight on a node and verify persistence', async ({ page }) => {
@@ -162,20 +222,26 @@ test.describe('Main loop: Mock mode E2E', () => {
     await expect(node).toBeVisible({ timeout: 10_000 });
     await node.click();
 
-    // Open detail sheet from preview card
+    // If preview card appears (pre-redesign), open details; in redesigned UI, tapping opens details directly
     const preview = page.locator('[aria-label^="Preview:"]');
-    await expect(preview).toBeVisible({ timeout: 5000 });
-    await preview.getByRole('button', { name: /^Open details for/i }).click();
+    const openDetailsBtn = preview.getByRole('button', { name: /^Open details for/i });
+    if (await openDetailsBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await openDetailsBtn.click();
+    }
 
     const detailSheet = page.getByRole('dialog');
     await expect(detailSheet).toBeVisible();
 
-    const highlightButton = detailSheet.getByRole('button', { name: /^Highlight$/i });
+    const highlightButton = detailSheet.getByRole('button', {
+      name: /^(Add )?(Highlight|Favourite|Favorite)$/i,
+    });
     await expect(highlightButton).toBeVisible();
     await highlightButton.click();
 
     // Detail-sheet Highlight button now has aria-pressed="true"
-    const removeHighlightButton = detailSheet.getByRole('button', { name: /^Remove highlight$/i });
+    const removeHighlightButton = detailSheet.getByRole('button', {
+      name: /^Remove (highlight|favourite|favorite)$/i,
+    });
     await expect(removeHighlightButton).toBeVisible();
     await expect(removeHighlightButton).toHaveAttribute('aria-pressed', 'true');
 
@@ -188,7 +254,9 @@ test.describe('Main loop: Mock mode E2E', () => {
 
     // Toggling off restores the state
     await removeHighlightButton.click();
-    const restoredHighlightButton = detailSheet.getByRole('button', { name: /^Highlight$/i });
+    const restoredHighlightButton = detailSheet.getByRole('button', {
+      name: /^(Add )?(Highlight|Favourite|Favorite)$/i,
+    });
     await expect(restoredHighlightButton).toBeVisible();
     await expect(restoredHighlightButton).toHaveAttribute('aria-pressed', 'false');
     await expect(
@@ -199,15 +267,49 @@ test.describe('Main loop: Mock mode E2E', () => {
   });
 
   test('Step 9: Brain galaxy renders merged concepts', async ({ page }) => {
-    await page.goto('/brain');
+    // Navigate via bottom navigation "Brain" if present, else goto /brain
+    const brainEntry = page.getByRole('link', { name: /^brain$/i }).or(page.getByRole('button', { name: /^brain$/i }));
+    if (await brainEntry.isVisible().catch(() => false)) {
+      await brainEntry.click();
+    } else {
+      await page.goto('/brain');
+    }
 
     const placeholder = page.getByText(/Placeholder — built by A4/i);
     const hasPlaceholder = await placeholder.isVisible().catch(() => false);
     test.fixme(hasPlaceholder, 'Owned by A4: /brain galaxy view not yet implemented');
 
-    // Once A4 renders the force graph:
-    const canvas = page.locator('canvas');
+    // Brain page has a "Generate" button in the redesign
+    const generateBtn = page.getByRole('button', { name: /generate/i });
+    if (await generateBtn.isVisible().catch(() => false)) {
+      await generateBtn.click();
+    }
+
+    // Once A4 renders the force graph / canvas:
+    const canvas = page.getByTestId('brain-canvas');
     await expect(canvas).toBeVisible();
+  });
+
+  test('Brain Generate triggers concept rebuild and displays concepts', async ({ page }) => {
+    const brainEntry = page.getByRole('link', { name: /^brain$/i }).or(page.getByRole('button', { name: /^brain$/i }));
+    if (await brainEntry.isVisible().catch(() => false)) {
+      await brainEntry.click();
+    } else {
+      await page.goto('/brain');
+    }
+
+    const isBrainPlaceholder = await page.getByText(/Placeholder — built by A4/i).isVisible().catch(() => false);
+    test.fixme(isBrainPlaceholder, 'Owned by A4: /brain galaxy view not yet implemented');
+
+    const generateBtn = page.getByRole('button', { name: /generate/i });
+    const hasGenerate = await generateBtn.isVisible().catch(() => false);
+    test.fixme(!hasGenerate, 'Owned by A4: Brain Generate button not yet implemented');
+
+    if (hasGenerate) {
+      await generateBtn.click();
+      const conceptsRendered = page.locator('canvas, [data-testid="brain-canvas"], [data-testid^="concept-"]');
+      await expect(conceptsRendered.first()).toBeVisible({ timeout: 15_000 });
+    }
   });
 
   test('Full unbroken loop: sign in → demo → nodes → flag → stop → reopen → open node → highlight → brain', async ({
@@ -276,21 +378,27 @@ test.describe('Main loop: Mock mode E2E', () => {
     await expect(savedNode).toBeVisible({ timeout: 10_000 });
     await savedNode.click();
 
-    // Node preview card: aria-label="Preview: …" with "Open details for …" button
+    // If preview card appears (pre-redesign), open details; in redesigned UI, tapping opens details directly
     const preview = page.locator('[aria-label^="Preview:"]');
-    await expect(preview).toBeVisible({ timeout: 5000 });
-    await preview.getByRole('button', { name: /^Open details for/i }).click();
+    const openDetailsBtn = preview.getByRole('button', { name: /^Open details for/i });
+    if (await openDetailsBtn.isVisible({ timeout: 1500 }).catch(() => false)) {
+      await openDetailsBtn.click();
+    }
 
     const detail = page.getByRole('dialog');
     await expect(detail).toBeVisible();
 
     // 8. Highlight
-    const highlightBtn = detail.getByRole('button', { name: /^Highlight$/i });
+    const highlightBtn = detail.getByRole('button', {
+      name: /^(Add )?(Highlight|Favourite|Favorite)$/i,
+    });
     await expect(highlightBtn).toBeVisible();
     await highlightBtn.click();
 
     // Verify detail-sheet Highlight button has aria-pressed="true" and Sunday Service node is highlighted
-    const removeHighlightBtn = detail.getByRole('button', { name: /^Remove highlight$/i });
+    const removeHighlightBtn = detail.getByRole('button', {
+      name: /^Remove (highlight|favourite|favorite)$/i,
+    });
     await expect(removeHighlightBtn).toBeVisible();
     await expect(removeHighlightBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(
@@ -299,10 +407,21 @@ test.describe('Main loop: Mock mode E2E', () => {
       ),
     ).toBeVisible();
 
-    // 9. Open Brain
-    await page.goto('/brain');
+    // 9. Open Brain (via bottom navigation "Brain" if present, else direct route)
+    const brainEntry = page.getByRole('link', { name: /^brain$/i }).or(page.getByRole('button', { name: /^brain$/i }));
+    if (await brainEntry.isVisible().catch(() => false)) {
+      await brainEntry.click();
+    } else {
+      await page.goto('/brain');
+    }
     const isBrainPlaceholder = await page.getByText(/Placeholder — built by A4/i).isVisible().catch(() => false);
     test.fixme(isBrainPlaceholder, 'Owned by A4: /brain galaxy view not yet implemented');
-    await expect(page.locator('canvas')).toBeVisible();
+
+    const generateBtn = page.getByRole('button', { name: /generate/i });
+    if (await generateBtn.isVisible().catch(() => false)) {
+      await generateBtn.click();
+    }
+
+    await expect(page.getByTestId('brain-canvas')).toBeVisible();
   });
 });
