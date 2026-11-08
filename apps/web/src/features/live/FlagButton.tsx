@@ -8,6 +8,7 @@
 import { Flag } from 'lucide-react';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { FLAG_HOLD_MS } from './flags';
+import { BAR_BUTTON, WASH } from './styles';
 
 export interface FlagButtonProps {
   disabled: boolean;
@@ -101,17 +102,19 @@ export function FlagButton({
           if (e.detail === 0) onTap();
         }}
         onContextMenu={(e) => e.preventDefault()}
+        // the name stays "Flag" while the visible label says "Keep holding…"
+        aria-label="Flag"
         aria-describedby="flag-hint"
         aria-keyshortcuts={holdEnabled ? 'Shift+F' : undefined}
         data-holding={holding || undefined}
-        className="relative flex min-h-[56px] touch-manipulation select-none flex-col items-center justify-center gap-0.5 overflow-hidden rounded-none border border-flag/40 bg-flag/15 font-semibold text-flag [-webkit-touch-callout:none] disabled:opacity-40"
+        className={`${BAR_BUTTON} ${WASH} touch-manipulation select-none overflow-hidden border-flag/40 bg-flag/15 text-flag [-webkit-touch-callout:none]`}
       >
-        <Flag aria-hidden size={22} />
-        {holding ? 'Keep holding…' : 'Flag'}
+        <span data-testid="flag-label">{holding ? 'Keep holding…' : 'Flag'}</span>
+        <Flag aria-hidden size={18} />
         <span
           aria-hidden
           data-testid="flag-hold-progress"
-          className="absolute inset-x-0 bottom-0 h-1 origin-left bg-flag motion-reduce:hidden"
+          className="absolute inset-x-0 bottom-0 h-[2px] origin-left bg-flag motion-reduce:hidden"
           style={{
             transform: holding ? 'scaleX(1)' : 'scaleX(0)',
             transition: holding ? `transform ${holdMs}ms linear` : 'none',

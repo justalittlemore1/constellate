@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useFocusTrap } from '../../ui';
 import type { LiveController, LiveDeps, LiveSourceSpec } from './controller';
 import { captionTail } from './captions';
+import { BAR_BUTTON, WASH } from './styles';
 import { FlagButton } from './FlagButton';
 import { LIVE_FEATURES, type LiveFeatures } from './flags';
 import { LiveMap } from './LiveMap';
@@ -267,7 +268,7 @@ function LiveSessionView({
             aria-label="Pocket mode: dim the screen, double-tap anywhere to flag"
             disabled={!live}
             onClick={() => trigger.setPocket(true)}
-            className="flex size-11 items-center justify-center rounded-full text-ink-2 disabled:opacity-40"
+            className={`${WASH} flex size-11 items-center justify-center rounded-none text-ink-2 disabled:opacity-40`}
           >
             <Moon aria-hidden size={20} />
           </button>
@@ -299,7 +300,7 @@ function LiveSessionView({
         {/* bottom bar */}
         <nav
           aria-label="Recording controls"
-          className={`grid ${features.parkThought ? 'grid-cols-3' : 'grid-cols-2'} gap-2 border-t border-white/10 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3`}
+          className={`grid ${features.parkThought ? 'grid-cols-3' : 'grid-cols-2'} gap-2 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3`}
         >
           <FlagButton
             disabled={!live}
@@ -313,20 +314,20 @@ function LiveSessionView({
               type="button"
               disabled={!live}
               onClick={() => setParking(true)}
-              className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-none border border-thread/40 bg-thread/15 text-[13px] font-semibold text-thread disabled:opacity-40"
+              className={`${BAR_BUTTON} ${WASH} border-thread/40 bg-thread/15 text-thread`}
             >
-              <NotebookPen aria-hidden size={22} />
               Park a thought
+              <NotebookPen aria-hidden size={18} />
             </button>
           )}
           <button
             type="button"
             disabled={!recording}
             onClick={() => void controller?.stop()}
-            className="flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-none border border-white/20 bg-white/10 font-semibold text-ink disabled:opacity-40"
+            className={`${BAR_BUTTON} ${WASH} border-white/20 bg-white/10 text-ink`}
           >
-            <Square aria-hidden size={20} fill="currentColor" />
             Stop
+            <Square aria-hidden size={14} fill="currentColor" />
           </button>
         </nav>
       </main>
@@ -378,19 +379,16 @@ function LiveSessionView({
           onPointerUp={trigger.onPocketTap}
           className="absolute inset-0 z-40 flex touch-manipulation select-none flex-col items-center justify-center gap-6 bg-black/95 px-8 text-center outline-none"
         >
-          <p className="text-[15px] text-ink-2">
-            Pocket mode. Double-tap anywhere to flag a moment. Escape or the button below exits.
-            <br />
-            <span className="tabular-nums">{formatClock(clockMs)}</span>
-          </p>
+          <p className="text-[15px] text-ink-2">Pocket mode. Double-tap anywhere to flag a moment.</p>
           <button
             data-autofocus
             type="button"
             onPointerUp={(e) => e.stopPropagation()}
             onClick={() => trigger.setPocket(false)}
-            className="min-h-[44px] rounded-full border border-white/20 px-5 text-[13px] font-semibold text-ink-2"
+            aria-label="Exit pocket mode"
+            className={`${WASH} min-h-12 rounded-none border border-white/20 px-6 text-[16px] font-semibold text-ink-2`}
           >
-            Exit pocket mode
+            Exit
           </button>
         </div>
       )}
