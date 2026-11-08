@@ -58,7 +58,8 @@ describe('1. classic constellation lines', () => {
   it('return loops keep their curve plus the chevron; tethers stay dotted with no chevron', () => {
     const { container } = render(<ConversationMap state={demo} />);
     const loop = container.querySelector('g[data-route="return"]')!;
-    expect(loop.querySelector('[data-testid="constellation-line"]')!.getAttribute('d')).toContain(' C ');
+    // a loop: curved (a cubic, or the column layout's rounded channel)
+    expect(loop.querySelector('[data-testid="constellation-line"]')!.getAttribute('d')).toMatch(/ [CQ] /);
     expect(loop.querySelector('[data-testid="chevron"]')).toBeTruthy();
     const tether = container.querySelector('g[data-kind="tether"]')!;
     expect(tether.querySelector('path')!.getAttribute('stroke-dasharray')).toBe('0.5 4');
@@ -137,7 +138,8 @@ describe('2. Y3 eight-point compass stars', () => {
 
 describe('3. square notes', () => {
   it('the sticky note on the canvas and the "Your notes" box have square corners', () => {
-    render(<ConversationMap state={demo} onEdit={() => {}} />);
+    // canvas note cards belong to the stored layout; the column layout shows a badge instead
+    render(<ConversationMap state={demo} onEdit={() => {}} flags={{ storedLayout: true }} />);
     expect(screen.getByTestId(`map-note-${demo.annotations[0]!.id}`).className).not.toMatch(/rounded/);
     fireEvent.click(tile(byLabel('Resurrection Accounts')));
     const sheet = screen.getByRole('dialog', { name: 'Resurrection Accounts' });
@@ -221,12 +223,13 @@ describe('6–7. live framing and a readable start', () => {
 });
 
 describe('8. hover / press wash', () => {
-  it('map controls share the grey wash (A4 token with a ~7.5 % white fallback)', () => {
+  it('map controls use the shared grey wash from A4 (.hover-wash)', () => {
     render(<ConversationMap state={demo} onEdit={() => {}} />);
-    expect(screen.getByRole('button', { name: 'Paint topics gold (highlighter)' })).toHaveClass('cmap-control');
-    expect(screen.getByRole('button', { name: 'Text view' })).toHaveClass('cmap-control');
+    expect(screen.getByRole('button', { name: 'Paint topics gold (highlighter)' })).toHaveClass('hover-wash');
+    expect(screen.getByRole('button', { name: 'Text view' })).toHaveClass('hover-wash');
     fireEvent.mouseEnter(tile(byLabel('Gospel Sources')).closest('.react-flow__node')!);
-    expect(screen.getByRole('button', { name: 'Open details for Gospel Sources' })).toHaveClass('cmap-control');
-    expect(mapCss).toMatch(/\.cmap-control:hover[\s\S]*var\(--hover-wash, rgb\(255 255 255 \/ 0\.075\)\)/);
+    expect(screen.getByRole('button', { name: 'Open details for Gospel Sources' })).toHaveClass('hover-wash');
+    // the map no longer carries its own stand-in wash
+    expect(mapCss).not.toMatch(/cmap-control/);
   });
 });

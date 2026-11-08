@@ -107,6 +107,7 @@ export function SavedMap({ graph }: { graph: GraphState }) {
       onPlaySegment={canPlay ? (n) => void onPlay(n) : undefined}
       onEdit={onEdit}
       focusNodeId={target?.id ?? null}
+      reveal
     />
   );
 }

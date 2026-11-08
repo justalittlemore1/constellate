@@ -4,6 +4,7 @@
  */
 import type { Annotation, GraphState } from '@constellate/shared';
 import { MarkerType, Position, type Edge, type Node } from '@xyflow/react';
+import type { ColumnLayout, ColumnRoute, PlacedNode } from './layout';
 import type { TracedPath, VisibleEdge, VisibleEdgeKind, VisibleGraph, VisibleNode } from './model';
 import { noteNodeId } from './model';
 
@@ -30,6 +31,10 @@ export interface MapNodeFlags {
   comet?: boolean;
   /** flag `facetedStars`: the wave-2 Y4 art instead of the Y3 compass */
   starArt?: 'y3' | 'y4';
+  /** display column layout (round 4); absent = the persisted x/y (flag `storedLayout`) */
+  layout?: ColumnLayout;
+  /** saved-map reveal: delay between stars in conversation order (ms); absent = no reveal */
+  revealStepMs?: number;
 }
 
 export type TopicFlowData = {
@@ -43,6 +48,12 @@ export type TopicFlowData = {
   motion: boolean;
   /** which star art to draw ('y3' compass by default; 'y4' faceted behind a flag) */
   art?: 'y3' | 'y4';
+  /** column layout: where the label goes and how wide it may be */
+  place?: PlacedNode;
+  /** column layout: sticky notes show as a badge on the star instead of a card */
+  noteCount?: number;
+  /** saved-map reveal: when this star fades in (ms) */
+  revealDelay?: number;
 };
 export type NoteFlowData = { annotation: Annotation; dimmed: boolean };
 export type MapEdgeData = {
@@ -63,6 +74,10 @@ export type MapEdgeData = {
   comet?: boolean;
   /** source label length, so a straight line can avoid crossing it */
   labelChars?: number;
+  /** column layout route (round 4) */
+  route?: ColumnRoute;
+  /** saved-map reveal: when this line draws in (ms) */
+  revealDelay?: number;
 };
 
 export type TopicFlowNode = Node<TopicFlowData, 'topic' | 'thread'>;
@@ -90,15 +105,24 @@ export function toFlowNodes(
   flags: MapNodeFlags,
   accessibleName: (v: VisibleNode) => string,
 ): MapFlowNode[] {
-  const out: MapFlowNode[] = graph.nodes.map((v) => {
+  const layout = flags.layout;
+  const notesByStar = new Map<string, number>();
+  for (const a of graph.notes) {
+    if (!a.nodeId) continue;
+    const star = graph.starOf(a.nodeId);
+    notesByStar.set(star, (notesByStar.get(star) ?? 0) + 1);
+  }
+  const out: MapFlowNode[] = graph.nodes.map((v, index) => {
     const box = boxRadius(v.radius);
     const n = v.node;
     const side = box * 2;
+    const place = layout?.nodes.get(n.id);
+    const at = place ?? n;
     const has = (id: string | null) => id !== null && v.occurrences.some((o) => o.id === id);
     return {
       id: n.id,
       type: n.kind === 'topic' ? 'topic' : 'thread',
-      position: { x: n.x - box, y: n.y - box },
+      position: { x: at.x - box, y: at.y - box },
       width: side,
       height: side,
       // handles at the centre; given up front so edges draw before (or without) DOM measurement
@@ -123,10 +147,13 @@ export function toFlowNodes(
         showTime: flags.showTime,
         motion: flags.motion,
         art: flags.starArt ?? 'y3',
+        ...(place ? { place, noteCount: notesByStar.get(n.id) ?? 0 } : {}),
+        ...(flags.revealStepMs !== undefined ? { revealDelay: index * flags.revealStepMs } : {}),
       },
     };
   });
-  for (const a of graph.notes) {
+  // the column layout has no room for cards: notes show as a badge on their star (and in the sheet)
+  for (const a of layout ? [] : graph.notes) {
     out.push({
       id: noteNodeId(a.id),
       type: 'note',
@@ -156,41 +183,48 @@ function edgeTraced(e: VisibleEdge, traced: TracedPath): boolean {
 export function toFlowEdges(graph: VisibleGraph, state: GraphState, flags: MapNodeFlags): MapFlowEdge[] {
   const radius = new Map(graph.nodes.map((v) => [v.node.id, v.radius]));
   const byId = new Map(graph.nodes.map((v) => [v.node.id, v.node]));
-  return graph.edges.map((e) => {
-    const color = MARKER_COLOR[e.kind];
-    const highlighted = e.highlighted;
-    const src = byId.get(e.sourceId);
-    return {
-      id: e.id,
-      type: e.kind,
-      source: e.sourceId,
-      target: e.targetId,
-      selectable: false,
-      focusable: false,
-      zIndex: e.kind === 'note' ? 1 : 0,
-      ariaLabel: edgeAccessibleName(e, state),
-      markerEnd: color ? { type: MarkerType.ArrowClosed, color, width: 14, height: 14, strokeWidth: 1 } : undefined,
-      data: {
-        kind: e.kind,
-        sourceRadius: radius.get(e.sourceId) ?? 0,
-        targetRadius: radius.get(e.targetId) ?? (state.nodes[e.targetId] ? 18 : 0),
-        highlighted,
-        dimmed: Boolean(flags.traced && !edgeTraced(e, flags.traced)),
-        onPath: Boolean(flags.traced && edgeTraced(e, flags.traced)),
-        motion: flags.motion,
-        particles: Boolean(flags.particles),
-        comet: Boolean(flags.comet),
-        labelChars: src?.label.length ?? 12,
-        ...(e.returning ? { returning: true } : {}),
-        labelGap: src
-          ? labelBlockHeight(
-              src.label,
-              flags.showTime || src.id === flags.activeNodeId || src.id === flags.playingNodeId,
-            )
-          : 0,
-      },
-    };
-  });
+  const layout = flags.layout;
+  const linesAt = flags.revealStepMs !== undefined ? graph.nodes.length * flags.revealStepMs + 150 : undefined;
+  return graph.edges
+    .filter((e) => !(layout && e.kind === 'note'))
+    .map((e) => {
+      const color = MARKER_COLOR[e.kind];
+      const route = layout?.routes.get(e.id);
+      const highlighted = e.highlighted;
+      const src = byId.get(e.sourceId);
+      return {
+        id: e.id,
+        type: e.kind,
+        source: e.sourceId,
+        target: e.targetId,
+        selectable: false,
+        focusable: false,
+        zIndex: e.kind === 'note' ? 1 : 0,
+        ariaLabel: edgeAccessibleName(e, state),
+        markerEnd: color ? { type: MarkerType.ArrowClosed, color, width: 14, height: 14, strokeWidth: 1 } : undefined,
+        data: {
+          kind: e.kind,
+          sourceRadius: radius.get(e.sourceId) ?? 0,
+          targetRadius: radius.get(e.targetId) ?? (state.nodes[e.targetId] ? 18 : 0),
+          highlighted,
+          dimmed: Boolean(flags.traced && !edgeTraced(e, flags.traced)),
+          onPath: Boolean(flags.traced && edgeTraced(e, flags.traced)),
+          motion: flags.motion,
+          particles: Boolean(flags.particles),
+          comet: Boolean(flags.comet),
+          labelChars: src?.label.length ?? 12,
+          ...(route ? { route } : {}),
+          ...(linesAt !== undefined ? { revealDelay: linesAt } : {}),
+          ...(e.returning ? { returning: true } : {}),
+          labelGap: src
+            ? labelBlockHeight(
+                src.label,
+                flags.showTime || src.id === flags.activeNodeId || src.id === flags.playingNodeId,
+              )
+            : 0,
+        },
+      };
+    });
 }
 
 /** Characters that fit on one 136 px label line at 14 px semibold (approximate). */

@@ -59,9 +59,9 @@ const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
  * Phone default: the whole width fits (labels stay readable), starting at the top.
  * `top` is the inset taken by the floating toolbar.
  */
-export function fitWidth(b: Bounds, w: number, top = 0, maxZoom = 1.2): Viewport {
+export function fitWidth(b: Bounds, w: number, top = 0, maxZoom = 1.2, minZoom = MIN_ZOOM): Viewport {
   const bw = b.maxX - b.minX;
-  const zoom = clampZoom(Math.min(maxZoom, (w - 16) / bw));
+  const zoom = clampZoom(Math.max(minZoom, Math.min(maxZoom, (w - 16) / bw)));
   return { zoom, x: (w - bw * zoom) / 2 - b.minX * zoom, y: top + 8 - b.minY * zoom };
 }
 

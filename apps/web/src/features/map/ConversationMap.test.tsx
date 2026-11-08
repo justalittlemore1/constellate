@@ -23,6 +23,7 @@ const LEGACY: MapFlags = {
   parkedThoughts: true,
   cometTrails: true,
   facetedStars: true,
+  storedLayout: true,
 };
 
 beforeAll(() => installFlowDomStubs());

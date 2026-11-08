@@ -23,6 +23,8 @@ export interface MapFlags {
   cometTrails: boolean;
   /** wave-2 Y4 faceted stars instead of the Y3 eight-point compass */
   facetedStars: boolean;
+  /** draw stars at their persisted x / y (the pre-round-4 layout) instead of the phone column layout */
+  storedLayout: boolean;
 }
 
 export const MAP_FLAGS: MapFlags = {
@@ -36,6 +38,7 @@ export const MAP_FLAGS: MapFlags = {
   parkedThoughts: false,
   cometTrails: false,
   facetedStars: false,
+  storedLayout: false,
 };
 
 export function resolveFlags(over?: Partial<MapFlags>): MapFlags {
