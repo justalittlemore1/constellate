@@ -12,7 +12,9 @@ import { SttFileUnavailableError } from '../finalize/transcribe';
 import { cachedEmbedder, EmbeddingCache } from './embed';
 import {
   assertRealApisAllowed,
+  createGeminiGateway,
   GeminiGateway,
+  LIVE_API_VERSION,
   GeminiRateLimitedError,
   isRateLimit,
   suggestedRetryMs,
@@ -61,6 +63,26 @@ describe('GeminiGateway', () => {
     expect(await embed(['a', 'b', 'c', 'd'])).toHaveLength(4);
     expect(embedContent).toHaveBeenCalledOnce();
     expect(gateway.usage().requests).toEqual({ [MODELS.embed]: 1 });
+  });
+
+  it('opens Live sessions on v1beta (v1 answers the handshake with 404) and the rest on the default', async () => {
+    const made: { apiVersion?: string; client: GenAiLike }[] = [];
+    class FakeGenAI {
+      constructor(opts: { apiKey: string; httpOptions?: { apiVersion?: string } }) {
+        const { ai } = fakeGenAi();
+        made.push({ apiVersion: opts.httpOptions?.apiVersion, client: ai });
+        return ai as unknown as FakeGenAI;
+      }
+    }
+    const g = createGeminiGateway('k', () => {}, FakeGenAI as never);
+    await g.liveConnect({ config: {}, callbacks: { onmessage() {} } } as never);
+    await g.embed(['a']);
+    expect(made.map((m) => m.apiVersion)).toEqual([undefined, LIVE_API_VERSION]);
+    expect(LIVE_API_VERSION).toBe('v1beta');
+    expect(made[1]!.client.live.connect).toHaveBeenCalledOnce();
+    expect(made[0]!.client.live.connect).not.toHaveBeenCalled();
+    expect(made[0]!.client.models.embedContent).toHaveBeenCalledOnce();
+    expect(g.usage().requests).toEqual({ [MODELS.sttLive]: 1, [MODELS.embed]: 1 }); // still one counter
   });
 
   it('counts requests per model and logs running totals', async () => {

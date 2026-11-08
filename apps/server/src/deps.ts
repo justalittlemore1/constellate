@@ -5,7 +5,7 @@ import { loadMergeSystemPrompt } from '@constellate/brain';
 import { createLiveInterpreter, finalizeConversation } from '@constellate/interpreter';
 import { MODELS, type CreateLiveInterpreter, type FinalizeConversation } from '@constellate/shared';
 import { cachedEmbedder, EmbeddingCache, embedCacheFile, noEmbedder, type Embedder } from './ai/embed';
-import { assertRealApisAllowed, GeminiGateway } from './ai/gemini';
+import { assertRealApisAllowed, createGeminiGateway, GeminiGateway } from './ai/gemini';
 import { anthropicMergeDecider, type MergeDecider } from './brain/merge-llm';
 import { forceClaudeReasoning, type Env } from './env';
 import { gatedTranscriber, geminiFileTranscriber, type FileTranscriber } from './finalize/transcribe';
@@ -122,7 +122,11 @@ export function createDefaultDeps(env: Env, log: Log, overrides: Partial<ServerD
 function realGemini(env: Env, log: Log): GeminiGateway | null {
   if (!env.GEMINI_API_KEY) return null;
   assertRealApisAllowed('GeminiGateway');
-  return new GeminiGateway(new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }), { log });
+  return createGeminiGateway(
+    env.GEMINI_API_KEY,
+    log,
+    GoogleGenAI as unknown as Parameters<typeof createGeminiGateway>[2],
+  );
 }
 
 function realAnthropic(apiKey: string): Anthropic {

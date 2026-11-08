@@ -59,7 +59,15 @@ export interface GeminiUsage {
   coolingDown: Record<string, number>;
 }
 
+/**
+ * The Live API is served on v1beta. The SDK's default (v1) answers the WebSocket handshake with
+ * HTTP 404 — verified with one manual session on 2026-11-08 (v1: 404; v1beta: transcripts).
+ */
+export const LIVE_API_VERSION = 'v1beta';
+
 export interface GatewayOptions {
+  /** SDK client for Live sessions when it needs a different API version (see LIVE_API_VERSION) */
+  liveAi?: GenAiLike;
   log?: Log;
   now?: () => number;
   /** first back-off after a 429; doubles per consecutive 429, capped at `maxBackoffMs` */
@@ -83,6 +91,7 @@ export class GeminiGateway {
   private readonly now: () => number;
   private readonly base: number;
   private readonly max: number;
+  private readonly liveAi: GenAiLike | undefined;
 
   constructor(
     private readonly ai: GenAiLike,
@@ -92,6 +101,7 @@ export class GeminiGateway {
     this.now = opts.now ?? Date.now;
     this.base = opts.baseBackoffMs ?? 5_000;
     this.max = opts.maxBackoffMs ?? 5 * 60_000;
+    this.liveAi = opts.liveAi;
   }
 
   usage(): GeminiUsage {
@@ -131,7 +141,8 @@ export class GeminiGateway {
 
   /** One `MODELS.sttLive` session (counted as one request). */
   liveConnect(params: Omit<LiveConnectParameters, 'model'>): Promise<Session> {
-    return this.call(MODELS.sttLive, () => this.ai.live.connect({ ...params, model: MODELS.sttLive }));
+    const live = this.liveAi ?? this.ai;
+    return this.call(MODELS.sttLive, () => live.live.connect({ ...params, model: MODELS.sttLive }));
   }
 
   /**
@@ -198,4 +209,19 @@ export function assertRealApisAllowed(what: string): void {
   if (process.env.VITEST && process.env.ALLOW_REAL_APIS !== '1') {
     throw new Error(`${what}: unit tests must not call real APIs — inject a fake`);
   }
+}
+
+/**
+ * The production gateway: one counting client per process, backed by an SDK client on the default
+ * API version (embeddings, files, models.list) and one on LIVE_API_VERSION for Live sessions.
+ */
+export function createGeminiGateway(
+  apiKey: string,
+  log: Log,
+  GenAI: new (opts: { apiKey: string; httpOptions?: { apiVersion?: string } }) => GenAiLike,
+): GeminiGateway {
+  return new GeminiGateway(new GenAI({ apiKey }), {
+    log,
+    liveAi: new GenAI({ apiKey, httpOptions: { apiVersion: LIVE_API_VERSION } }),
+  });
 }
