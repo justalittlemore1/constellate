@@ -185,15 +185,18 @@ function LiveSessionView({
   const sourceLabel =
     source.kind === 'transcript' ? 'Demo replay' : source.kind === 'wav' ? `Replaying ${source.name ?? 'audio file'}` : null;
 
-  const consenting = phase === 'consenting' || phase === 'idle';
-  const overlayOpen = consenting || parking || ending || trigger.pocket;
+  // opened only once the session reaches 'consenting' (an effect after mount): on the very first render
+  // the PhoneFrame's #overlay-root does not exist yet, and a sheet portalled then would move containers
+  // on the next render and lose its initial focus
+  const consenting = phase === 'consenting';
+  const overlayOpen = consenting || phase === 'idle' || parking || ending || trigger.pocket;
 
   return (
     <div className="relative h-full" data-testid="live-screen">
       <p className="sr-only" role="status">
         {s.reconnecting ? 'Connection lost. Reconnecting…' : ''}
       </p>
-      <div className="flex h-full flex-col" inert={overlayOpen} data-testid="live-content">
+      <main aria-label="Live conversation" className="flex h-full flex-col" inert={overlayOpen} data-testid="live-content">
       {/* top bar: elapsed time on the audio clock, recording indicator (dot + word), stage */}
       <header className="flex min-h-[56px] items-center gap-3 border-b border-white/10 px-4">
         <span className="flex items-center gap-2 text-[13px] font-semibold">
@@ -270,7 +273,7 @@ function LiveSessionView({
           Stop
         </button>
       </nav>
-      </div>
+      </main>
 
       {toast && (
         <div
