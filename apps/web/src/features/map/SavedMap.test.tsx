@@ -162,7 +162,8 @@ describe('edits on the saved map', () => {
     const saved = client().getQueryData<GraphState>(graphKey(id))!;
     const note = saved.annotations.find((x) => x.text === 'Read The Stranger')!;
     expect(note.nodeId).toBe(n.id);
-    expect(screen.getByTestId(`map-note-${note.id}`)).toHaveTextContent('Read The Stranger');
+    // on the column layout a note shows as a badge on its star (cards belong to the stored layout)
+    expect(within(tile(n.id)).getByTestId('note-badge')).toBeInTheDocument();
   });
 
   it('edits an existing note in place', async () => {
@@ -177,7 +178,8 @@ describe('edits on the saved map', () => {
     await user.clear(box);
     await user.type(box, 'Q source: check Kloppenborg');
     await user.click(within(sheet).getByRole('button', { name: 'Save note' }));
-    expect(screen.getByTestId(`map-note-${existing.id}`)).toHaveTextContent('Q source: check Kloppenborg');
+    expect(within(sheet).getByText('Q source: check Kloppenborg')).toBeInTheDocument();
+    expect(within(tile(n.id)).getByTestId('note-badge')).toBeInTheDocument();
   });
 });
 

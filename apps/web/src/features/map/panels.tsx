@@ -22,7 +22,6 @@ export function PreviewCard({
   occurrences,
   activeNodeId,
   onOpen,
-  onClose,
   onPlay,
 }: {
   state: GraphState;
@@ -30,7 +29,6 @@ export function PreviewCard({
   occurrences?: readonly TopicNode[] | undefined;
   activeNodeId: string | null;
   onOpen(): void;
-  onClose(): void;
   onPlay?: (() => void) | undefined;
 }) {
   const many = occurrences && occurrences.length > 1;
@@ -45,31 +43,26 @@ export function PreviewCard({
       <button
         type="button"
         onClick={onOpen}
-        className="cmap-control flex min-h-11 min-w-0 flex-1 items-start gap-2 px-2.5 py-1.5 text-left"
+        className="hover-wash flex min-h-11 min-w-0 flex-1 items-start gap-2 px-2.5 py-1.5 text-left"
         aria-label={`Open details for ${node.label}`}
       >
         <span className="min-w-0 flex-1">
           <span className="flex items-baseline gap-2">
-            <span className="cmap-chart-title truncate text-[1.05rem] font-semibold">{node.label}</span>
-            <span className="shrink-0 text-[11.5px] tabular-nums text-ink-2">{rangesOf(node, occurrences)}</span>
+            <span className="cmap-chart-title truncate text-[1.1em] font-semibold">{node.label}</span>
+            <span className="shrink-0 text-[0.78em] tabular-nums text-ink-2">{rangesOf(node, occurrences)}</span>
           </span>
-          <span className="mt-0.5 block text-[13px] leading-snug text-ink-2">{node.summary}</span>
-          <span className="mt-1 block text-[11.5px] text-ink-2">
+          <span className="mt-0.5 block text-[0.85em] leading-snug text-ink-2">{node.summary}</span>
+          <span className="mt-1 block text-[0.78em] text-ink-2">
             {[statusWords(node, activeNodeId), ...relations].join(' · ')}
           </span>
         </span>
         <ChevronRight aria-hidden size={18} className="mt-0.5 shrink-0 text-ink-2" />
       </button>
-      <div className="flex flex-col">
-        <IconButton className="cmap-control" label="Close preview" onClick={onClose}>
-          <X aria-hidden size={18} />
+      {onPlay && (
+        <IconButton className="hover-wash" label={`Play ${node.label}`} onClick={onPlay}>
+          <Play aria-hidden size={18} />
         </IconButton>
-        {onPlay && (
-          <IconButton className="cmap-control" label={`Play ${node.label}`} onClick={onPlay}>
-            <Play aria-hidden size={18} />
-          </IconButton>
-        )}
-      </div>
+      )}
     </section>
   );
 }
@@ -189,14 +182,14 @@ export function NodeDetailSheet({
             {back && <Chip tone="revisit">↺ return</Chip>}
             {node.highlighted && <Chip tone="highlight">★ highlighted</Chip>}
             {flags.length > 0 && <Chip tone="flag">⚑ flagged{flags.length > 1 ? ` ×${flags.length}` : ''}</Chip>}
-            <span className="text-[13px] tabular-nums text-ink-2">{rangesOf(node, moments)}</span>
+            <span className="text-[0.85em] tabular-nums text-ink-2">{rangesOf(node, moments)}</span>
           </div>
 
-          <p className="text-[0.9375rem] leading-relaxed">{node.summary}</p>
+          <p className="text-[1em] leading-relaxed">{node.summary}</p>
 
           {many && (
             <section aria-labelledby="cmap-moments-h">
-              <h3 id="cmap-moments-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+              <h3 id="cmap-moments-h" className="mb-1 text-[0.85em] font-semibold uppercase tracking-wide text-ink-2">
                 Came up {moments.length} times
               </h3>
               <ol className="flex flex-col gap-1" data-testid="moments">
@@ -204,13 +197,13 @@ export function NodeDetailSheet({
                   const playingThis = m.id === playingNodeId;
                   return (
                     <li key={m.id} className="flex items-center gap-2 border-l border-thread/50 py-0.5 pl-3">
-                      <span className="min-w-0 flex-1 text-[0.9375rem]">
+                      <span className="min-w-0 flex-1 text-[1em]">
                         <span className="tabular-nums">{timeRange(m)}</span>
                         <span className="text-ink-2">{i === 0 ? ' · first' : ' · came back'}</span>
                       </span>
                       {onPlay && (
                         <IconButton
-                          className="cmap-control"
+                          className="hover-wash"
                           label={`${playingThis ? 'Pause' : 'Play'} ${m.label} at ${timeRange(m)}`}
                           aria-pressed={playingThis}
                           onClick={() => onPlay(m)}
@@ -252,11 +245,11 @@ export function NodeDetailSheet({
 
           {node.details && (
             <section aria-labelledby="cmap-details-h">
-              <h3 id="cmap-details-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+              <h3 id="cmap-details-h" className="mb-1 text-[0.85em] font-semibold uppercase tracking-wide text-ink-2">
                 Details
               </h3>
               {paragraphs(node.details).map((p, i) => (
-                <p key={i} className="mb-2 whitespace-pre-line text-[0.9375rem] leading-relaxed">
+                <p key={i} className="mb-2 whitespace-pre-line text-[1em] leading-relaxed">
                   {p}
                 </p>
               ))}
@@ -265,14 +258,14 @@ export function NodeDetailSheet({
 
           {evidence.length > 0 && (
             <section aria-labelledby="cmap-ev-h">
-              <h3 id="cmap-ev-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+              <h3 id="cmap-ev-h" className="mb-1 text-[0.85em] font-semibold uppercase tracking-wide text-ink-2">
                 What was said
               </h3>
               <ul className="flex flex-col gap-2">
                 {evidence.map((u) => (
-                  <li key={u.id} className="border-l-2 border-topic/50 pl-3 text-[0.9375rem] leading-relaxed">
+                  <li key={u.id} className="border-l-2 border-topic/50 pl-3 text-[1em] leading-relaxed">
                     <q>{u.text}</q>
-                    <span className="ml-2 text-[11.5px] tabular-nums text-ink-2">
+                    <span className="ml-2 text-[0.78em] tabular-nums text-ink-2">
                       {u.speaker !== null ? `Speaker ${u.speaker + 1} · ` : ''}
                       {formatClock(u.startMs)}
                     </span>
@@ -283,10 +276,10 @@ export function NodeDetailSheet({
           )}
 
           <section aria-labelledby="cmap-rel-h">
-            <h3 id="cmap-rel-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+            <h3 id="cmap-rel-h" className="mb-1 text-[0.85em] font-semibold uppercase tracking-wide text-ink-2">
               Where it sits
             </h3>
-            <ul className="list-disc pl-5 text-[0.9375rem] leading-relaxed">
+            <ul className="list-disc pl-5 text-[1em] leading-relaxed">
               {whereItSits.map((r) => (
                 <li key={r}>{r}</li>
               ))}
@@ -296,7 +289,7 @@ export function NodeDetailSheet({
 
           {(notes.length > 0 || edit) && (
             <section aria-labelledby="cmap-notes-h">
-              <h3 id="cmap-notes-h" className="mb-1 text-[13px] font-semibold uppercase tracking-wide text-ink-2">
+              <h3 id="cmap-notes-h" className="mb-1 text-[0.85em] font-semibold uppercase tracking-wide text-ink-2">
                 Your notes
               </h3>
               <ul className="flex flex-col gap-2">
@@ -316,12 +309,12 @@ export function NodeDetailSheet({
                   ) : (
                     <li
                       key={a.id}
-                      className="flex items-start gap-1 border border-highlight/40 bg-[#2a2614]/80 py-1 pl-3 pr-1 text-[0.9375rem]"
+                      className="flex items-start gap-1 border border-highlight/40 bg-[#2a2614]/80 py-1 pl-3 pr-1 text-[1em]"
                     >
                       <span className="flex-1 py-1.5">{a.text}</span>
                       {edit && (
                         <IconButton
-                          className="cmap-control"
+                          className="hover-wash"
                           label={`Edit note: ${a.text}`}
                           onClick={() => setEditing(a.id)}
                         >
@@ -551,7 +544,7 @@ const LEGEND: { title: string; text: string; sample: React.ReactNode }[] = [
 export function LegendSheet({ open, onClose }: { open: boolean; onClose(): void }) {
   return (
     <Sheet open={open} onClose={onClose} title="What the map shows" testId="legend-sheet">
-      <p className="mb-3 text-[13px] text-ink-2">
+      <p className="mb-3 text-[0.85em] text-ink-2">
         Time flows down the screen. Every symbol has a shape or a word as well as a colour.
       </p>
       <ul className="flex flex-col gap-3">
@@ -560,7 +553,7 @@ export function LegendSheet({ open, onClose }: { open: boolean; onClose(): void 
             <Sample>{l.sample}</Sample>
             <div className="min-w-0">
               <p className="font-semibold">{l.title}</p>
-              <p className="text-[13px] leading-snug text-ink-2">{l.text}</p>
+              <p className="text-[0.85em] leading-snug text-ink-2">{l.text}</p>
             </div>
           </li>
         ))}
@@ -578,11 +571,11 @@ export function PathBanner({ labels, onClear }: { labels: string[]; onClear(): v
       className="cmap-chart star-frame surface pointer-events-auto flex items-center gap-2 border border-line py-1 pl-3 pr-1"
     >
       <Route aria-hidden size={16} className="shrink-0 text-topic" />
-      <p className="min-w-0 flex-1 text-[13px] leading-snug">
+      <p className="min-w-0 flex-1 text-[0.85em] leading-snug">
         <span className="font-semibold">How we got here: </span>
         {labels.join(' → ')}
       </p>
-      <IconButton className="cmap-control" label="Clear path" onClick={onClear}>
+      <IconButton className="hover-wash" label="Clear path" onClick={onClear}>
         <X aria-hidden size={18} />
       </IconButton>
     </div>

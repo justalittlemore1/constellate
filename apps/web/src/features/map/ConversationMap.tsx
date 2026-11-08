@@ -25,6 +25,7 @@ import {
 import { ArrowDown, HelpCircle, Highlighter, List, Map as MapIcon, Maximize2, Minus, Plus } from 'lucide-react';
 import { resolveFlags, type MapFlags } from './flags';
 import { useAutoFollow } from './useAutoFollow';
+import { columnLayout } from './layout';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useMotionReduced } from '../../lib/prefs';
 import { Button, cx, IconButton } from '../../ui';
@@ -58,6 +59,7 @@ import {
 import {
   ensureVisible,
   fitAll,
+  fitWidth,
   followY,
   graphBounds,
   LIVE_FOLLOW_FRAC,
@@ -101,12 +103,18 @@ export interface ConversationMapProps {
   onViewChange?: (v: MapView) => void;
   /** hide the built-in top toolbar (detail level, fit, outline, legend) */
   hideToolbar?: boolean;
+  /** saved map: on mount, stars appear one by one in conversation order, then the lines draw in */
+  reveal?: boolean;
   /** per-instance overrides of MAP_FLAGS (flags.ts) */
   flags?: Partial<MapFlags>;
   className?: string;
 }
 
 const TOOLBAR_INSET = 60;
+/** saved-map reveal: gap between stars appearing, in conversation order */
+export const REVEAL_STEP_MS = 150;
+/** column layout: never below this zoom, so labels stay ≈ 16–17 px and stars ≥ 28 px */
+const COLUMN_MIN_ZOOM = 0.96;
 export const KEYBOARD_HINT =
   'Arrow keys move between topics in conversation order; each one shows a preview below. Enter opens the details.';
 /** how long the preview strip stays after the pointer leaves a star (time to reach the strip) */
@@ -168,6 +176,7 @@ function MapInner({
   view: viewProp,
   onViewChange,
   hideToolbar = false,
+  reveal = false,
   flags: flagsProp,
   className,
 }: ConversationMapProps) {
@@ -210,12 +219,26 @@ function MapInner({
     [state, shown, mergeReturns, hideParked],
   );
   const starById = useMemo(() => new Map(vg.nodes.map((v) => [v.node.id, v])), [vg]);
+  // display-only column layout for phones (round 4); the persisted x / y stay behind `storedLayout`
+  const layout = useMemo(() => (F.storedLayout ? undefined : columnLayout(vg)), [vg, F.storedLayout]);
+  /** where a star is drawn (column layout), falling back to its persisted position */
+  const posOf = useCallback(
+    (id: string): { x: number; y: number } | null => layout?.nodes.get(id) ?? state.nodes[id] ?? null,
+    [layout, state.nodes],
+  );
   // the full graph decides the frame, so switching detail level never jumps the view
   // live maps frame every lane up to the thread gutter from the start, so later nodes land in view
   const fullBounds = useMemo(() => {
+    if (layout) return layout.bounds;
     const b = graphBounds(visibleGraph(state, 'balanced', { mergeReturns, hideParked }));
     return b && followLatest ? withLaneFrame(b) : b;
-  }, [state, followLatest, mergeReturns, hideParked]);
+  }, [layout, state, followLatest, mergeReturns, hideParked]);
+  /** the first frame: column layout = fit its fixed width (labels ≈ 17 px on a 375–430 px phone) */
+  const startViewport = useCallback(
+    (b: NonNullable<typeof fullBounds>, w: number, top: number) =>
+      layout ? fitWidth(b, w, top, 1.25, COLUMN_MIN_ZOOM) : readableViewport(b, w, top),
+    [layout],
+  );
   const traced: TracedPath | null = useMemo(() => {
     if (!tracedId || !state.nodes[tracedId]) return null;
     const t = tracePath(state, tracedId);
@@ -235,6 +258,8 @@ function MapInner({
       particles: F.particles,
       comet: F.cometTrails,
       starArt: F.facetedStars ? ('y4' as const) : ('y3' as const),
+      ...(layout ? { layout } : {}),
+      ...(reveal && motion ? { revealStepMs: REVEAL_STEP_MS } : {}),
     }),
     [
       activeNodeId,
@@ -247,6 +272,8 @@ function MapInner({
       F.particles,
       F.cometTrails,
       F.facetedStars,
+      layout,
+      reveal,
     ],
   );
   const nodes = useMemo(
@@ -271,7 +298,11 @@ function MapInner({
   const order = useMemo(() => vg.nodes.map((v) => v.node.id), [vg]);
   const latestRaw = latestNode(state);
   // a return to an earlier thread is drawn at that thread's star
-  const latest = latestRaw ? (state.nodes[vg.starOf(latestRaw.id)] ?? latestRaw) : null;
+  const latestStar = latestRaw ? (state.nodes[vg.starOf(latestRaw.id)] ?? latestRaw) : null;
+  const latest = useMemo(
+    () => (latestStar ? { id: latestStar.id, ...(posOf(latestStar.id) ?? latestStar) } : null),
+    [latestStar, posOf],
+  );
   const toolbarShown = !hideToolbar && (F.zoomBar || F.outlineToggle || F.legendHelp);
   const topInset = toolbarShown ? TOOLBAR_INSET : 0;
 
@@ -302,15 +333,15 @@ function MapInner({
     if (!ready || placed.current || !fullBounds || !size.w || !size.h || view !== 'map') return;
     placed.current = true;
     // readable from the start (labels ≥ 15 px, smallest star ≥ 28 px); live: newest star ~38 % down
-    const vp = readableViewport(fullBounds, size.w, topInset);
+    const vp = startViewport(fullBounds, size.w, topInset);
     void rf.setViewport(followLatest && latest ? followY(vp, latest.y, size.h, LIVE_FOLLOW_FRAC) : vp);
-  }, [ready, fullBounds, size.w, size.h, topInset, rf, followLatest, latest, view]);
+  }, [ready, fullBounds, size.w, size.h, topInset, rf, followLatest, latest, view, startViewport]);
 
   // live: follow the newest node while the user has not panned away
   const latestId = latest?.id;
   useEffect(() => {
     if (!followLatest || !following || !placed.current || !latestId) return;
-    const n = state.nodes[latestId];
+    const n = posOf(latestId);
     if (!n || !size.h) return;
     void rf.setViewport(followY(rf.getViewport(), n.y, size.h, LIVE_FOLLOW_FRAC), { duration });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when a new node arrives
@@ -378,17 +409,17 @@ function MapInner({
   // … and scroll it into view once the canvas is ready, keeping the width-fit frame
   useEffect(() => {
     if (!ready || !focusNodeId || !fullBounds || !size.w || !size.h || view !== 'map') return;
-    const n = state.nodes[vg.starOf(focusNodeId)];
+    const n = posOf(vg.starOf(focusNodeId));
     if (!n) return;
     placed.current = true;
-    void rf.setViewport(followY(readableViewport(fullBounds, size.w, topInset), n.y, size.h, 0.4));
+    void rf.setViewport(followY(startViewport(fullBounds, size.w, topInset), n.y, size.h, 0.4));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the requested node changes
   }, [ready, focusNodeId, size.w > 0 && size.h > 0, view]);
 
   // the detail sheet covers the bottom ~58 %: bring its star into the uncovered map above it
   useEffect(() => {
     if (!sheetId || view !== 'map' || !container.current) return;
-    const n = starById.get(sheetId)?.node ?? state.nodes[sheetId];
+    const n = posOf(sheetId);
     if (!n) return;
     const mapRect = container.current.getBoundingClientRect();
     if (!mapRect.height) return;
@@ -447,7 +478,7 @@ function MapInner({
   const focusNode = useCallback(
     (id: string | null) => {
       if (!id) return;
-      const n = state.nodes[id];
+      const n = posOf(id);
       const el = container.current?.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(id)}"]`);
       el?.focus({ preventScroll: true });
       if (n && size.w) {
@@ -456,7 +487,7 @@ function MapInner({
         if (next.x !== vp.x || next.y !== vp.y) void rf.setViewport(next, { duration });
       }
     },
-    [state.nodes, rf, size.w, size.h, topInset, duration],
+    [posOf, rf, size.w, size.h, topInset, duration],
   );
 
   const onKeyDown = useCallback(
@@ -486,8 +517,11 @@ function MapInner({
           else setSheetId(id);
           break;
         case 'Escape':
+          // hides the preview strip too (it comes back when focus moves to another star)
           select(null);
           setTracedId(null);
+          setHoverId(null);
+          setFocusId(null);
           break;
         default:
           return;
@@ -524,7 +558,7 @@ function MapInner({
           placed.current = false;
         }}
         data-testid="text-view-link"
-        className="cmap-control sr-only z-30 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-bg focus:px-4 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-topic"
+        className="hover-wash sr-only z-30 focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:inline-flex focus:min-h-11 focus:items-center focus:bg-bg focus:px-4 focus:text-sm focus:font-semibold focus:text-ink focus:outline-2 focus:outline-topic"
       >
         {view === 'map' ? 'Text view' : 'Map view'}
       </button>
@@ -612,7 +646,7 @@ function MapInner({
             <p className="min-w-0 flex-1 text-[13px] leading-snug">
               <span className="font-semibold">Highlighter on.</span> Tap topics to paint them gold; tap again to clear.
             </p>
-            <Button variant="ghost" className="cmap-control" onClick={() => setPainting(false)}>
+            <Button variant="ghost" className="hover-wash" onClick={() => setPainting(false)}>
               Done
             </Button>
           </div>
@@ -640,7 +674,7 @@ function MapInner({
               <button
                 type="button"
                 onClick={jumpToNow}
-                className="cmap-control pointer-events-auto flex min-h-11 items-center gap-1.5 rounded-full border border-topic/50 bg-bg/90 px-4 text-sm font-semibold text-topic shadow-lg"
+                className="hover-wash pointer-events-auto flex min-h-11 items-center gap-1.5 rounded-full border border-topic/50 bg-bg/90 px-4 text-sm font-semibold text-topic shadow-lg"
               >
                 <ArrowDown aria-hidden size={16} />
                 Jump to now
@@ -654,7 +688,7 @@ function MapInner({
                   <IconButton
                     label="Paint topics gold (highlighter)"
                     aria-pressed={paintingOn}
-                    className={cx(paintingOn ? 'bg-highlight text-bg hover:bg-highlight/90' : 'cmap-control')}
+                    className={cx(paintingOn ? 'bg-highlight text-bg hover:bg-highlight/90' : 'hover-wash')}
                     onClick={() => {
                       setPainting((p) => !p);
                       select(null);
@@ -665,10 +699,10 @@ function MapInner({
                 )}
                 {F.zoomButtons && (
                   <>
-                    <IconButton className="cmap-control" label="Zoom in" onClick={() => void rf.zoomIn({ duration })}>
+                    <IconButton className="hover-wash" label="Zoom in" onClick={() => void rf.zoomIn({ duration })}>
                       <Plus aria-hidden size={18} />
                     </IconButton>
-                    <IconButton className="cmap-control" label="Zoom out" onClick={() => void rf.zoomOut({ duration })}>
+                    <IconButton className="hover-wash" label="Zoom out" onClick={() => void rf.zoomOut({ duration })}>
                       <Minus aria-hidden size={18} />
                     </IconButton>
                   </>
@@ -688,11 +722,6 @@ function MapInner({
                 occurrences={starById.get(previewNode.id)?.occurrences}
                 activeNodeId={activeNodeId}
                 onOpen={() => setSheetId(previewNode.id)}
-                onClose={() => {
-                  select(null);
-                  setHoverId(null);
-                  setFocusId(null);
-                }}
                 onPlay={play ? () => play(previewNode) : undefined}
               />
             </div>
@@ -762,7 +791,7 @@ function MapToolbar({
                 aria-pressed={detail === d}
                 onClick={() => onDetail(d)}
                 className={cx(
-                  'cmap-control min-h-11 min-w-0 flex-1 rounded-full px-2 text-[13px] font-semibold transition-colors',
+                  'hover-wash min-h-11 min-w-0 flex-1 rounded-full px-2 text-[13px] font-semibold transition-colors',
                   detail === d ? 'bg-topic text-bg' : 'text-ink-2 hover:bg-white/10 hover:text-ink',
                 )}
               >
@@ -776,13 +805,13 @@ function MapToolbar({
           </p>
         )}
         {view === 'map' && flags.zoomBar && (
-          <IconButton className="cmap-control" label="Fit the whole map" onClick={onFit}>
+          <IconButton className="hover-wash" label="Fit the whole map" onClick={onFit}>
             <Maximize2 aria-hidden size={18} />
           </IconButton>
         )}
         {flags.outlineToggle && (
           <IconButton
-            className="cmap-control"
+            className="hover-wash"
             label={view === 'map' ? 'Show as outline' : 'Show as map'}
             onClick={() => onView(view === 'map' ? 'outline' : 'map')}
           >
@@ -790,7 +819,7 @@ function MapToolbar({
           </IconButton>
         )}
         {flags.legendHelp && (
-          <IconButton className="cmap-control" label="What the symbols mean" onClick={onLegend}>
+          <IconButton className="hover-wash" label="What the symbols mean" onClick={onLegend}>
             <HelpCircle aria-hidden size={18} />
           </IconButton>
         )}

@@ -16,6 +16,7 @@ import { createContext, useContext, useRef, type PointerEvent as ReactPointerEve
 import { cx } from '../../ui';
 import type { NoteFlowNode, TopicFlowNode } from './flow';
 import { EmberArt, StateRings, Y3Star, Y4Star, type StarPalette } from './art';
+import { COLUMN, type PlacedNode } from './layout';
 import { nodeSubLabel } from './model';
 
 export interface MapNodeActions {
@@ -77,20 +78,65 @@ function CentreHandles() {
   );
 }
 
-function Label({ box, offset, text, sub }: { box: number; offset: number; text: string; sub?: string | undefined }) {
+function Label({
+  box,
+  r,
+  text,
+  sub,
+  place,
+}: {
+  box: number;
+  r: number;
+  text: string;
+  sub?: string | undefined;
+  place?: PlacedNode | undefined;
+}) {
+  const body = (
+    <>
+      <span className="cmap-label line-clamp-2">{text}</span>
+      {/* the space keeps the DOM text "Label sub" (= the start of the accessible name) */}
+      {sub && ' '}
+      {sub && <span className="cmap-sub mt-0.5 tabular-nums">{sub}</span>}
+    </>
+  );
+  if (place) {
+    // column layout: beside the star, vertically centred (right of topics, left of gutter threads)
+    const right = place.labelSide === 'right';
+    return (
+      <div
+        aria-hidden
+        data-testid="node-label"
+        data-side={place.labelSide}
+        className={cx(
+          'cmap-label-beside absolute flex flex-col',
+          right ? 'items-start text-left' : 'items-end text-right',
+        )}
+        style={{
+          width: place.labelWidth,
+          top: box,
+          left: right ? box + r + COLUMN.labelGap : box - r - COLUMN.labelGap - place.labelWidth,
+          transform: 'translateY(-50%)',
+        }}
+      >
+        {body}
+      </div>
+    );
+  }
   return (
     <div
       aria-hidden
       data-testid="node-label"
       className="absolute flex w-[136px] flex-col items-center text-center"
-      style={{ left: box - 68, top: box + offset }}
+      style={{ left: box - 68, top: box + r + 5 }}
     >
-      <span className="cmap-label line-clamp-2">{text}</span>
-      {/* the space keeps the DOM text "Label sub" (= the start of the accessible name) */}
-      {sub && ' '}
-      {sub && <span className="cmap-sub mt-0.5 tabular-nums">{sub}</span>}
+      {body}
     </div>
   );
+}
+
+/** Saved-map reveal: the star waits its turn (class keeps it hidden until its delay; CSS in map.css). */
+function revealStyle(delay: number | undefined): React.CSSProperties | undefined {
+  return delay !== undefined ? { animationDelay: `${delay}ms` } : undefined;
 }
 
 /** Small round badge on the circle's rim; `angle` in degrees, 0 = right, -90 = top. */
@@ -187,8 +233,14 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
       data-active={active || undefined}
       data-highlighted={n.highlighted || undefined}
       data-occurrences={view.occurrences.length > 1 ? view.occurrences.length : undefined}
-      className={cx('cmap-appear relative', dimmed && 'cmap-dim')}
-      style={{ width: side, height: side, opacity: dimmed ? 0.22 : provisional ? 0.4 : undefined }}
+      data-reveal={data.revealDelay}
+      className={cx('cmap-appear relative', data.revealDelay !== undefined && 'cmap-reveal', dimmed && 'cmap-dim')}
+      style={{
+        width: side,
+        height: side,
+        opacity: dimmed ? 0.22 : provisional ? 0.4 : undefined,
+        ...revealStyle(data.revealDelay),
+      }}
     >
       <CentreHandles />
       <TopicArt
@@ -227,7 +279,12 @@ export function TopicNodeView({ id, data }: NodeProps<TopicFlowNode>) {
           glyph={`+${view.hiddenChildren}`}
         />
       )}
-      <Label box={box} offset={r + 5} text={n.label} sub={sub} />
+      {(data.noteCount ?? 0) > 0 && (
+        <Badge box={box} r={r} angle={160} className="border-highlight/70 text-highlight" testId="note-badge">
+          <StickyNote size={10} strokeWidth={2.4} />
+        </Badge>
+      )}
+      <Label box={box} r={r} text={n.label} sub={sub} place={data.place} />
     </div>
   );
 }
@@ -248,8 +305,9 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
       data-kind={n.kind}
       data-status={n.status}
       data-art={resolved ? 'rekindled' : 'ember'}
-      className={cx('cmap-appear relative', dimmed && 'cmap-dim')}
-      style={{ width: side, height: side, opacity: dimmed ? 0.22 : undefined }}
+      data-reveal={data.revealDelay}
+      className={cx('cmap-appear relative', data.revealDelay !== undefined && 'cmap-reveal', dimmed && 'cmap-dim')}
+      style={{ width: side, height: side, opacity: dimmed ? 0.22 : undefined, ...revealStyle(data.revealDelay) }}
     >
       <CentreHandles />
       {resolved ? (
@@ -284,7 +342,7 @@ export function ThreadNodeView({ id, data }: NodeProps<TopicFlowNode>) {
           <Flag size={10} strokeWidth={2.5} />
         </Badge>
       )}
-      <Label box={box} offset={r + 5} text={n.label} sub={sub} />
+      <Label box={box} r={r} text={n.label} sub={sub} place={data.place} />
     </div>
   );
 }

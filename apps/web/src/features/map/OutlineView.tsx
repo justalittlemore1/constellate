@@ -126,15 +126,15 @@ export function OutlineView({
               <div className="flex items-baseline gap-2">
                 <span className="font-semibold">{n.label}</span>
                 {active && (
-                  <span className="rounded-full bg-topic/20 px-2 text-[11.5px] font-semibold text-topic">now</span>
+                  <span className="rounded-full bg-topic/20 px-2 text-[0.78em] font-semibold text-topic">now</span>
                 )}
-                <span className="ml-auto shrink-0 text-[11.5px] tabular-nums text-ink-2">{timeRange(n)}</span>
+                <span className="ml-auto shrink-0 text-[0.78em] tabular-nums text-ink-2">{timeRange(n)}</span>
               </div>
-              <p className="text-[13px] leading-snug text-ink-2">
+              <p className="text-[0.85em] leading-snug text-ink-2">
                 {[statusWords(n, activeNodeId), ...relations].join(' · ')}
               </p>
               {notes.map((a) => (
-                <p key={a.id} className="mt-1 text-[13px] text-ink">
+                <p key={a.id} className="mt-1 text-[0.85em] text-ink">
                   Note: {a.text}
                 </p>
               ))}

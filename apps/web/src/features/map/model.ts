@@ -19,7 +19,7 @@ export const AUTO_BROAD_ZOOM = 0.5;
 export const RADIUS_MIN = 16;
 export const RADIUS_MAX = 34;
 /** level-2 nodes are drawn slightly smaller */
-export const LEVEL2_SCALE = 0.85;
+export const LEVEL2_SCALE = 0.9;
 /** an unfinished node (still being discussed) counts as this long for sizing */
 const OPEN_NODE_MS = 30_000;
 const SHORT_MS = 15_000;

@@ -137,12 +137,36 @@
   background: rgb(0 0 0 / 0.18);
 }
 
-/* ── hover / press wash on map controls (A4's shared grey wash when it lands; ~7.5 % white until) */
-.cmap .cmap-control:hover,
-.cmap-control:hover,
-.cmap-control:focus-visible {
-  background-color: var(--hover-wash, rgb(255 255 255 / 0.075));
+/* ── column layout (round 4): labels beside the star, 17 px (Fraunces via --font-display) ───────── */
+.cmap-label-beside .cmap-label {
+  font-size: calc(17px * var(--text-size));
+  line-height: 1.2;
 }
-.cmap-control:active {
-  background-color: var(--press-wash, rgb(255 255 255 / 0.12));
+.cmap-label-beside .cmap-sub {
+  font-size: calc(13px * var(--text-size));
+}
+
+/* ── saved-map reveal: each star waits its turn, then lines draw in (instant under reduced motion:
+   the global rule removes every animation, and nothing is left hidden) */
+.cmap-reveal {
+  animation-fill-mode: backwards;
+}
+@keyframes cmap-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes cmap-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+.cmap-draw {
+  animation: cmap-fade-in 450ms ease-out backwards;
+}
+.cmap-draw [data-testid='constellation-line'] {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: cmap-draw 700ms ease-out backwards;
+  animation-delay: inherit;
 }

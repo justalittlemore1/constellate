@@ -15,6 +15,7 @@
  */
 import type { EdgeProps } from '@xyflow/react';
 import type { CSSProperties } from 'react';
+import { COLUMN, type ColumnRoute } from './layout';
 import { EDGE_COLOR, type MapFlowEdge } from './flow';
 
 export interface Pt {
@@ -142,8 +143,74 @@ export function linePath(
   return rimToRim(s, t, sr, tr + 2);
 }
 
-/** Point and direction (degrees) halfway along a line (`M a L b`) or cubic (`M a C c1, c2, b`). */
+/** Points along a path of absolute M / L / Q / C segments. */
+export function samplePath(d: string, steps = 20): Pt[] {
+  const tokens = d.match(/[MLCQ]|-?\d+(\.\d+)?/g) ?? [];
+  const out: Pt[] = [];
+  let i = 0;
+  let cur: Pt = { x: 0, y: 0 };
+  const num = () => Number(tokens[i++]);
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === 'M') {
+      cur = { x: num(), y: num() };
+      out.push(cur);
+    } else if (cmd === 'L') {
+      const p = { x: num(), y: num() };
+      for (let k = 1; k <= steps; k++)
+        out.push({ x: cur.x + ((p.x - cur.x) * k) / steps, y: cur.y + ((p.y - cur.y) * k) / steps });
+      cur = p;
+    } else if (cmd === 'Q') {
+      const c = { x: num(), y: num() };
+      const p = { x: num(), y: num() };
+      for (let k = 1; k <= steps; k++) {
+        const t = k / steps;
+        const u = 1 - t;
+        out.push({
+          x: u * u * cur.x + 2 * u * t * c.x + t * t * p.x,
+          y: u * u * cur.y + 2 * u * t * c.y + t * t * p.y,
+        });
+      }
+      cur = p;
+    } else if (cmd === 'C') {
+      const c1 = { x: num(), y: num() };
+      const c2 = { x: num(), y: num() };
+      const p = { x: num(), y: num() };
+      for (let k = 1; k <= steps; k++) {
+        const t = k / steps;
+        const u = 1 - t;
+        out.push({
+          x: u * u * u * cur.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * p.x,
+          y: u * u * u * cur.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * p.y,
+        });
+      }
+      cur = p;
+    } else break;
+  }
+  return out;
+}
+
+/** Point and direction (degrees) halfway along a path, by length (works for any M / L / Q / C path). */
 export function pathMidpoint(d: string): { x: number; y: number; angle: number } {
+  if (/[QC]/.test(d) && !/^M[^C]*C[^C]*$/.test(d.replace(/\s+/g, ' ').trim())) {
+    const pts = samplePath(d, 24);
+    const seg = pts.slice(1).map((p, k) => Math.hypot(p.x - pts[k]!.x, p.y - pts[k]!.y));
+    const half = seg.reduce((a, b) => a + b, 0) / 2;
+    let acc = 0;
+    for (let k = 0; k < seg.length; k++) {
+      if (acc + seg[k]! >= half) {
+        const a = pts[k]!;
+        const b = pts[k + 1]!;
+        const f = seg[k]! ? (half - acc) / seg[k]! : 0;
+        return {
+          x: a.x + (b.x - a.x) * f,
+          y: a.y + (b.y - a.y) * f,
+          angle: (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI,
+        };
+      }
+      acc += seg[k]!;
+    }
+  }
   const n = (d.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
   if (n.length >= 8) {
     const [ax, ay, c1x, c1y, c2x, c2y, bx, by] = n as [number, number, number, number, number, number, number, number];
@@ -155,6 +222,100 @@ export function pathMidpoint(d: string): { x: number; y: number; angle: number }
   }
   const [ax = 0, ay = 0, bx = 0, by = 0] = n;
   return { x: (ax + bx) / 2, y: (ay + by) / 2, angle: (Math.atan2(by - ay, bx - ax) * 180) / Math.PI };
+}
+
+// ───────────────────────── column layout routes (display layout, round 4) ─────────────────────────
+
+/** Column: next star down (no topic in between) — a straight line from the bottom of one star to the top of the next. */
+export function columnDirectPath(s: Pt, t: Pt, sr: number, tr: number): string {
+  return `M ${s.x} ${s.y + sr} L ${t.x} ${t.y - tr - 2}`;
+}
+
+/**
+ * Column: returns and long jumps loop down the left channel (labels are on the right): straight out
+ * of the star's left side, along the channel, straight back into the other star's left side, with
+ * rounded corners. Each row holds one star, so the out / in legs pass nothing.
+ */
+export function columnChannelPath(s: Pt, t: Pt, sr: number, tr: number, cx: number): string {
+  return roundedPath(
+    [
+      { x: s.x - sr - 1, y: s.y },
+      { x: cx, y: s.y },
+      { x: cx, y: t.y },
+      { x: t.x - tr - 3, y: t.y },
+    ],
+    14,
+  );
+}
+
+/** Orthogonal polyline with rounded corners (radius `k`). */
+export function roundedPath(points: Pt[], k = 10): string {
+  if (points.length < 2) return '';
+  let d = `M ${points[0]!.x} ${points[0]!.y}`;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = points[i - 1]!;
+    const c = points[i]!;
+    const n = points[i + 1]!;
+    const inLen = Math.hypot(c.x - p.x, c.y - p.y) || 1;
+    const outLen = Math.hypot(n.x - c.x, n.y - c.y) || 1;
+    const r = Math.min(k, inLen / 2, outLen / 2);
+    const a = { x: c.x - ((c.x - p.x) / inLen) * r, y: c.y - ((c.y - p.y) / inLen) * r };
+    const b = { x: c.x + ((n.x - c.x) / outLen) * r, y: c.y + ((n.y - c.y) / outLen) * r };
+    d += ` L ${a.x} ${a.y} Q ${c.x} ${c.y} ${b.x} ${b.y}`;
+  }
+  const last = points[points.length - 1]!;
+  return `${d} L ${last.x} ${last.y}`;
+}
+
+/** Column tether between neighbouring rows: an S-curve from the upper star's bottom to the lower one's top. */
+export function tetherDirectPath(u: Pt, l: Pt, ur: number, lr: number): string {
+  const a = { x: u.x, y: u.y + ur + 2 };
+  const b = { x: l.x, y: l.y - lr - 2 };
+  const m = (a.y + b.y) / 2;
+  return `M ${a.x} ${a.y} C ${a.x} ${m}, ${b.x} ${m}, ${b.x} ${b.y}`;
+}
+
+/**
+ * Column tether across several rows: out of the upper star (its bottom for a topic, its right side
+ * for a gutter thread), down the channel right of the gutter, into the lower star (its top for a
+ * topic, crossing in the gap above its row; its right side for a gutter thread).
+ */
+export function tetherGutterPath(
+  u: Pt,
+  l: Pt,
+  ur: number,
+  lr: number,
+  uGutter: boolean,
+  lGutter: boolean,
+  gx: number,
+): string {
+  const pts: Pt[] = [];
+  if (uGutter) pts.push({ x: u.x + ur + 2, y: u.y }, { x: gx, y: u.y });
+  else {
+    const y = u.y + Math.max(ur, 24) + 8;
+    pts.push({ x: u.x, y: u.y + ur + 2 }, { x: u.x, y }, { x: gx, y });
+  }
+  if (lGutter) pts.push({ x: gx, y: l.y }, { x: l.x + lr + 2, y: l.y });
+  else {
+    const y = l.y - Math.max(lr, 24) - 8;
+    pts.push({ x: gx, y }, { x: l.x, y }, { x: l.x, y: l.y - lr - 2 });
+  }
+  return roundedPath(pts);
+}
+
+/** Path for a flow / user edge under a column route. */
+export function columnFlowPath(s: Pt, t: Pt, sr: number, tr: number, route: ColumnRoute): string {
+  if (route.kind === 'left-channel') return columnChannelPath(s, t, sr, tr, route.x);
+  return columnDirectPath(s, t, sr, tr);
+}
+
+/** Path for a tether under a column route (either end may be the gutter thread). */
+export function columnTetherPath(s: Pt, t: Pt, sr: number, tr: number, route: ColumnRoute): string {
+  const sUp = s.y <= t.y;
+  const [u, l, ur, lr] = sUp ? [s, t, sr, tr] : [t, s, tr, sr];
+  const g = (p: Pt) => p.x >= COLUMN.gutter - 1;
+  if (route.kind === 'tether-gutter') return tetherGutterPath(u, l, ur, lr, g(u), g(l), route.x);
+  return tetherDirectPath(u, l, ur, lr);
 }
 
 /** Constellation line colour (pale gold at ~80 %). */
@@ -178,6 +339,21 @@ export function rimToRim(s: Pt, t: Pt, sr: number, tr: number): string {
 }
 
 type P = EdgeProps<MapFlowEdge>;
+
+/** data-route value: the column route's kind when laid out in columns, else the old route name. */
+function routeName(route: ColumnRoute | undefined, old: FlowRoute, returning: boolean): string {
+  if (!route) return old;
+  if (route.kind === 'left-channel') return returning ? 'return' : 'skip';
+  return 'direct';
+}
+
+/** Saved-map reveal: lines draw in after their stars (class + delay; none under reduced motion). */
+function revealClass(data: P['data']): string | undefined {
+  return data?.revealDelay !== undefined ? 'cmap-draw' : undefined;
+}
+function revealStyle(data: P['data']): CSSProperties | undefined {
+  return data?.revealDelay !== undefined ? { animationDelay: `${data.revealDelay}ms` } : undefined;
+}
 
 /** Highlighted branches keep their type's colour and pattern, drawn thicker and brighter. */
 function strokeOf(props: P, colour: string): { stroke: string; width: number; opacity: number; style: CSSProperties } {
@@ -273,15 +449,17 @@ function Constellation({ props, kind, dash }: { props: P; kind: 'flow' | 'user';
   const [s, t] = pts(props);
   const data = props.data;
   const returning = Boolean(data?.returning);
-  const d = linePath(
-    s,
-    t,
-    data?.sourceRadius ?? 0,
-    data?.targetRadius ?? 0,
-    data?.labelGap ?? 0,
-    returning,
-    data?.labelChars ?? 12,
-  );
+  const d = data?.route
+    ? columnFlowPath(s, t, data.sourceRadius, data.targetRadius, data.route)
+    : linePath(
+        s,
+        t,
+        data?.sourceRadius ?? 0,
+        data?.targetRadius ?? 0,
+        data?.labelGap ?? 0,
+        returning,
+        data?.labelChars ?? 12,
+      );
   const mid = pathMidpoint(d);
   const bright = data?.highlighted || data?.onPath;
   const width = bright ? 1.6 : 0.9;
@@ -289,9 +467,11 @@ function Constellation({ props, kind, dash }: { props: P; kind: 'flow' | 'user';
     <g
       data-testid={`map-edge-${props.id}`}
       data-kind={kind}
-      data-route={flowRoute(s, t, returning)}
+      data-route={routeName(data?.route, flowRoute(s, t, returning), returning)}
       data-style="line"
       opacity={data?.dimmed ? 0.15 : bright ? 1 : 0.8}
+      className={revealClass(data)}
+      style={revealStyle(data)}
     >
       <path
         d={d}
@@ -300,6 +480,7 @@ function Constellation({ props, kind, dash }: { props: P; kind: 'flow' | 'user';
         strokeWidth={width}
         strokeLinecap="round"
         strokeDasharray={dash}
+        pathLength={dash ? undefined : 1}
         data-testid="constellation-line"
       />
       <path
@@ -334,7 +515,11 @@ export function UserEdge(props: P) {
 
 export function RevisitEdge(props: P) {
   const [s, t] = pts(props);
-  const d = revisitPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0);
+  const route = props.data?.route;
+  const d =
+    route?.kind === 'left-channel'
+      ? columnChannelPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, route.x)
+      : revisitPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0);
   const st = strokeOf(props, EDGE_COLOR.revisit);
   return (
     <g data-testid={`map-edge-${props.id}`} data-kind="revisit" opacity={st.opacity}>
@@ -354,10 +539,20 @@ export function RevisitEdge(props: P) {
 
 export function TetherEdge(props: P) {
   const [s, t] = pts(props);
-  const d = rimToRim(s, t, (props.data?.sourceRadius ?? 0) + 2, (props.data?.targetRadius ?? 0) + 2);
+  const route = props.data?.route;
+  const d = route
+    ? columnTetherPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, route)
+    : rimToRim(s, t, (props.data?.sourceRadius ?? 0) + 2, (props.data?.targetRadius ?? 0) + 2);
   const st = strokeOf(props, EDGE_COLOR.tether);
   return (
-    <g data-testid={`map-edge-${props.id}`} data-kind="tether" opacity={st.opacity}>
+    <g
+      data-testid={`map-edge-${props.id}`}
+      data-kind="tether"
+      data-route={route?.kind}
+      opacity={st.opacity}
+      className={revealClass(props.data)}
+      style={revealStyle(props.data)}
+    >
       <path
         d={d}
         fill="none"
