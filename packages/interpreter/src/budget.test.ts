@@ -19,7 +19,7 @@ import {
   resetGeminiUsage,
   setGeminiUsageLogger,
 } from './llm/usage';
-import { memoryDeps, scriptedLlm } from './test-utils';
+import { dec, memoryDeps, scriptedLlm, utt } from './test-utils';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -68,6 +68,43 @@ describe('no Gemini text models', () => {
       .filter((f) => readFileSync(f, 'utf8').includes('generateContent'))
       .map((f) => f.slice(root.length).split(/[\\/]/).filter(Boolean).join('/'));
     expect(callers).toEqual(['src/tts/render.ts']);
+  });
+});
+
+describe('embed a node only when created', () => {
+  it('a continue with summary_update makes no embedding call', async () => {
+    const embedded: string[][] = [];
+    const deps = memoryDeps(undefined, async (texts) => {
+      embedded.push(texts);
+      return texts.map(() => [1, 0, 0]);
+    });
+    const llm = scriptedLlm((_a, n) =>
+      n === 1
+        ? dec({
+            action: 'new_topic',
+            new_topic: {
+              label: 'Hockey',
+              summary: 's',
+              level: 1,
+              relation: 'new_theme',
+              parent_node_id: null,
+              starts_at_utterance: 'u1',
+              explicit_shift: true,
+            },
+          })
+        : dec({ action: 'continue', continue: { summary_update: 'a refined one-liner' } }),
+    );
+    const interp = createInterpreter(deps, { llm, scheduler: deps.clock, systemPrompt: 'S' });
+    for (const [i, t] of ['anyway hockey', 'anyway goalie', 'anyway playoffs'].entries()) {
+      const u = utt(i + 1, t, i * 3_000, i * 3_000 + 2_000);
+      deps.clock.advance(u.endMs);
+      interp.pushUtterance(u);
+      await interp.idle();
+    }
+    expect(llm.calls).toHaveLength(3);
+    const nodeTexts = embedded.flat().filter((t) => t.startsWith('Hockey.'));
+    expect(nodeTexts).toEqual(['Hockey. s']);
+    expect(Object.values(deps.state.nodes)[0]!.summary).toBe('a refined one-liner');
   });
 });
 
