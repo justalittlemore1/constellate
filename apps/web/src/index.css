@@ -12,6 +12,14 @@
   --color-highlight: var(--highlight);
   --color-flag: var(--flag);
   --font-sans: var(--font);
+  /* Cormorant runs small: every step ~1–2 px larger than Tailwind's defaults */
+  --text-xs: 0.8125rem; /* 13 px */
+  --text-xs--line-height: 1.35;
+  --text-sm: 0.9375rem; /* 15 px */
+  --text-sm--line-height: 1.4;
+  --text-base: 1.0625rem; /* 17 px */
+  --text-lg: 1.25rem; /* 20 px */
+  --text-xl: 1.375rem;
 }
 
 html {
@@ -31,7 +39,51 @@ body,
 }
 
 body {
-  font-size: 0.9375rem; /* 15 px body at 100 % */
+  font-size: 1.0625rem; /* 17 px body at 100 % (Cormorant reads ~2 px smaller than Inter) */
+  font-weight: 400;
+}
+
+@layer base {
+  /* text below 16 px is set at weight 500 so the thin serif keeps 4.5:1 legibility;
+     explicit weight utilities (font-semibold…) still win, being in the utilities layer */
+  .text-xs,
+  .text-sm,
+  small {
+    font-weight: 500;
+  }
+}
+
+/* in the components layer so utilities on the same element (absolute, borders…) win */
+@layer components {
+  /* ── star-chart frame (ui/StarFrame): square, 1 px --thread top hairline, 10 px corner ticks ── */
+  .star-frame {
+    position: relative;
+    border-radius: 0;
+    border-top: 1px solid var(--frame-line);
+  }
+  .star-frame::before,
+  .star-frame::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    width: var(--frame-tick);
+    height: var(--frame-tick);
+    border-top: 1px solid var(--frame-line);
+    pointer-events: none;
+  }
+  .star-frame::before {
+    left: 0;
+    border-left: 1px solid var(--frame-line);
+  }
+  .star-frame::after {
+    right: 0;
+    border-right: 1px solid var(--frame-line);
+  }
+
+  /* hairline list rows (sidebar, Highlights, concept lists) */
+  .hairline-list > * + * {
+    border-top: var(--hairline);
+  }
 }
 
 :focus-visible {
@@ -66,6 +118,10 @@ body {
 .orb {
   box-shadow: 0 0 48px rgba(111, 227, 255, calc(0.3 * var(--glow)));
   animation: orb-pulse 2.8s ease-in-out infinite;
+}
+/* the redesign has no pulsing glows (uiFlags.homeOrbPulse): a steady, soft halo */
+.orb-still {
+  box-shadow: 0 0 40px rgba(111, 227, 255, calc(0.22 * var(--glow)));
 }
 
 @keyframes sheet-up {

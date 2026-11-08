@@ -31,14 +31,14 @@ export function Toggle({ label, description, checked, onChange }: ToggleProps) {
         aria-describedby={description ? `${id}-d` : undefined}
         onClick={() => onChange(!checked)}
         className={cx(
-          'relative inline-flex h-11 w-16 shrink-0 items-center rounded-full border transition-colors',
+          'relative inline-flex h-11 w-16 shrink-0 items-center border transition-colors',
           checked ? 'border-topic bg-topic/25' : 'border-line bg-white/5',
         )}
       >
         <span
           aria-hidden
           className={cx(
-            'absolute top-1/2 size-7 -translate-y-1/2 rounded-full transition-[left]',
+            'absolute top-1/2 size-7 -translate-y-1/2 transition-[left]',
             checked ? 'bg-topic left-[calc(100%-2rem)]' : 'bg-ink-2 left-1',
           )}
         />

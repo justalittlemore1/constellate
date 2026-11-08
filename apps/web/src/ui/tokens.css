@@ -7,7 +7,9 @@
   --bg: #070a17;
   --surface: rgba(22, 28, 52, 0.72);
   --surface-blur: 16px;
-  --border: rgba(163, 172, 200, 0.18);
+  /* editorial hairline: --text at ~15 % alpha */
+  --border: rgba(232, 236, 248, 0.15);
+  --hairline: 1px solid var(--border);
   --text: #e8ecf8;
   --text-2: #a3acc8;
 
@@ -17,11 +19,16 @@
   --highlight: #ffd84d; /* highlighted nodes and branches */
   --flag: #ff7a90; /* flag pins */
 
-  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  /* display face for headings and canvas labels (A3's map reads it); self-hosted, see main.tsx */
+  --font-display: 'Cormorant Garamond', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  /* star-chart frame (ui/StarFrame): top hairline and corner ticks in --thread at ~60 % */
+  --frame-line: rgba(255, 196, 107, 0.6);
+  --frame-tick: 10px;
   /* user setting 1–1.5 (Settings → Text size), applied to the root font size and canvas labels */
   --text-size: 1;
   --touch: 44px;
-  --radius: 16px;
+  --radius: 16px; /* A3's map cards; A4 UI is square (editorial hairlines) */
   /* 1 = full motion; 0 under prefers-reduced-motion or the Reduce motion setting */
   --motion: 1;
   /* 1 = normal glow; lower in low-stimulation mode */
