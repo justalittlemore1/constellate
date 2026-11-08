@@ -82,7 +82,7 @@ function LiveSessionView({
   features: featureOverrides,
 }: Omit<LiveScreenProps, 'initialSource'> & { source: LiveSourceSpec; setSource(s: LiveSourceSpec): void }) {
   const features: LiveFeatures = { ...LIVE_FEATURES, ...featureOverrides };
-  const notesOn = features.flagNotes !== 'off';
+  const notesOn = features.flagNotes;
   const s = useLiveSession(source, { deps, speed });
   const { controller, phase } = s;
   const [parking, setParking] = useState(false);
@@ -135,20 +135,14 @@ function LiveSessionView({
     setNoting({ atMs, source: src });
   }
 
-  async function saveNote(note: string | null) {
+  /** note: the typed note, or null for "Flag without note" — either way dated at the press */
+  function saveNote(note: string | null) {
     const n = noting;
     setNoting(null);
     if (!n || !controller) return;
-    const result =
-      note === null
-        ? controller.flag(n.source)
-          ? 'flag-only'
-          : 'rejected'
-        : await controller.flagWithNote(n.source, note, n.atMs);
-    if (result === 'rejected') return;
+    if (!controller.flagWithNote(n.source, note ?? '', n.atMs)) return;
     navigator.vibrate?.(60);
-    if (note === null) show('Moment flagged');
-    else show(result === 'saved' ? 'Flagged with a note' : 'Moment flagged — the note could not be saved');
+    show(note?.trim() ? 'Flagged with a note' : 'Moment flagged');
   }
 
   const threads = useMemo(() => openThreads(s.graph), [s.graph]);
@@ -357,8 +351,8 @@ function LiveSessionView({
 
       <FlagNoteSheet
         open={noting !== null && live}
-        onSave={(note) => void saveNote(note)}
-        onFlagOnly={() => void saveNote(null)}
+        onSave={(note) => saveNote(note)}
+        onFlagOnly={() => saveNote(null)}
         onCancel={() => setNoting(null)}
       />
 

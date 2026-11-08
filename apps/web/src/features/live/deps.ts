@@ -29,14 +29,6 @@ export function realDeps(opts: { clockRate?: number } = {}): LiveDeps {
       if (!res.ok) throw new Error(`GET /conversations/${id} → ${res.status}`);
       return GraphStateSchema.parse(await res.json());
     },
-    postOps: async (id, auth, ops) => {
-      const res = await fetch(`${env.serverHttpUrl}/conversations/${encodeURIComponent(id)}/ops`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${auth.token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ops }),
-      });
-      if (!res.ok) throw new Error(`POST /conversations/${id}/ops → ${res.status}`);
-    },
     startCapture: (source, onFrame) => startCapture(source, onFrame),
     upload: async (blob, auth, conversationId) => {
       if (!supabase) throw new Error('Supabase is not configured');
@@ -65,7 +57,6 @@ export function mockDeps(opts: { speed?: number } = {}): { deps: LiveDeps; serve
       transport: server.transport,
       getAuth: async () => ({ token: 'mock-token', userId }),
       fetchGraph: (id) => server.fetchGraph(id),
-      postOps: (id, _auth, ops) => server.postOps(id, ops),
       // mock mode never touches the microphone: the op stream is the "audio"
       startCapture: () => Promise.reject(new Error('no audio capture in mock mode')),
       upload: async () => undefined,

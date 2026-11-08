@@ -6,18 +6,15 @@ export interface LiveFeatures {
   /** "Park a thought": bottom-bar button and sheet. Hidden in the redesign. */
   parkThought: boolean;
   /**
-   * Press-and-hold Flag (or Shift+F) opens a short note for that flag.
-   *   'user-op' — the note is saved now as a `flag.add` user op (POST /conversations/:id/ops), which
-   *               today's contract and server already accept; if that call fails the moment is still
-   *               flagged over the socket, without the note.
-   *   'off'     — degraded: holding or Shift+F simply flags, no note field.
+   * Press-and-hold Flag (or Shift+F) opens a short note for that flag, sent on the `flag` message
+   * (contract #49 / server #50). false = degraded: holding or Shift+F simply flags, no note field.
    */
-  flagNotes: 'user-op' | 'off';
+  flagNotes: boolean;
 }
 
 export const LIVE_FEATURES: LiveFeatures = {
   parkThought: false,
-  flagNotes: 'user-op',
+  flagNotes: true,
 };
 
 /** a held press longer than this opens the note field */

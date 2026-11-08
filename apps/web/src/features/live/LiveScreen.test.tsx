@@ -537,8 +537,8 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     expect(server.state.flags.some((f) => f.note === 'quick one' && f.source === 'key')).toBe(true);
   });
 
-  it('degraded (flagNotes: off): hold and Shift+F just flag, no note field', async () => {
-    await live({ flagNotes: 'off' });
+  it('degraded (flagNotes: false): hold and Shift+F just flag, no note field', async () => {
+    await live({ flagNotes: false });
     await hold();
     expect(screen.queryByRole('dialog', { name: 'Add a note to this flag' })).not.toBeInTheDocument();
     await advance(1);
@@ -548,19 +548,6 @@ describe('redesign wave 1: flag notes, hidden Park, star-chart frame', () => {
     expect(screen.queryByRole('dialog', { name: 'Add a note to this flag' })).not.toBeInTheDocument();
     await advance(1);
     expect(server.state.flags.filter((f) => f.source === 'key')).toHaveLength(1);
-  });
-
-  it('when the note cannot be saved, the moment is still flagged and the user is told', async () => {
-    deps.postOps = vi.fn(async () => {
-      throw new Error('503');
-    });
-    await live();
-    await hold();
-    fireEvent.change(screen.getByRole('textbox', { name: 'Note' }), { target: { value: 'lost?' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save note' }));
-    await advance(10);
-    expect(server.state.flags.some((f) => f.source === 'button' && f.note === null)).toBe(true);
-    expect(screen.getByText('Moment flagged — the note could not be saved')).toBeInTheDocument();
   });
 
   it('consent and Before you go use the square star-chart frame; the recording dot is steady', async () => {

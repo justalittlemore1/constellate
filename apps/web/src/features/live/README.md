@@ -31,8 +31,8 @@ Mock mode never touches the microphone: whatever the source, it runs as a transc
 
 | File | What |
 | --- | --- |
-| `flags.ts` | Feature switches — hidden, never deleted. `parkThought: false` hides Park a thought (button + sheet). `flagNotes: 'user-op' \| 'off'`. |
+| `flags.ts` | Feature switches — hidden, never deleted. `parkThought: false` hides Park a thought (button + sheet). `flagNotes: false` degrades hold / Shift+F to a plain flag. |
 | `FlagButton.tsx` | Tap = flag. Press and hold 600 ms (bar + "Keep holding…") = note for that flag. Slide off = cancel. Enter/Space = flag; Shift+F = flag with note (`useFlagTrigger`'s `onNote`). |
 | `StarChartSheet.tsx` | Square-cornered star-chart frame for Consent, Before you go and the flag note (local stand-in until A4's `ui` primitive lands; same dialog behaviour as `ui/Sheet`). |
 
-Flag notes are saved as a `flag.add` **user op** (`POST /conversations/:id/ops`, which today's contract and server accept), dated at the moment the press began and attached to the topic covering it (`topicAt`). If that call fails, the moment is still flagged over the socket without the note.
+Flag notes ride on the `flag` message (`note?`, 1–140 chars, contract #49 / server #50), dated at the moment the press began; the server attaches the flag to the topic covering that moment. Queued like any flag while reconnecting.

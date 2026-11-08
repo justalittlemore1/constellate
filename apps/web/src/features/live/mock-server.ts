@@ -113,12 +113,6 @@ export class MockLiveServer {
     return conn;
   };
 
-  /** POST /conversations/:id/ops: a user batch, applied and broadcast like the server does */
-  postOps = async (id: string, ops: GraphOp[]): Promise<void> => {
-    if (id !== this.conversationId) throw new Error('conversation not found');
-    this.emit(ops, 'user');
-  };
-
   /** simulate the network dropping (tests): the client sees an abnormal close */
   drop(): void {
     const h = this.sink;
@@ -192,7 +186,7 @@ export class MockLiveServer {
               conversationId: this.conversationId,
               atMs,
               nodeId: topicAt(this.state, atMs)?.id ?? null,
-              note: null,
+              note: msg.note ?? null,
               source: msg.source,
             },
           },
