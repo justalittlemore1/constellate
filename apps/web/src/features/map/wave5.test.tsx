@@ -19,6 +19,11 @@ import { installFlowDomStubs } from './testing';
 import { fitWidth } from './viewport';
 import { pathIndex, WEAVE, weaveLayout, type LabelBox } from './weave';
 
+vi.mock('../../lib/audio', async (orig) => ({
+  ...(await orig<typeof import('../../lib/audio')>()),
+  playTranscript: vi.fn(),
+}));
+
 beforeAll(() => installFlowDomStubs());
 
 const demo = loadDemoGraph();
@@ -316,19 +321,9 @@ describe('revealHold (the sky waits for the diary)', () => {
 describe('Play without a recording (A4 transcript playback)', () => {
   it('hands the moment to lib/audio playTranscript when it exists', async () => {
     const audio = await import('../../lib/audio');
-    const spy = vi.fn();
-    (audio as unknown as Record<string, unknown>).playTranscript = spy;
-    try {
-      const ok = await playTranscriptMoment({ key: 'n1', startMs: 1000, endMs: 5000, utterances: [] });
-      expect(ok).toBe(true);
-      expect(spy).toHaveBeenCalledWith({ key: 'n1', startMs: 1000, endMs: 5000, utterances: [] });
-    } finally {
-      delete (audio as unknown as Record<string, unknown>).playTranscript;
-    }
-  });
-
-  it('reports false until A4 ships it', async () => {
-    expect(await playTranscriptMoment({ key: 'n1', startMs: 0, endMs: null, utterances: [] })).toBe(false);
+    const ok = await playTranscriptMoment({ key: 'n1', startMs: 1000, endMs: 5000, utterances: [] });
+    expect(ok).toBe(true);
+    expect(audio.playTranscript).toHaveBeenCalledWith({ key: 'n1', startMs: 1000, endMs: 5000, utterances: [] });
   });
 });
 

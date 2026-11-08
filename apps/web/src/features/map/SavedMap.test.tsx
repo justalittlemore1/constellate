@@ -100,7 +100,7 @@ describe('playback through the shared player', () => {
     await waitFor(() => expect(within(tile(n.id)).getByText('playing')).toBeInTheDocument());
   });
 
-  it('always offers Play; with no recording (and no transcript player yet) it says so', async () => {
+  it('always offers Play; with no recording it plays the transcript', async () => {
     const user = userEvent.setup();
     const api = createMockApi();
     api.audioUrl = vi.fn(async () => null);
@@ -109,7 +109,9 @@ describe('playback through the shared player', () => {
     fireEvent.click(await screen.findByTestId(`map-node-${n.id}`));
     const sheet = screen.getByRole('dialog', { name: n.label });
     await user.click(within(sheet).getByRole('button', { name: 'Play this moment' }));
-    expect(await screen.findByText('No recording is available for this conversation.')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(within(sheet).getByRole('button', { name: 'Pause' })).toHaveAttribute('aria-pressed', 'true'),
+    );
   });
 });
 
