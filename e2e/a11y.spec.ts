@@ -25,7 +25,7 @@ test.describe('Accessibility audits with Axe', () => {
   for (const { path, label } of ROUTES_TO_AUDIT) {
     test(`zero serious/critical violations on ${label} (${path})`, async ({ page }) => {
       await page.goto(path);
-      await expect(page.locator('main')).toBeVisible();
+      await expect(page.locator('main, [role="main"], [data-testid="live-screen"]')).toBeVisible();
 
       const results = await new AxeBuilder({ page }).analyze();
 

@@ -48,7 +48,7 @@ test.describe('Reduced-Motion Compliance', () => {
       page,
     }) => {
       await page.goto(route);
-      await expect(page.locator('main')).toBeVisible();
+      await expect(page.locator('main, [role="main"], [data-testid="live-screen"]')).toBeVisible();
 
       // Give 200ms for any potential animations to start
       await page.waitForTimeout(200);
