@@ -33,6 +33,7 @@ test.describe('Main loop: Mock mode E2E', () => {
     await passwordInput.fill('demopassword');
     await page.getByRole('button', { name: /sign in/i }).click();
     await expect(page).toHaveURL('/');
+    await expect(page.getByRole('heading', { name: 'Welcome, Demo' })).toBeVisible();
   });
 
   test('Step 2: Start demo conversation from Home', async ({ page }) => {

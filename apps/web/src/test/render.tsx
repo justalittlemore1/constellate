@@ -14,6 +14,8 @@ export interface RenderOptions {
   authClient?: AuthClient;
   /** defaults to true when no `authClient` is given */
   mock?: boolean;
+  /** mock mode starts signed in here (default true), unlike the app without VITE_MOCK_SIGNED_IN */
+  mockSignedIn?: boolean;
   /** render this element instead of the full route table */
   element?: ReactElement;
   /** path pattern for `element` (default: matches anything) */
@@ -31,13 +33,14 @@ export function renderApp({
   api = createMockApi(),
   authClient,
   mock,
+  mockSignedIn = true,
   element,
   path = '*',
 }: RenderOptions = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const utils = render(
     <QueryClientProvider client={qc}>
-      <AuthProvider client={authClient ?? null} mock={mock ?? !authClient}>
+      <AuthProvider client={authClient ?? null} mock={mock ?? !authClient} mockStartSignedIn={mockSignedIn}>
         <ApiProvider api={api}>
           <MemoryRouter initialEntries={[route]}>
             <ToastProvider>

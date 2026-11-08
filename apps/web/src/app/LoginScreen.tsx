@@ -1,5 +1,5 @@
 import { Lock } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router';
 import { useAuth } from '../lib/auth';
 import { Button, TextField } from '../ui';
@@ -20,6 +20,9 @@ export function LoginScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // focus the heading on arrival: announced first, Tab goes to Email, and no phone keyboard pops up
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => heading.current?.focus({ preventScroll: true }), []);
 
   if (auth.status === 'signed-in' && !auth.mock) return <Navigate to={from} replace />;
 
@@ -53,7 +56,9 @@ export function LoginScreen() {
         <p aria-hidden className="mb-3 text-3xl">
           ✦
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">{signingUp ? 'Create your account' : 'Sign in'}</h1>
+        <h1 ref={heading} tabIndex={-1} className="text-3xl font-semibold tracking-tight focus:outline-none">
+          {signingUp ? 'Create your account' : 'Sign in'}
+        </h1>
         <p className="text-ink-2 mt-2">A living map of your conversations.</p>
       </div>
 

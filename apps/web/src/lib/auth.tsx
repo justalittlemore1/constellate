@@ -23,7 +23,7 @@ export interface AuthState {
   user: AuthUser | null;
   /** Supabase access token for the server REST API (null in mock mode) */
   accessToken: string | null;
-  /** mock mode: no Supabase, a demo user is always signed in */
+  /** mock mode: no Supabase; any email and password signs in as the demo user */
   mock: boolean;
   /** false when neither mock mode nor Supabase settings are available */
   configured: boolean;
@@ -61,11 +61,19 @@ export interface AuthProviderProps {
   client?: AuthClient | null;
   /** defaults to `VITE_USE_MOCKS=1` */
   mock?: boolean;
+  /** mock mode: start signed in (default `VITE_MOCK_SIGNED_IN=1`); otherwise every load starts signed out */
+  mockStartSignedIn?: boolean;
 }
 
-export function AuthProvider({ children, client = supabase?.auth ?? null, mock = env.useMocks }: AuthProviderProps) {
+export function AuthProvider({
+  children,
+  client = supabase?.auth ?? null,
+  mock = env.useMocks,
+  mockStartSignedIn = env.mockSignedIn,
+}: AuthProviderProps) {
   const [session, setSession] = useState<Session | null>(null);
-  const [mockSignedIn, setMockSignedIn] = useState(true);
+  // kept in memory only, so a reload in mock mode returns to /login
+  const [mockSignedIn, setMockSignedIn] = useState(mockStartSignedIn);
   const [loading, setLoading] = useState(!mock && client !== null);
 
   useEffect(() => {
