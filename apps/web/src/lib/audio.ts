@@ -115,7 +115,8 @@ export function transcriptClip(startMs: number, endMs: number | null, utterances
 export function lineAt(clip: TranscriptClip, atMs: number): Utterance | null {
   let line: Utterance | null = null;
   for (const u of clip.lines) if (u.startMs <= atMs) line = u;
-  return line ?? null;
+  // during the 1 s lead-in nothing has started yet: show the first line, not "no transcript"
+  return line ?? clip.lines[0] ?? null;
 }
 
 function tick() {
