@@ -76,7 +76,12 @@ test.describe('Real Deployment E2E (Render + Vercel)', () => {
     await page.waitForURL(/\/c\//, { timeout: 20_000 });
 
     // 8. Brain galaxy view
-    await page.goto('/brain');
-    await expect(page.locator('canvas, [data-testid="brain-canvas"]')).toBeVisible({ timeout: 15_000 });
+    const brainEntry = page.getByRole('link', { name: /^brain$/i }).or(page.getByRole('button', { name: /^brain$/i }));
+    if (await brainEntry.isVisible().catch(() => false)) {
+      await brainEntry.click();
+    } else {
+      await page.goto('/brain');
+    }
+    await expect(page.getByTestId('brain-canvas')).toBeVisible({ timeout: 15_000 });
   });
 });
