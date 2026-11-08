@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AUDIO_BYTES_PER_MS, AUDIO_FRAME_BYTES } from '@constellate/shared';
 import { connect, makeHarness, until, USER_A, type Harness } from '../test-utils';
 import { SpeechUnavailableError } from './session';
+import { FakeAdapter } from '../speech/fake';
 
 let h: Harness;
 afterEach(async () => {
@@ -160,6 +161,59 @@ describe('live protocol', () => {
     const g = (await h.store.loadGraph(conversationId))!;
     expect(g.conversation.durationMs).toBe(6_000);
     expect(h.store.convs.size).toBe(1);
+  });
+
+  it('a speech failure while resuming keeps the conversation live and resumable', async () => {
+    let n = 0;
+    const adapters: FakeAdapter[] = [];
+    h = await makeHarness({
+      createSpeech: () => {
+        const a = new FakeAdapter();
+        if (n++ === 1) a.start = async () => Promise.reject(new Error('upstream connect failed'));
+        adapters.push(a);
+        return a;
+      },
+    });
+    const c1 = await connect(h.app);
+    c1.send(hello());
+    const { conversationId } = await c1.waitFor('ready');
+    adapters[0]!.emit({ text: 'worth keeping', startMs: 0, endMs: 1_000 });
+    await c1.waitFor('ops');
+    c1.close();
+    await until(() => adapters[0]!.stopped);
+
+    const c2 = await connect(h.app);
+    c2.send(hello({ conversationId, resumeAtMs: 2_000 }));
+    const err = await c2.waitFor('error', (m) => m.code === 'stt');
+    expect(err.fatal).toBe(false);
+    expect(await c2.closed).toBe(1013);
+    expect(h.store.convs.get(conversationId)!.row.conversation.status).toBe('live');
+
+    const c3 = await connect(h.app);
+    c3.send(hello({ conversationId, resumeAtMs: 2_000 }));
+    expect((await c3.waitFor('ready')).conversationId).toBe(conversationId);
+    adapters[2]!.emit({ text: 'and more', startMs: 2_100, endMs: 2_900 });
+    expect(await c3.waitFor('caption', (m) => m.final)).toMatchObject({ utteranceId: 'u2' });
+    expect(Object.keys((await h.store.loadGraph(conversationId))!.nodes)).toHaveLength(1);
+  });
+
+  it('clamps flag times to the audio clock', async () => {
+    h = await makeHarness();
+    const c = await connect(h.app);
+    c.send(hello());
+    await c.waitFor('ready');
+    c.sendAudio(AUDIO_BYTES_PER_MS * 1_000); // clock = 1,000 ms
+    await until(() => h.adapters[0]!.pushedBytes === AUDIO_BYTES_PER_MS * 1_000);
+    c.send({ t: 'flag', atMs: 999_999, source: 'button' });
+    c.send({ t: 'flag', atMs: 400.6, source: 'button' });
+    await until(() => c.messages.filter((m) => m.t === 'ops').length === 2);
+    const times = c.messages.flatMap((m) =>
+      m.t === 'ops' ? m.batch.ops.flatMap((o) => (o.op === 'flag.add' ? [o.flag.atMs] : [])) : [],
+    );
+    expect(times).toEqual([1_000, 401]);
+    // negative times never get this far: the shared protocol schema rejects them (non-fatal)
+    c.send({ t: 'flag', atMs: -50, source: 'button' });
+    expect(await c.waitFor('error')).toMatchObject({ code: 'protocol', fatal: false });
   });
 
   it("another user can neither resume nor detect someone else's conversation", async () => {

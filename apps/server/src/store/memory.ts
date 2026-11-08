@@ -149,8 +149,10 @@ export class MemoryStore implements Store {
   async insertUtterance(_userId: string, u: Utterance) {
     this.check('insertUtterance');
     const r = this.rec(u.conversationId);
-    if (r.utterances.some((x) => x.id === u.id)) throw new Error(`duplicate utterance ${u.id}`);
-    r.utterances.push(clone(u));
+    // upsert on (conversation_id, id), like the real store
+    const i = r.utterances.findIndex((x) => x.id === u.id);
+    if (i === -1) r.utterances.push(clone(u));
+    else r.utterances[i] = clone(u);
   }
 
   async listUtterances(conversationId: string) {

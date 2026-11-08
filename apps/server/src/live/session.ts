@@ -149,7 +149,7 @@ export class LiveConnection {
       const existing = deps.registry.sessions.get(msg.conversationId);
       if (existing && existing.userId === userId) {
         this.session = existing;
-        await existing.attach(this.sink, msg.resumeAtMs);
+        await existing.attach(this.sink, msg.resumeAtMs, true);
         return;
       }
     }
@@ -270,12 +270,15 @@ export class LiveSession {
       onPersistError: (message) => s.send(errorMsg('db', `could not save: ${message}`, false)),
     });
     deps.registry.sessions.set(conversationId, s);
-    await s.attach(sink, hello.resumeAtMs);
+    await s.attach(sink, hello.resumeAtMs, resuming);
     return s;
   }
 
-  /** (Re)attach a socket: start a fresh speech adapter from the resume point and greet. */
-  async attach(sink: LiveSink, resumeAtMs?: Ms): Promise<void> {
+  /**
+   * (Re)attach a socket: start a fresh speech adapter from the resume point and greet.
+   * `resuming` = the conversation already has content; a speech failure then must not end it.
+   */
+  async attach(sink: LiveSink, resumeAtMs?: Ms, resuming = false): Promise<void> {
     if (this.abandonTimer) clearTimeout(this.abandonTimer);
     this.abandonTimer = null;
     if (this.sink && this.sink !== sink) {
@@ -303,10 +306,7 @@ export class LiveSession {
       });
     } catch (err) {
       const message = err instanceof SpeechUnavailableError ? err.message : 'speech provider unavailable';
-      sink.send(errorMsg('stt', message, true));
-      sink.close(1011, message);
-      this.sink = null;
-      await this.end('failed');
+      await this.speechFailed(sink, message, resuming);
       return;
     }
     this.speech = speech;
@@ -315,13 +315,29 @@ export class LiveSession {
     try {
       await speech.start((seg) => this.onSegment(seg));
     } catch (err) {
-      const message = `speech provider failed to start: ${err instanceof Error ? err.message : String(err)}`;
-      this.send(errorMsg('stt', message, true));
-      this.sink?.close(1011, 'stt');
-      this.sink = null;
       this.speech = null;
-      await this.end('failed');
+      const message = `speech provider failed to start: ${err instanceof Error ? err.message : String(err)}`;
+      await this.speechFailed(sink, message, resuming);
     }
+  }
+
+  /**
+   * Speech could not start. On a fresh hello the empty conversation is marked `failed`. On a
+   * resume (e.g. a transient provider error after a Wi-Fi drop) the recorded graph must survive:
+   * the error is non-fatal, the socket closes with 1013 (try again) and the session stays
+   * resumable until the abandon timer fires.
+   */
+  private async speechFailed(sink: LiveSink, message: string, resuming: boolean): Promise<void> {
+    if (resuming) {
+      sink.send(errorMsg('stt', `${message}; reconnect to resume`, false));
+      this.detach(sink);
+      sink.close(1013, 'stt unavailable, retry');
+      return;
+    }
+    sink.send(errorMsg('stt', message, true));
+    sink.close(1011, 'stt');
+    this.sink = null;
+    await this.end('failed');
   }
 
   /** The socket went away without `stop`: keep the session for a while so the client can resume. */
@@ -346,14 +362,16 @@ export class LiveSession {
     if (from !== this.sink) return;
     switch (msg.t) {
       case 'flag': {
-        const node = topicAt(this.cell.state, msg.atMs);
+        // never trust the client clock: a flag can't be in the future or before the start
+        const atMs = Math.round(Math.min(Math.max(0, msg.atMs), this.clock.nowMs()));
+        const node = topicAt(this.cell.state, atMs);
         this.commit([
           {
             op: 'flag.add',
             flag: {
               id: this.deps.newId(),
               conversationId: this.conversationId,
-              atMs: msg.atMs,
+              atMs,
               nodeId: node?.id ?? null,
               note: null,
               source: msg.source,

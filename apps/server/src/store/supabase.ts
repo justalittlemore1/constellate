@@ -168,7 +168,11 @@ export class SupabaseStore implements Store {
   }
 
   async insertUtterance(userId: string, u: Utterance) {
-    check('utterances', await this.db.from(TABLES.utterances).insert(toRow(u, userId)));
+    // runs under the cell's retries: a write whose response was lost must not fail on the key
+    check(
+      'utterances',
+      await this.db.from(TABLES.utterances).upsert(toRow(u, userId), { onConflict: 'conversation_id,id' }),
+    );
   }
 
   async listUtterances(conversationId: string) {
