@@ -106,7 +106,8 @@ export function conversationRoutes(app: FastifyInstance, deps: ServerDeps, final
     const conv = await owned(req.params.id, userId);
     if (!conv) return notFound(reply);
     const session = deps.registry.sessions.get(conv.id);
-    if (session) await session.stop();
+    // abort, not stop: the rows are about to go, so no finalisation may start
+    if (session) await session.abort('this conversation was deleted');
     try {
       // always the owner's canonical path, never a stored value
       await deps.store.deleteRecording(recordingPath(userId, conv.id));

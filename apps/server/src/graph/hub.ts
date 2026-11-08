@@ -131,6 +131,11 @@ export class GraphHub {
     });
   }
 
+  /** drop every cached cell of a user immediately (their data was deleted) */
+  evictUser(userId: string): void {
+    for (const [id, cell] of this.cells) if (cell.userId === userId) this.cells.delete(id);
+  }
+
   /** drop a cell immediately (conversation deleted) */
   evict(conversationId: string): void {
     this.cells.delete(conversationId);

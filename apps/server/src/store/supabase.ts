@@ -17,6 +17,11 @@ import type { BrainNodeRow, ConceptLinkRow, ConceptRow, NodeMatch, OwnedConversa
 
 type Row = Record<string, unknown>;
 
+/** PostgREST "function not found" (migration not applied yet). */
+function isMissingFunction(error: { message: string; code?: string }): boolean {
+  return error.code === 'PGRST202' || /could not find the function/i.test(error.message);
+}
+
 export class DbError extends Error {
   constructor(where: string, message: string) {
     super(`${where}: ${message}`);
@@ -288,6 +293,42 @@ export class SupabaseStore implements Store {
     const { data, error } = await this.db.storage.from(RECORDINGS_BUCKET).download(path);
     if (error || !data) return null;
     return Buffer.from(await data.arrayBuffer());
+  }
+
+  async deleteUserData(userId: string) {
+    const { data, error } = await this.db.rpc('delete_user_data', { p_user: userId });
+    if (!error) {
+      const d = data as { conversations: number; folders: number; concepts: number; conceptLinks: number };
+      return { ...d, atomic: true };
+    }
+    if (!isMissingFunction(error)) throw new DbError('delete_user_data', error.message);
+    // migration 0002 not applied yet: same order, one table at a time (not atomic)
+    const del = async (table: string) => {
+      const res = await this.db.from(table).delete({ count: 'exact' }).eq('user_id', userId);
+      if (res.error) throw new DbError(`${table}.delete`, res.error.message);
+      return res.count ?? 0;
+    };
+    const conceptLinks = await del(TABLES.conceptLinks);
+    const conversations = await del(TABLES.conversations);
+    const concepts = await del(TABLES.concepts);
+    const folders = await del(TABLES.folders);
+    return { conversations, folders, concepts, conceptLinks, atomic: false };
+  }
+
+  async deleteUserRecordings(userId: string) {
+    const bucket = this.db.storage.from(RECORDINGS_BUCKET);
+    let removed = 0;
+    // list one page at a time; removing shifts later pages, so always read from the start
+    for (let guard = 0; guard < 100; guard++) {
+      const { data, error } = await bucket.list(userId, { limit: 1000 });
+      if (error) throw new DbError('recordings.list', error.message);
+      const paths = (data ?? []).filter((o) => o.name).map((o) => `${userId}/${o.name}`);
+      if (!paths.length) return removed;
+      const res = await bucket.remove(paths);
+      if (res.error) throw new DbError('recordings.remove', res.error.message);
+      removed += paths.length;
+    }
+    throw new DbError('recordings.remove', 'too many objects; retry');
   }
 
   async deleteRecording(path: string) {
