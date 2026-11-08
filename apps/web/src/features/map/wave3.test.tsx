@@ -55,11 +55,13 @@ describe('1. classic constellation lines', () => {
     expect(Number(flows[0]!.getAttribute('opacity'))).toBeCloseTo(0.8);
   });
 
-  it('return loops keep their curve plus the chevron; tethers stay dotted with no chevron', () => {
+  it('returns carry the chevron; tethers stay dotted with no chevron', () => {
     const { container } = render(<ConversationMap state={demo} />);
     const loop = container.querySelector('g[data-route="return"]')!;
-    // a loop: curved (a cubic, or the column layout's rounded channel)
-    expect(loop.querySelector('[data-testid="constellation-line"]')!.getAttribute('d')).toMatch(/ [CQ] /);
+    // a return into the merged star: a constellation line (straight, or one gentle arc)
+    expect(loop.querySelector('[data-testid="constellation-line"]')!.getAttribute('d')).toMatch(
+      /^M [\d.-]+ [\d.-]+ [LQ] /,
+    );
     expect(loop.querySelector('[data-testid="chevron"]')).toBeTruthy();
     const tether = container.querySelector('g[data-kind="tether"]')!;
     expect(tether.querySelector('path')!.getAttribute('stroke-dasharray')).toBe('0.5 4');

@@ -1,30 +1,12 @@
-import type { GraphState } from '@constellate/shared';
 import { BookOpen, List } from 'lucide-react';
-import { useState, type ComponentType } from 'react';
+import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { DiarySheet } from '../features/library/DiarySheet';
 import { useGraph } from '../features/library/queries';
-import { SavedMap } from '../features/map';
+import { SavedMap, type SavedMapView } from '../features/map';
 import { formatDate, formatDuration } from '../lib/format';
 import { uiFlag } from '../lib/uiFlags';
 import { IconButton, ScreenHeader } from '../ui';
-
-/**
- * Local adapter for A3's controlled `SavedMap` props (A3 PR #72): `view` / `onViewChange`
- * (`'map' | 'list'`, A3's `SavedMapView`; `'list'` shows the outline, and A3's own focus-only Text
- * view link reports through `onViewChange` too) and `revealHold` (an empty sky while true; the
- * reveal starts from the beginning when it flips to false). Until #72 lands the current
- * `SavedMap` ignores them; then switch to A3's exported type and turn on
- * `uiFlags.conversationTextView`.
- */
-type SavedMapView = 'map' | 'list';
-type SavedMapControls = {
-  graph: GraphState;
-  view?: SavedMapView;
-  onViewChange?: (view: SavedMapView) => void;
-  revealHold?: boolean;
-};
-const ControlledSavedMap = SavedMap as ComponentType<SavedMapControls>;
 
 /**
  * `/c/:id` — the saved conversation: A4's header and Diary around A3's `<SavedMap>` (map,
@@ -98,9 +80,7 @@ export function ConversationScreen() {
       )}
 
       <section aria-label="Conversation map" className="min-h-0 flex-1">
-        {g && (
-          <ControlledSavedMap graph={g} view={view} onViewChange={setView} revealHold={diaryOpen && !revealedOnce} />
-        )}
+        {g && <SavedMap graph={g} view={view} onViewChange={setView} revealHold={diaryOpen && !revealedOnce} />}
       </section>
 
       {g && <DiarySheet open={diaryOpen} onClose={closeDiary} graph={g} />}

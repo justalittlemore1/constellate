@@ -304,21 +304,16 @@ export function tetherGutterPath(
   return roundedPath(pts);
 }
 
-/** Weave layout: a side channel (see weave.ts). */
-export function weaveChannelPath(s: Pt, t: Pt, sr: number, tr: number, cx: number): string {
-  return weaveEdgePath(s, t, sr, tr, { kind: 'channel', x: cx });
-}
-
 /** Path for a flow / user edge under a column or weave route. */
 export function columnFlowPath(s: Pt, t: Pt, sr: number, tr: number, route: ColumnRoute): string {
-  if (route.kind === 'curve' || route.kind === 'channel') return weaveEdgePath(s, t, sr, tr, route);
+  if (route.kind === 'line' || route.kind === 'arc') return weaveEdgePath(s, t, sr, tr, route);
   if (route.kind === 'left-channel') return columnChannelPath(s, t, sr, tr, route.x);
   return columnDirectPath(s, t, sr, tr);
 }
 
 /** Path for a tether under a column route (either end may be the gutter thread). */
 export function columnTetherPath(s: Pt, t: Pt, sr: number, tr: number, route: ColumnRoute): string {
-  if (route.kind === 'curve' || route.kind === 'channel') return weaveEdgePath(s, t, sr, tr, route);
+  if (route.kind === 'line' || route.kind === 'arc') return weaveEdgePath(s, t, sr, tr, route);
   const sUp = s.y <= t.y;
   const [u, l, ur, lr] = sUp ? [s, t, sr, tr] : [t, s, tr, sr];
   const g = (p: Pt) => p.x >= COLUMN.gutter - 1;
@@ -348,14 +343,12 @@ export function rimToRim(s: Pt, t: Pt, sr: number, tr: number): string {
 
 type P = EdgeProps<MapFlowEdge>;
 
-function weaveOrColumnChannel(s: Pt, t: Pt, sr: number, tr: number, route: { kind: string; x: number }): string {
-  return route.kind === 'channel' ? weaveChannelPath(s, t, sr, tr, route.x) : columnChannelPath(s, t, sr, tr, route.x);
-}
-
 /** data-route value: the column route's kind when laid out in columns, else the old route name. */
 function routeName(route: ColumnRoute | undefined, old: FlowRoute, returning: boolean): string {
   if (!route) return old;
-  if (route.kind === 'left-channel' || route.kind === 'channel') return returning ? 'return' : 'skip';
+  if (returning) return 'return';
+  if (route.kind === 'left-channel') return 'skip';
+  if (route.kind === 'arc') return 'arc';
   return 'direct';
 }
 
@@ -529,9 +522,11 @@ export function RevisitEdge(props: P) {
   const [s, t] = pts(props);
   const route = props.data?.route;
   const d =
-    route?.kind === 'left-channel' || route?.kind === 'channel'
-      ? weaveOrColumnChannel(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, route)
-      : revisitPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0);
+    route?.kind === 'line' || route?.kind === 'arc'
+      ? weaveEdgePath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, route)
+      : route?.kind === 'left-channel'
+        ? columnChannelPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0, route.x)
+        : revisitPath(s, t, props.data?.sourceRadius ?? 0, props.data?.targetRadius ?? 0);
   const st = strokeOf(props, EDGE_COLOR.revisit);
   return (
     <g data-testid={`map-edge-${props.id}`} data-kind="revisit" opacity={st.opacity}>

@@ -28,7 +28,7 @@ import { useAutoFollow } from './useAutoFollow';
 import { columnLayout } from './layout';
 import { weaveLayout } from './weave';
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
-import { useMotionReduced } from '../../lib/prefs';
+import { useMotionReduced, usePrefs } from '../../lib/prefs';
 import { Button, cx, IconButton } from '../../ui';
 import { highlightOps, noteOps } from './edits';
 import { toFlowEdges, toFlowNodes, type MapFlowNode } from './flow';
@@ -194,6 +194,8 @@ function MapInner({
   const following = follow.following;
   const activeNodeId = activeProp === undefined ? state.activeNodeId : activeProp;
   const reduced = useMotionReduced();
+  // label footprints follow the Text size setting (the CSS scales labels by --text-size)
+  const textSize = usePrefs((s) => s.textSize);
   const motion = !reduced;
   const rf = useReactFlow();
   const zoom = useStore((s) => s.transform[2]);
@@ -231,8 +233,8 @@ function MapInner({
   // display-only column layout for phones (round 4); the persisted x / y stay behind `storedLayout`
   // round 5: the weaving layout; the round-4 column behind `columnLayout`, stored x / y behind `storedLayout`
   const layout = useMemo(
-    () => (F.storedLayout ? undefined : F.columnLayout ? columnLayout(vg) : weaveLayout(vg)),
-    [vg, F.storedLayout, F.columnLayout],
+    () => (F.storedLayout ? undefined : F.columnLayout ? columnLayout(vg) : weaveLayout(vg, { textSize })),
+    [vg, F.storedLayout, F.columnLayout, textSize],
   );
   /** where a star is drawn (column layout), falling back to its persisted position */
   const posOf = useCallback(

@@ -51,7 +51,7 @@
 .cmap-label {
   font-size: calc(14px * var(--text-size));
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.34;
   color: var(--text);
   text-shadow:
     0 0 6px var(--bg),
@@ -159,7 +159,7 @@
 /* ── column layout (round 4): labels beside the star, 17 px (Fraunces via --font-display) ───────── */
 .cmap-label-beside .cmap-label {
   font-size: calc(17px * var(--text-size));
-  line-height: 1.2;
+  line-height: 1.34;
 }
 .cmap-label-beside .cmap-sub {
   font-size: calc(13px * var(--text-size));
@@ -193,8 +193,17 @@
 /* ── weave layout (round 5): smaller labels (≈ 13.5 px on screen), wherever the layout found room */
 .cmap-label-weave .cmap-label {
   font-size: calc(13.5px * var(--text-size) * var(--cmap-label-scale, 1));
-  line-height: 1.2;
+  line-height: 1.34;
 }
 .cmap-label-weave .cmap-sub {
   font-size: calc(11.5px * var(--text-size) * var(--cmap-label-scale, 1));
+}
+
+/* ── labels never clip: Fraunces descenders ("p", "y") need line-height ≥ 1.32 inside line-clamp,
+   the label text never shrinks inside its box, and the weave box grows instead of cutting */
+.cmap-label {
+  flex-shrink: 0;
+}
+.cmap-label-weave {
+  overflow: visible;
 }
