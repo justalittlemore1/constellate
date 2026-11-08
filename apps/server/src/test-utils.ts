@@ -146,8 +146,12 @@ export async function makeHarness(over: Partial<ServerDeps> = {}): Promise<Harne
     abandonAfterMs: 60_000,
     // finalisation runs only when a test asks for it (POST /finalize or its own onStopped)
     onStopped: () => {},
+    // every provider is a fake: unit tests never call a real API (AGENTS.md → API budget)
+    finalizeConversation: async () => ({ ops: [], recallPrompts: [] }),
     transcribeFile: null,
     decideMerge: null,
+    gemini: null,
+    sttFile: { state: 'off', available: Promise.resolve(false) },
     waitForRecordingMs: 0,
     ...over,
   };

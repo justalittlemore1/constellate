@@ -270,7 +270,9 @@ export class LiveSession {
       onPersistError: (message) => s.send(errorMsg('db', `could not save: ${message}`, false)),
     });
     deps.registry.sessions.set(conversationId, s);
-    await s.attach(sink, hello.resumeAtMs, resuming);
+    // a fresh conversation's clock starts at 0 when speech starts, not when the session was built
+    // (in replay mode setup time would otherwise count as audio and skip the first utterances)
+    await s.attach(sink, hello.resumeAtMs ?? (resuming ? undefined : 0), resuming);
     return s;
   }
 

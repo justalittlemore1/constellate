@@ -12,8 +12,11 @@ describe('seed runtime', () => {
       auth: fakeAuth,
       createInterpreter: stubInterpreter,
       embed: async (texts) => texts.map((t) => unitVector(t)),
+      finalizeConversation: async () => ({ ops: [], recallPrompts: [] }),
       transcribeFile: null,
       decideMerge: null,
+      gemini: null,
+      sttFile: { state: 'off', available: Promise.resolve(false) },
     });
     const res = await seedFixtureConversation(rt, USER_A, '01-simple-shift');
     expect(res.finalize.status).toBe('ready');
