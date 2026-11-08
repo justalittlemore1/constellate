@@ -300,7 +300,7 @@ function LiveSessionView({
         {/* bottom bar */}
         <nav
           aria-label="Recording controls"
-          className={`grid ${features.parkThought ? 'grid-cols-3' : 'grid-cols-2'} gap-2 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3`}
+          className="flex flex-wrap items-center justify-center gap-3 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3"
         >
           <FlagButton
             disabled={!live}
