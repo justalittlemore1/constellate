@@ -3,6 +3,7 @@
   "title": "Side project with Dana",
   "description": "Demo conversation (synthetic, for the demo account). Alex pitches mentor Dana a side-project app that helps museums prototype interactive exhibits and weighs it against taking the studio job; Dana recommends Never Split the Difference for co-founder talks and defers the funding question, which never comes back.",
   "speakers": ["Alex", "Dana"],
+  "daysAgo": 11,
   "utterances": [
     { "speaker": 0, "startMs": 0, "endMs": 7200, "text": "Okay, I have a weird question. What if instead of the studio job, I built something myself?" },
     { "speaker": 1, "startMs": 7500, "endMs": 9500, "text": "Oh, interesting. What's the something?" },

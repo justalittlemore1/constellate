@@ -3,6 +3,7 @@
   "title": "Mentor chat with Dana",
   "description": "Demo conversation (synthetic, for the demo account). Alex asks mentor Dana whether to leave an in-house insurance job for a small exhibit design studio, they work through salary negotiation and imposter syndrome, Dana recommends a book, and Alex's request to discuss portfolio reviews is never picked up.",
   "speakers": ["Alex", "Dana"],
+  "daysAgo": 18,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 4300, "text": "Okay, you said on the phone it was urgent-ish. What's going on?" },
     { "speaker": 0, "startMs": 4700, "endMs": 11500, "text": "So, the studio I told you about, the one that designs museum exhibits? They made me an offer yesterday." },

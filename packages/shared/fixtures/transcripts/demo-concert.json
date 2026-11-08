@@ -3,6 +3,7 @@
   "title": "After the show with Jordan",
   "description": "Demo conversation (synthetic, for the demo account). Walking home from a concert, Alex and Jordan talk about the band's setlist and new album, build a running playlist with different tempos for easy and long runs, then come back to the concert.",
   "speakers": ["Alex", "Jordan"],
+  "daysAgo": 15,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 3600, "text": "My ears are still ringing. That was so good." },
     { "speaker": 0, "startMs": 4200, "endMs": 10300, "text": "I didn't think the Harbor Kites would be that loud live. The record is so mellow." },

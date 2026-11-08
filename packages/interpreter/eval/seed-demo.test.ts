@@ -14,6 +14,7 @@ import {
   dryRunRuntime,
   evalCacheEmbedder,
   estimateEmbeddings,
+  fixtureDaysAgo,
   instantReplaySpeech,
   newPacer,
   pacedReplaySpeech,
@@ -25,6 +26,7 @@ import {
 } from '../../../scripts/seed-demo-lib';
 import { TranscriptReplayAdapter } from '../../../apps/server/src/speech/replay';
 import { FIXTURE_DIR } from './harness';
+import { MemoryStore } from '../../../apps/server/src/store/memory';
 
 /** One conversation (or the Brain build) must finish within this; the error names the stuck step. */
 const STEP_MS = 20_000;
@@ -59,8 +61,8 @@ describe('seed-demo guards', () => {
 });
 
 describe('seed-demo dry run', () => {
-  it('seeds all twelve demo conversations through the real pipeline with fakes and makes no API request', async () => {
-    expect(DEMO_FIXTURES).toHaveLength(12);
+  it('seeds all twenty demo conversations through the real pipeline with fakes and makes no API request', async () => {
+    expect(DEMO_FIXTURES).toHaveLength(20);
     const logs: string[] = [];
     const summary = await seedDemo(dryRunRuntime(), DRY_RUN_USER, { log: (m) => logs.push(m), stepTimeoutMs: STEP_MS });
     expect(summary.conversations.map((c) => c.fixture)).toEqual(DEMO_FIXTURES);
@@ -196,12 +198,130 @@ describe('seed-demo pacing and budget', () => {
     expect(finals).toHaveLength(fx.utterances.length);
   });
 
-  it('--estimate reports distinct texts and batched requests for all twelve, within the 350 target', async () => {
+  it('--estimate reports distinct texts and batched requests for all twenty, within the 350 target', async () => {
     const e = await estimateEmbeddings();
-    expect(e.conversations).toBe(12);
+    expect(e.conversations).toBe(20);
     expect(e.perConversation.map((c) => c.fixture)).toEqual([...DEMO_FIXTURES, 'the Brain']);
     expect(e.distinctTexts).toBeGreaterThan(0);
     expect(e.requests).toBeGreaterThan(0);
     expect(e.requests).toBeLessThanOrEqual(350);
   }, 120_000);
+});
+
+describe('seed-demo dates (daysAgo)', () => {
+  it('every demo fixture has a daysAgo; seeding goes oldest first and spans the last three weeks', () => {
+    const days = DEMO_FIXTURES.map((f) => fixtureDaysAgo(f));
+    expect(days.every((d) => typeof d === 'number' && d >= 0 && d <= 21)).toBe(true);
+    const ds = days as number[];
+    expect([...ds].sort((a, b) => b - a)).toEqual(ds);
+    expect(Math.max(...ds) - Math.min(...ds)).toBeGreaterThanOrEqual(14);
+  });
+
+  it('the date/duration correction is recorded as a finalize batch, not a user edit', async () => {
+    const store = new MemoryStore();
+    const sources: { source: string; patch: unknown }[] = [];
+    const append = store.appendBatch.bind(store);
+    store.appendBatch = async (userId, batch, prev, next) => {
+      for (const op of batch.ops)
+        if (op.op === 'conversation.update' && 'startedAt' in op.patch)
+          sources.push({ source: batch.source, patch: op.patch });
+      return append(userId, batch, prev, next);
+    };
+    await seedDemo(dryRunRuntime({ store }), DRY_RUN_USER, {
+      fixtures: ['demo-journal'],
+      log: () => {},
+      stepTimeoutMs: STEP_MS,
+    });
+    expect(sources).toHaveLength(1);
+    expect(sources[0]!.source).toBe('finalize');
+  });
+
+  it('a seeded conversation is dated daysAgo before the run, with its real length', async () => {
+    const now = new Date('2026-11-08T19:00:00.000Z');
+    const rt = dryRunRuntime();
+    const summary = await seedDemo(rt, DRY_RUN_USER, {
+      fixtures: ['demo-journal', 'demo-run-debrief'],
+      now,
+      log: () => {},
+      stepTimeoutMs: STEP_MS,
+    });
+    for (const c of summary.conversations) {
+      const conv = (await rt.deps.store.getConversation(c.conversationId))!.conversation;
+      const fx = demoFixture(c.fixture);
+      const duration = Math.max(...fx.utterances.map((u) => u.endMs));
+      const started = now.getTime() - fixtureDaysAgo(c.fixture)! * 24 * 60 * 60_000;
+      expect(conv.startedAt).toBe(new Date(started).toISOString());
+      expect(conv.endedAt).toBe(new Date(started + duration).toISOString());
+      expect(conv.durationMs).toBe(duration);
+    }
+  });
+});
+
+describe('seed-demo --skip-existing and --only', () => {
+  it('seeding twice with --skip-existing: the second run seeds nothing and lists what it skipped', async () => {
+    const rt = dryRunRuntime();
+    const fixtures = ['demo-journal', 'demo-run-debrief', 'demo-cooking'];
+    const first = await seedDemo(rt, DRY_RUN_USER, {
+      fixtures,
+      skipExisting: true,
+      log: () => {},
+      stepTimeoutMs: STEP_MS,
+    });
+    expect(first.conversations).toHaveLength(3);
+    expect(first.skipped).toEqual([]);
+    const logs: string[] = [];
+    const second = await seedDemo(rt, DRY_RUN_USER, {
+      fixtures,
+      skipExisting: true,
+      log: (m) => logs.push(m),
+      stepTimeoutMs: STEP_MS,
+    });
+    expect(second.conversations).toHaveLength(0);
+    expect(second.skipped.map((x) => x.fixture)).toEqual(fixtures);
+    expect(second.skipped.map((x) => x.conversationId)).toEqual(first.conversations.map((c) => c.conversationId));
+    expect(logs.some((l) => l.includes('demo-journal: skipped, already seeded'))).toBe(true);
+    expect((await rt.deps.store.listConversations(DRY_RUN_USER)).length).toBe(3);
+  });
+
+  it('seeds only the fixtures not yet there (the "12 now, 8 later" case)', async () => {
+    const rt = dryRunRuntime();
+    await seedDemo(rt, DRY_RUN_USER, { fixtures: ['demo-journal'], log: () => {}, stepTimeoutMs: STEP_MS });
+    const r = await seedDemo(rt, DRY_RUN_USER, {
+      fixtures: ['demo-journal', 'demo-cooking'],
+      skipExisting: true,
+      log: () => {},
+      stepTimeoutMs: STEP_MS,
+    });
+    expect(r.skipped.map((x) => x.fixture)).toEqual(['demo-journal']);
+    expect(r.conversations.map((c) => c.fixture)).toEqual(['demo-cooking']);
+  });
+
+  it('an incomplete earlier conversation is not a reason to skip', async () => {
+    const rt = dryRunRuntime();
+    const fx = demoFixture('demo-journal');
+    const conv = await rt.deps.store.createConversation(DRY_RUN_USER);
+    await rt.deps.store.insertUtterance(DRY_RUN_USER, {
+      id: 'u1',
+      conversationId: conv.id,
+      speaker: null,
+      startMs: 0,
+      endMs: 1000,
+      text: fx.utterances[0]!.text,
+    });
+    const r = await seedDemo(rt, DRY_RUN_USER, {
+      fixtures: ['demo-journal'],
+      skipExisting: true,
+      log: () => {},
+      stepTimeoutMs: STEP_MS,
+    });
+    expect(r.skipped).toEqual([]);
+    expect(r.conversations).toHaveLength(1);
+  });
+
+  it('--only picks fixtures and refuses unknown ids', () => {
+    expect(parseArgs(['--dry-run', '--only', 'demo-guitar,demo-bread']).only).toEqual(['demo-guitar', 'demo-bread']);
+    expect(refusal(parseArgs(['--dry-run', '--only', 'demo-nope']), {})).toMatch(/unknown fixture/);
+    expect(refusal(parseArgs(['--estimate']), {})).toBeNull();
+    expect(parseArgs(['--skip-existing']).skipExisting).toBe(true);
+  });
 });

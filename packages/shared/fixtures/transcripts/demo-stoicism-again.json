@@ -3,6 +3,7 @@
   "title": "Stoicism again with Priya",
   "description": "Demo conversation (synthetic, for the demo account). A week later, Alex and Priya apply Marcus Aurelius and Epictetus to waiting for the studio's answer, contrast Stoicism with mindfulness and Buddhist non-attachment, detour into the Small Hours podcast, then return to Stoicism.",
   "speakers": ["Alex", "Priya"],
+  "daysAgo": 12,
   "utterances": [
     { "speaker": 1, "startMs": 0, "endMs": 2200, "text": "So? Did the studio call?" },
     { "speaker": 0, "startMs": 3000, "endMs": 11300, "text": "No. They said Monday, then they emailed that it'll be the end of the week. I'm losing my mind a bit." },
